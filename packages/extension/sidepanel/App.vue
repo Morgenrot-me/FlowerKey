@@ -22,13 +22,17 @@
       <!-- 导航标签 -->
       <nav class="flex border-b text-xs">
         <button
-          v-for="tab in tabs" :key="tab.type"
-          @click="switchTab(tab.type)"
-          :class="['flex-1 py-2', entriesStore.currentType === tab.type ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500']"
+          v-for="tab in tabs" :key="tab.key"
+          @click="currentTab = tab.key"
+          :class="['flex-1 py-2', currentTab === tab.key ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500']"
         >{{ tab.label }}</button>
       </nav>
 
+      <!-- 设置页 -->
+      <SettingsPage v-if="currentTab === 'settings'" class="flex-1 overflow-y-auto" />
+
       <!-- 内容区 -->
+      <template v-if="currentTab !== 'settings'">
       <div class="flex-1 overflow-y-auto">
         <!-- 筛选栏 -->
         <div class="flex gap-1 px-3 py-2 text-xs flex-wrap">
@@ -64,12 +68,13 @@
         @save="onSave"
         @cancel="closeForm"
       />
+      </template>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import type { Entry, EntryType } from '@flowerkey/core';
@@ -77,6 +82,7 @@ import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
 import EntryForm from '../../ui/src/components/EntryForm.vue';
+import SettingsPage from '../../ui/src/components/SettingsPage.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
@@ -84,11 +90,13 @@ const entriesStore = useEntriesStore();
 const searchQuery = ref('');
 const showAddForm = ref(false);
 const editingEntry = ref<Entry | undefined>();
+const currentTab = ref('password');
 
 const tabs = [
-  { type: 'password' as EntryType, label: '密码' },
-  { type: 'bookmark' as EntryType, label: '书签' },
-  { type: 'file_ref' as EntryType, label: '文件' },
+  { key: 'password', label: '密码' },
+  { key: 'bookmark', label: '书签' },
+  { key: 'file_ref', label: '文件' },
+  { key: 'settings', label: '设置' },
 ];
 
 onMounted(async () => {
@@ -96,9 +104,9 @@ onMounted(async () => {
   if (mainStore.isUnlocked) await entriesStore.loadEntries();
 });
 
-function switchTab(type: EntryType) {
-  entriesStore.loadEntries(type);
-}
+watch(currentTab, (tab) => {
+  if (tab !== 'settings') entriesStore.loadEntries(tab as EntryType);
+});
 
 function onSearch() {
   entriesStore.search(searchQuery.value);

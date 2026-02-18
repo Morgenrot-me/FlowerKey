@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "dexie": "^4.0.0",
-    "uuid": "^11.0.0"
+    "uuid": "^11.0.0",
+    "webdav": "^5.9.0"
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0",

@@ -6,3 +6,5 @@
 export * from './models.js';
 export * from './crypto.js';
 export { FlowerKeyDB, db } from './db.js';
+export { SyncEngine } from './sync/engine.js';
+export type { WebDAVConfig } from './sync/webdav.js';
