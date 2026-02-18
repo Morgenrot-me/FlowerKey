@@ -73,11 +73,11 @@ export class FlowerKeyDB extends Dexie {
   }
 
   async getEntriesByType(type: Entry['type']): Promise<Entry[]> {
-    return this.entries.where('type').equals(type).reverse().sortBy('updatedAt');
+    return (await this.entries.where('type').equals(type).sortBy('updatedAt')).reverse();
   }
 
   async getEntriesByFolder(folder: string): Promise<Entry[]> {
-    return this.entries.where('folder').equals(folder).reverse().sortBy('updatedAt');
+    return (await this.entries.where('folder').equals(folder).sortBy('updatedAt')).reverse();
   }
 
   async searchEntries(query: string): Promise<Entry[]> {

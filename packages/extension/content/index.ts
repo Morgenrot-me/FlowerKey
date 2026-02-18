@@ -5,6 +5,7 @@
  */
 
 // ==================== 状态 ====================
+const isMobile = window.innerWidth <= 600;
 let panelOpen = false;
 let pinned = false;
 let ballX = window.innerWidth - 74; // 初始贴右边，留滚动条空间
@@ -63,6 +64,14 @@ style.textContent = `
     display: none;
     flex-direction: column;
     gap: 8px;
+  }
+  .panel.mobile {
+    width: calc(100vw - 32px);
+    left: 16px !important;
+    right: 16px !important;
+    font-size: 15px;
+    padding: 16px;
+    border-radius: 16px;
   }
   .panel.open { display: flex; }
 
@@ -195,6 +204,7 @@ panel.innerHTML = `
   <div class="footer-link" id="fk-manage">点击工具栏图标打开管理面板</div>
 `;
 shadow.appendChild(panel);
+if (isMobile) panel.classList.add('mobile');
 
 // ==================== 位置同步 ====================
 let panelX = -1, panelY = -1; // -1 表示跟随悬浮球
@@ -204,6 +214,10 @@ function updatePositions() {
   const clampedX = Math.max(0, Math.min(window.innerWidth - 44, ballX));
   ball.style.top = `${clampedY}px`;
   ball.style.left = `${clampedX}px`;
+  if (isMobile) {
+    panel.style.top = `${Math.round((window.innerHeight - 320) / 2)}px`;
+    return;
+  }
   if (panelX >= 0) {
     panel.style.left = `${Math.max(0, Math.min(window.innerWidth - 280, panelX))}px`;
     panel.style.right = 'auto';

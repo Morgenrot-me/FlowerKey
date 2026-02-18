@@ -28,7 +28,8 @@ export const useMainStore = defineStore('main', () => {
 
   /** 首次设置主密码和盐 */
   async function setup(pwd: string, salt?: string) {
-    const s = salt || generateSalt();
+    // 固定盐为有意设计：保证同一记忆密码在不同设备生成相同密码（跨设备一致性）
+    const s = salt || 'FlowerKey';
     const hash = await createVerifyHash(pwd, s);
     await db.setMasterData({ verifyHash: hash, userSalt: s, createdAt: Date.now() });
 

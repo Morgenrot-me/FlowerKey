@@ -99,9 +99,23 @@ const tabs = [
   { key: 'settings', label: '设置' },
 ];
 
+function syncSession() {
+  chrome.runtime.sendMessage({
+    type: 'setSession',
+    isUnlocked: mainStore.isUnlocked,
+    masterPwd: mainStore.masterPwd,
+    userSalt: mainStore.userSalt,
+  });
+}
+
 onMounted(async () => {
   await mainStore.checkSetup();
   if (mainStore.isUnlocked) await entriesStore.loadEntries();
+});
+
+watch(() => mainStore.isUnlocked, (unlocked) => {
+  syncSession();
+  if (unlocked) entriesStore.loadEntries();
 });
 
 watch(currentTab, (tab) => {

@@ -111,17 +111,36 @@ async function hmacGenerate(masterKey: ArrayBuffer, codename: string): Promise<A
   return crypto.subtle.sign('HMAC', key, encode(codename));
 }
 
-/** 将原始字节编码为指定字符集的密码字符串 */
-function encodePassword(bytes: Uint8Array, charset: string, length: number): string {
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += charset[bytes[i % bytes.length] % charset.length];
+const LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DIGITS = '0123456789';
+
+/**
+ * 将原始字节编码为指定字符集的密码字符串
+ * 用 mixBytes 确定性地保证：首字符为字母、至少含一个数字
+ * with_symbols 模式额外保证至少含一个特殊字符
+ */
+function encodePassword(
+  bytes: Uint8Array,
+  mixBytes: Uint8Array,
+  charset: string,
+  length: number,
+  withSymbols: boolean
+): string {
+  const arr = Array.from({ length }, (_, i) => charset[bytes[i % bytes.length] % charset.length]);
+
+  // 用 mixBytes[0] 决定字母插入位置（首位），mixBytes[1] 决定数字位置（非首位）
+  arr[0] = LETTERS[mixBytes[0] % LETTERS.length];
+  const digitPos = 1 + (mixBytes[1] % (length - 1));
+  arr[digitPos] = DIGITS[mixBytes[2] % DIGITS.length];
+
+  if (withSymbols) {
+    const SYMBOLS = '!@#$%^&*()-_=+[]{}|;:,.<>?';
+    // 找一个不是首位也不是 digitPos 的位置
+    const symPos = digitPos === length - 1 ? length - 2 : length - 1;
+    arr[symPos] = SYMBOLS[mixBytes[3] % SYMBOLS.length];
   }
-  // 确保首字符为字母
-  if (/^\d/.test(result)) {
-    result = 'K' + result.slice(1);
-  }
-  return result;
+
+  return arr.join('');
 }
 
 /**
@@ -150,8 +169,10 @@ export async function generatePassword(
     KEY_LENGTH
   );
   const rawBytes = await hmacGenerate(masterKeyBits, codename);
-  const charset = mode === 'with_symbols' ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
-  return encodePassword(new Uint8Array(rawBytes), charset, length);
+  const mixBytes = await hmacGenerate(masterKeyBits, codename + '_mix');
+  const withSymbols = mode === 'with_symbols';
+  const charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
+  return encodePassword(new Uint8Array(rawBytes), new Uint8Array(mixBytes), charset, length, withSymbols);
 }
 
 // ==================== 数据加密 (AES-256-GCM) ====================

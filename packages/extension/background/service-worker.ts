@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'unlockFromContent') {
-    getSession().then(async () => {
+    (async () => {
       try {
         const mpData = await db.getMasterData();
         const ok = mpData ? await verifyMasterPassword(msg.masterPwd, mpData.userSalt, mpData.verifyHash) : false;
@@ -86,7 +86,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ ok: false, error: '密码错误' });
         }
       } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
-    });
+    })();
     return true;
   }
 
