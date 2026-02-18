@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "FlowerKey 花钥",
+  "version": "0.1.0",
+  "description": "密码生成管理 + 书签收藏 + 文件引用管理工具",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus",
+    "sidePanel"
+  ],
+  "action": {
+    "default_popup": "popup/index.html"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

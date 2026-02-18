@@ -6,11 +6,29 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = resolve(__dirname, '../..').replace(/\\/g, '/')
 
 export default defineConfig({
   plugins: [vue()],
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss({
+          content: [
+            root + '/packages/ui/src/**/*.{vue,ts}',
+            root + '/packages/extension/**/*.{vue,ts,html}',
+          ],
+          theme: { extend: {} },
+          plugins: [],
+        }),
+        autoprefixer(),
+      ],
+    },
+  },
   resolve: {
     alias: {
       '@core': resolve(__dirname, '../core/src'),
