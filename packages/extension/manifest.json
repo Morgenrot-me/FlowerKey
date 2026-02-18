@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "FlowerKey 花钥",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "description": "密码生成管理 + 书签收藏 + 文件引用管理工具",
   "permissions": [
     "storage",
     "activeTab",
+    "tabs",
     "contextMenus",
     "sidePanel"
   ],

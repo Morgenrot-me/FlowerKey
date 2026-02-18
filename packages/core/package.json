@@ -1,6 +1,6 @@
 {
   "name": "@flowerkey/core",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "description": "花钥核心库 - 加密、数据层、同步引擎",
   "type": "module",
   "main": "src/index.ts",
