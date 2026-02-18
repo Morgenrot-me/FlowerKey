@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.local
+.env
+.DS_Store
+Thumbs.db
+
+# 花密参考仓库（仅供参考，不纳入版本控制）
+FlowerPassword/
+flower-password-chrome/
+flower-password-android/

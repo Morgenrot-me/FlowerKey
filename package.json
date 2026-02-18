@@ -1,0 +1,14 @@
+{
+  "name": "flowerkey",
+  "private": true,
+  "description": "花钥 - 密码生成管理 + 书签收藏 + 文件引用管理工具",
+  "scripts": {
+    "dev:extension": "pnpm --filter @flowerkey/extension dev",
+    "build:extension": "pnpm --filter @flowerkey/extension build",
+    "build:core": "pnpm --filter @flowerkey/core build",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3"
+  }
+}
