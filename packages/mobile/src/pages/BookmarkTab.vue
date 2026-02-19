@@ -20,7 +20,7 @@
       <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无书签</div>
     </div>
 
-    <div v-if="showForm" class="absolute inset-0 bg-white flex flex-col">
+    <div v-if="showForm" class="absolute inset-0 bg-white flex flex-col" style="padding-top: env(safe-area-inset-top)">
       <div class="px-4 py-3 border-b flex items-center gap-3">
         <button @click="showForm = false" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium">新建书签</span>

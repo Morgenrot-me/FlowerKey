@@ -24,7 +24,7 @@
     </div>
 
     <!-- 新建表单 -->
-    <div v-if="showForm" class="absolute inset-0 bg-white flex flex-col">
+    <div v-if="showForm" class="absolute inset-0 bg-white flex flex-col" style="padding-top: env(safe-area-inset-top)">
       <div class="px-4 py-3 border-b flex items-center gap-3">
         <button @click="showForm = false" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium">新建密码条目</span>
