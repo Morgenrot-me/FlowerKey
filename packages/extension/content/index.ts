@@ -81,6 +81,7 @@ style.textContent = `
     align-items: center;
     font-weight: 600;
     color: #1e3a8a;
+    padding: 8px 4px;
   }
   .panel-header { cursor: grab; }
   .panel-header:active { cursor: grabbing; }
