@@ -63,7 +63,7 @@ export class FlowerKeyWebDAV {
     try {
       const stat = await this.client.stat(this.path(name));
       if (typeof stat === 'object' && stat !== null) {
-        const s = stat as Record<string, unknown>;
+        const s = stat as unknown as Record<string, unknown>;
         return (s['etag'] as string) || (s['lastmod'] as string) || null;
       }
       return null;

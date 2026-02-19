@@ -7,7 +7,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import {
   db, generateSalt, generateDeviceId,
-  createVerifyHash, verifyMasterPassword, generatePassword,
+  createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   type Entry, type EntryType, type CharsetMode, type MasterPasswordData,
 } from '@flowerkey/core';
 
@@ -44,6 +44,7 @@ export const useMainStore = defineStore('main', () => {
     userSalt.value = s;
     isSetup.value = true;
     isUnlocked.value = true;
+    db.setDbKey(await deriveDatabaseKey(pwd, s));
   }
 
   /** 解锁（验证主密码） */
@@ -55,6 +56,7 @@ export const useMainStore = defineStore('main', () => {
       masterPwd.value = pwd;
       userSalt.value = data.userSalt;
       isUnlocked.value = true;
+      db.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
     }
     return ok;
   }
@@ -63,6 +65,7 @@ export const useMainStore = defineStore('main', () => {
   function lock() {
     masterPwd.value = '';
     isUnlocked.value = false;
+    db.clearDbKey();
   }
 
   /** 生成密码 */

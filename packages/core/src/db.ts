@@ -5,7 +5,12 @@
 
 import Dexie, { type Table } from 'dexie';
 import type { Entry, ChangeLog, UserConfig, SyncState, MasterPasswordData } from './models.js';
+import { encrypt, decrypt } from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
+
+/** 需要加密存储的敏感字段 */
+const ENCRYPTED_FIELDS = ['codename', 'url', 'title', 'description', 'fileName', 'sourceUrl'] as const;
+type EncryptedField = typeof ENCRYPTED_FIELDS[number];
 
 export class FlowerKeyDB extends Dexie {
   entries!: Table<Entry, string>;
@@ -14,6 +19,50 @@ export class FlowerKeyDB extends Dexie {
   syncState!: Table<SyncState, string>;
 
   private _deviceId = '';
+  private _dbKey: CryptoKey | null = null;
+
+  /** 解锁后设置数据库加密密钥 */
+  setDbKey(key: CryptoKey) {
+    this._dbKey = key;
+  }
+
+  /** 清除密钥（锁定时调用） */
+  clearDbKey() {
+    this._dbKey = null;
+  }
+
+  /** 加密条目敏感字段，返回存储用对象 */
+  private async encryptEntry(entry: Entry): Promise<Entry> {
+    if (!this._dbKey) return entry;
+    const result = { ...entry };
+    for (const field of ENCRYPTED_FIELDS) {
+      const val = entry[field as EncryptedField];
+      if (val) {
+        const buf = await encrypt(val, this._dbKey);
+        // 存为 base64 字符串
+        (result as unknown as Record<string, unknown>)[field] = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      }
+    }
+    return result;
+  }
+
+  /** 解密条目敏感字段 */
+  private async decryptEntry(entry: Entry): Promise<Entry> {
+    if (!this._dbKey) return entry;
+    const result = { ...entry };
+    for (const field of ENCRYPTED_FIELDS) {
+      const val = entry[field as EncryptedField];
+      if (val) {
+        try {
+          const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
+          (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, this._dbKey);
+        } catch {
+          // 非加密数据（旧数据）保持原样
+        }
+      }
+    }
+    return result;
+  }
 
   constructor() {
     super('FlowerKeyDB');
@@ -47,16 +96,23 @@ export class FlowerKeyDB extends Dexie {
   async createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
     const now = Date.now();
     const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };
+    const stored = await this.encryptEntry(entry);
     await this.transaction('rw', [this.entries, this.changelog], async () => {
-      await this.entries.add(entry);
+      await this.entries.add(stored);
       await this.log(entry.id, 'create');
     });
-    return entry;
+    return entry; // 返回明文条目给调用方
   }
 
   async updateEntry(id: string, changes: Partial<Entry>): Promise<void> {
+    const encChanges = await this.encryptEntry({ ...changes, id } as Entry);
+    // 只取加密后的敏感字段，保留其他变更
+    const stored: Partial<Entry> = { ...changes, updatedAt: Date.now() };
+    for (const field of ENCRYPTED_FIELDS) {
+      if (field in changes) (stored as unknown as Record<string, unknown>)[field] = (encChanges as unknown as Record<string, unknown>)[field];
+    }
     await this.transaction('rw', [this.entries, this.changelog], async () => {
-      await this.entries.update(id, { ...changes, updatedAt: Date.now() });
+      await this.entries.update(id, stored);
       await this.log(id, 'update');
     });
   }
@@ -69,27 +125,33 @@ export class FlowerKeyDB extends Dexie {
   }
 
   async getEntry(id: string): Promise<Entry | undefined> {
-    return this.entries.get(id);
+    const entry = await this.entries.get(id);
+    return entry ? this.decryptEntry(entry) : undefined;
   }
 
   async getEntriesByType(type: Entry['type']): Promise<Entry[]> {
-    return (await this.entries.where('type').equals(type).sortBy('updatedAt')).reverse();
+    const rows = (await this.entries.where('type').equals(type).sortBy('updatedAt')).reverse();
+    return Promise.all(rows.map(e => this.decryptEntry(e)));
   }
 
   async getEntriesByFolder(folder: string): Promise<Entry[]> {
-    return (await this.entries.where('folder').equals(folder).sortBy('updatedAt')).reverse();
+    const rows = (await this.entries.where('folder').equals(folder).sortBy('updatedAt')).reverse();
+    return Promise.all(rows.map(e => this.decryptEntry(e)));
   }
 
   async searchEntries(query: string): Promise<Entry[]> {
+    // 先全量读取并解密，再在内存中过滤
+    const all = await this.entries.toArray();
+    const decrypted = await Promise.all(all.map(e => this.decryptEntry(e)));
     const q = query.toLowerCase();
-    return this.entries.filter(e =>
+    return decrypted.filter(e =>
       (e.codename?.toLowerCase().includes(q)) ||
       (e.title?.toLowerCase().includes(q)) ||
       (e.description?.toLowerCase().includes(q)) ||
       (e.url?.toLowerCase().includes(q)) ||
       (e.fileName?.toLowerCase().includes(q)) ||
       (e.tags?.some(t => t.toLowerCase().includes(q))) || false
-    ).toArray();
+    );
   }
 
   // ==================== 配置管理 ====================
