@@ -3,7 +3,7 @@
   根据状态显示：设置页 / 解锁页 / 主界面
 -->
 <template>
-  <div class="h-screen flex flex-col bg-gray-50 select-none">
+  <div class="h-screen flex flex-col bg-gray-50 select-none" style="padding-top: env(safe-area-inset-top)">
     <SetupPage v-if="!main.isSetup" @done="main.checkSetup()" />
     <UnlockPage v-else-if="!main.isUnlocked" @unlocked="onUnlocked" />
     <MainLayout v-else @lock="main.lock()" />
