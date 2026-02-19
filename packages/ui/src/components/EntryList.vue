@@ -20,7 +20,7 @@
         </div>
       </div>
       <div class="flex gap-1 shrink-0">
-        <button v-if="entry.type === 'password'" @click="$emit('generate', entry)" class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">生成</button>
+        <button v-if="entry.type === 'password'" @click="onGenerate(entry)" :class="['px-1.5 py-0.5 rounded', copiedId === entry.id ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100']">{{ copiedId === entry.id ? '已复制' : '生成' }}</button>
         <button @click="$emit('edit', entry)" class="px-1.5 py-0.5 bg-gray-100 rounded hover:bg-gray-200">编辑</button>
         <button @click="$emit('delete', entry.id)" class="px-1.5 py-0.5 text-red-500 hover:bg-red-50 rounded">删除</button>
       </div>
@@ -30,7 +30,15 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { Entry } from '@flowerkey/core';
 defineProps<{ entries: Entry[] }>();
-defineEmits<{ edit: [Entry]; delete: [string]; generate: [Entry] }>();
+const emit = defineEmits<{ edit: [Entry]; delete: [string]; generate: [Entry] }>();
+
+const copiedId = ref('');
+function onGenerate(entry: Entry) {
+  emit('generate', entry);
+  copiedId.value = entry.id;
+  setTimeout(() => { copiedId.value = ''; }, 1500);
+}
 </script>
