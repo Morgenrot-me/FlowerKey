@@ -6,6 +6,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 
@@ -13,7 +14,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '../..').replace(/\\/g, '/')
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    {
+      name: 'copy-extension-assets',
+      closeBundle() {
+        // 复制 manifest.json
+        copyFileSync(resolve(__dirname, 'manifest.json'), resolve(__dirname, 'dist/manifest.json'));
+        // 复制 icons/（如存在）
+        const iconsDir = resolve(__dirname, 'icons');
+        const outIconsDir = resolve(__dirname, 'dist/icons');
+        try {
+          mkdirSync(outIconsDir, { recursive: true });
+          for (const f of readdirSync(iconsDir)) {
+            copyFileSync(resolve(iconsDir, f), resolve(outIconsDir, f));
+          }
+        } catch { /* icons 目录不存在则跳过 */ }
+      },
+    },
+  ],
   css: {
     postcss: {
       plugins: [
