@@ -12,3 +12,10 @@ for (const pkg of pkgs) {
   writeFileSync(path, JSON.stringify(json, null, 2) + '\n');
   console.log(`${pkg}: ${version}`);
 }
+
+// 同步 manifest.json
+const manifestPath = 'packages/extension/manifest.json';
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+manifest.version = version;
+writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+console.log(`manifest.json: ${version}`);

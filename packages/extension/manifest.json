@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FlowerKey 花钥",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "密码生成管理 + 书签收藏 + 文件引用管理工具",
   "permissions": [
     "storage",
@@ -28,8 +28,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/index.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/index.js"
+      ],
       "run_at": "document_idle"
     }
   ],
