@@ -50,9 +50,7 @@ export const useMainStore = defineStore('main', () => {
   async function unlock(pwd: string): Promise<boolean> {
     const data = await db.getMasterData();
     if (!data) return false;
-    // 兼容旧数据：无 verifySalt 时回退用 userSalt
-    const salt = data.verifySalt ?? data.userSalt;
-    const ok = await verifyMasterPassword(pwd, salt, data.verifyHash);
+    const ok = await verifyMasterPassword(pwd, data.verifySalt!, data.verifyHash);
     if (ok) {
       masterPwd.value = pwd;
       userSalt.value = data.userSalt;

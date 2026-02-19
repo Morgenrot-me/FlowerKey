@@ -65,6 +65,6 @@ export interface UserConfig {
 export interface MasterPasswordData {
   verifyHash: string;
   userSalt: string;       // 密码生成盐（固定，跨设备一致）
-  verifySalt?: string;    // 验证专用随机盐（防彩虹表，仅本地）
+  verifySalt: string;     // 验证专用随机盐（防彩虹表，仅本地）
   createdAt: number;
 }
