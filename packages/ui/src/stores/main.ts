@@ -28,10 +28,12 @@ export const useMainStore = defineStore('main', () => {
 
   /** 首次设置主密码和盐 */
   async function setup(pwd: string, salt?: string) {
-    // 固定盐为有意设计：保证同一记忆密码在不同设备生成相同密码（跨设备一致性）
+    // userSalt 固定为有意设计：保证同一记忆密码在不同设备生成相同密码（跨设备一致性）
     const s = salt || 'FlowerKey';
-    const hash = await createVerifyHash(pwd, s);
-    await db.setMasterData({ verifyHash: hash, userSalt: s, createdAt: Date.now() });
+    // verifySalt 随机生成：防止 verifyHash 被彩虹表攻击，仅用于本地验证
+    const verifySalt = generateSalt();
+    const hash = await createVerifyHash(pwd, verifySalt);
+    await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
 
     const deviceId = await db.getConfig<string>('deviceId');
     if (!deviceId) {
@@ -48,7 +50,9 @@ export const useMainStore = defineStore('main', () => {
   async function unlock(pwd: string): Promise<boolean> {
     const data = await db.getMasterData();
     if (!data) return false;
-    const ok = await verifyMasterPassword(pwd, data.userSalt, data.verifyHash);
+    // 兼容旧数据：无 verifySalt 时回退用 userSalt
+    const salt = data.verifySalt ?? data.userSalt;
+    const ok = await verifyMasterPassword(pwd, salt, data.verifyHash);
     if (ok) {
       masterPwd.value = pwd;
       userSalt.value = data.userSalt;
