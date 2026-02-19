@@ -89,7 +89,7 @@ import { ref, onMounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import { useSyncStore } from '../../ui/src/stores/sync';
-import { db, type CharsetMode } from '@flowerkey/core';
+import { db, deriveDatabaseKey, type CharsetMode } from '@flowerkey/core';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 
@@ -117,7 +117,15 @@ const copied = ref(false);
 
 onMounted(async () => {
   await mainStore.checkSetup();
-  if (mainStore.isUnlocked) await init();
+  // popup 是独立进程，需从 session 恢复解锁状态
+  const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt']);
+  if (session.isUnlocked && session.masterPwd) {
+    mainStore.masterPwd = session.masterPwd;
+    mainStore.userSalt = session.userSalt;
+    mainStore.isUnlocked = true;
+    db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
+    await init();
+  }
 });
 
 async function init() {
