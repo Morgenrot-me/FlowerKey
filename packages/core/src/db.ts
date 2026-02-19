@@ -174,6 +174,27 @@ export class FlowerKeyDB extends Dexie {
     await this.setConfig('masterPasswordData', data);
   }
 
+  /** 加密存储敏感配置（如 WebDAV 密码），需解锁后调用 */
+  async setSecretConfig(key: string, value: unknown): Promise<void> {
+    if (!this._dbKey) throw new Error('未解锁');
+    const buf = await encrypt(JSON.stringify(value), this._dbKey);
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    await this.config.put({ key, value: { __enc: b64 }, updatedAt: Date.now() });
+  }
+
+  /** 读取加密配置 */
+  async getSecretConfig<T>(key: string): Promise<T | undefined> {
+    const item = await this.config.get(key);
+    if (!item) return undefined;
+    const v = item.value as { __enc?: string };
+    if (!v?.__enc) return item.value as T; // 兼容旧明文数据
+    if (!this._dbKey) return undefined;
+    try {
+      const bytes = Uint8Array.from(atob(v.__enc), c => c.charCodeAt(0));
+      return JSON.parse(await decrypt(bytes.buffer as ArrayBuffer, this._dbKey)) as T;
+    } catch { return undefined; }
+  }
+
   // ==================== 同步相关 ====================
 
   async getUnsyncedLogs(): Promise<ChangeLog[]> {

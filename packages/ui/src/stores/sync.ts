@@ -15,11 +15,11 @@ export const useSyncStore = defineStore('sync', () => {
   const error = ref('');
 
   async function loadConfig() {
-    config.value = await db.getConfig<WebDAVConfig>('webdavConfig') ?? null;
+    config.value = await db.getSecretConfig<WebDAVConfig>('webdavConfig') ?? null;
   }
 
   async function saveConfig(cfg: WebDAVConfig) {
-    await db.setConfig('webdavConfig', cfg);
+    await db.setSecretConfig('webdavConfig', cfg);
     config.value = cfg;
   }
 
