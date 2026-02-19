@@ -6,8 +6,8 @@
 
 import { generatePassword, verifyMasterPassword, db } from '@flowerkey/core';
 
-// 点击工具栏图标自动打开侧边栏
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+// 点击工具栏图标打开 popup（不自动打开侧边栏）
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
 async function getSession() {
   const data = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt']);
@@ -87,6 +87,32 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
       } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
     })();
+    return true;
+  }
+
+  if (msg.type === 'getPageMeta') {
+    chrome.tabs.query({ active: true, currentWindow: true }, async tabs => {
+      const tab = tabs[0];
+      if (!tab?.id) { sendResponse({}); return; }
+      try {
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => ({
+            title: document.title,
+            url: location.href,
+            favicon: (document.querySelector('link[rel~="icon"]') as HTMLLinkElement)?.href
+              || `${location.origin}/favicon.ico`,
+            image: (document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content
+              || (document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement)?.content
+              || '',
+            description: (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content
+              || (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content
+              || '',
+          }),
+        });
+        sendResponse(result.result ?? {});
+      } catch { sendResponse({ title: tab.title || '', url: tab.url || '', favicon: tab.favIconUrl || '', image: '', description: '' }); }
+    });
     return true;
   }
 

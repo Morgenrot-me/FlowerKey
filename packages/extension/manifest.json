@@ -8,7 +8,8 @@
     "activeTab",
     "tabs",
     "contextMenus",
-    "sidePanel"
+    "sidePanel",
+    "scripting"
   ],
   "action": {
     "default_popup": "popup/index.html",
