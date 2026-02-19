@@ -163,6 +163,21 @@ style.textContent = `
   .error { color: #ef4444; font-size: 11px; }
   .warn { color: #f59e0b; font-size: 11px; }
   .locked { color: #9ca3af; font-size: 12px; text-align: center; padding: 8px 0; }
+
+  @media (prefers-color-scheme: dark) {
+    .panel { background: #1e2433; color: #e2e8f0; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .panel.pinned { background: #1a2540; border-color: rgba(96,165,250,0.4); }
+    .panel-header { color: #93c5fd; }
+    input, select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    input:focus, select:focus { border-color: #3b82f6; }
+    .result { background: #1e3a5f; }
+    .result code { color: #93c5fd; }
+    .result button { color: #60a5fa; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover { background: #3b82f6; }
+    .footer-link { color: #6b7280; }
+    .footer-link:hover { color: #60a5fa; }
+  }
 `;
 shadow.appendChild(style);
 
@@ -219,10 +234,11 @@ function updatePositions() {
     panel.style.top = `${Math.round((window.innerHeight - 320) / 2)}px`;
     return;
   }
+  const ph = panel.offsetHeight || 300;
   if (panelX >= 0) {
     panel.style.left = `${Math.max(0, Math.min(window.innerWidth - 280, panelX))}px`;
     panel.style.right = 'auto';
-    panel.style.top = `${Math.max(12, Math.min(window.innerHeight - 300, panelY))}px`;
+    panel.style.top = `${Math.max(12, Math.min(window.innerHeight - ph - 8, panelY))}px`;
   } else {
     if (snapSide === 'right') {
       panel.style.right = `${window.innerWidth - clampedX - 44 + 8}px`;
@@ -231,7 +247,7 @@ function updatePositions() {
       panel.style.left = `${clampedX + 52}px`;
       panel.style.right = 'auto';
     }
-    panel.style.top = `${Math.max(12, Math.min(clampedY, window.innerHeight - 300))}px`;
+    panel.style.top = `${Math.max(12, Math.min(clampedY, window.innerHeight - ph - 8))}px`;
   }
 }
 updatePositions();
