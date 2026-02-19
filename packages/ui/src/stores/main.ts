@@ -8,6 +8,7 @@ import { ref, computed } from 'vue';
 import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+  generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
   type Entry, type EntryType, type CharsetMode, type MasterPasswordData,
 } from '@flowerkey/core';
 
@@ -75,8 +76,72 @@ export const useMainStore = defineStore('main', () => {
     return generatePassword(masterPwd.value, userSalt.value, codename, mode, length);
   }
 
+  /** 方案一：生成恢复码并加密存储主密码，返回恢复码给用户保管 */
+  async function generateRecovery(): Promise<string> {
+    const code = generateRecoveryCode();
+    const { encryptedMasterPwd, recoverySalt } = await encryptMasterPwdWithRecovery(masterPwd.value, code);
+    const data = await db.getMasterData();
+    await db.setMasterData({ ...data!, encryptedMasterPwd, recoverySalt });
+    return code;
+  }
+
+  /** 方案一：用恢复码恢复主密码并解锁 */
+  async function recoverWithCode(code: string): Promise<boolean> {
+    const data = await db.getMasterData();
+    if (!data?.encryptedMasterPwd || !data.recoverySalt) return false;
+    try {
+      const pwd = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, code);
+      return unlock(pwd);
+    } catch { return false; }
+  }
+
+  /** 方案二：修改主密码（需已解锁，重新加密所有条目） */
+  async function changeMasterPwd(newPwd: string): Promise<void> {
+    const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
+    const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
+    await db.reEncryptAllEntries(oldKey, newKey);
+    db.setDbKey(newKey);
+
+    const verifySalt = generateSalt();
+    const verifyHash = await createVerifyHash(newPwd, verifySalt);
+    const data = await db.getMasterData();
+    // 恢复码存在时同步更新（用新密码重新加密）
+    let recoveryFields: { encryptedMasterPwd?: string; recoverySalt?: string } = {};
+    if (data?.encryptedMasterPwd && data.recoverySalt) {
+      try {
+        const code = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, masterPwd.value);
+        recoveryFields = await encryptMasterPwdWithRecovery(newPwd, code);
+      } catch { /* 恢复码无法解密则丢弃，用户需重新生成 */ }
+    }
+    await db.setMasterData({ ...data!, verifyHash, verifySalt, ...recoveryFields });
+    masterPwd.value = newPwd;
+  }
+
+  /** 方案三：导出所有条目为明文 JSON */
+  async function exportData(): Promise<string> {
+    const entries = await db.entries.toArray();
+    const decrypted = await Promise.all(entries.map(e => db['decryptEntry'](e)));
+    return JSON.stringify({ version: 1, exportedAt: Date.now(), entries: decrypted }, null, 2);
+  }
+
+  /** 方案三：从明文 JSON 导入（合并，不覆盖已有条目） */
+  async function importData(json: string): Promise<number> {
+    const { entries } = JSON.parse(json) as { entries: Entry[] };
+    let count = 0;
+    for (const entry of entries) {
+      const exists = await db.getEntry(entry.id);
+      if (!exists) {
+        const encrypted = await db['encryptEntry'](entry);
+        await db.entries.put(encrypted);
+        count++;
+      }
+    }
+    return count;
+  }
+
   return {
     isUnlocked, isSetup, masterPwd, userSalt, searchQuery, currentView,
     checkSetup, setup, unlock, lock, genPassword,
+    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData,
   };
 });

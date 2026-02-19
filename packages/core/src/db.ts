@@ -93,6 +93,16 @@ export class FlowerKeyDB extends Dexie {
 
   // ==================== Entry CRUD ====================
 
+  /** 修改主密码时批量重加密所有条目（旧 key → 新 key） */
+  async reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
+    const all = await this.entries.toArray();
+    this._dbKey = oldKey;
+    const decrypted = await Promise.all(all.map(e => this.decryptEntry(e)));
+    this._dbKey = newKey;
+    const reEncrypted = await Promise.all(decrypted.map(e => this.encryptEntry(e)));
+    await this.entries.bulkPut(reEncrypted);
+  }
+
   async createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
     const now = Date.now();
     const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };

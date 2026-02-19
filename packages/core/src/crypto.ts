@@ -10,6 +10,7 @@ const ITERATIONS = 600_000;
 const KEY_LENGTH = 256;
 const SALT_PREFIX_VERIFY = 'flowerkey_verify_';
 const SALT_PREFIX_DBENC = 'flowerkey_dbenc_';
+const SALT_PREFIX_RECOVERY = 'flowerkey_recovery_';
 const ENCRYPT_VERSION = 0x01;
 
 const CHARSET_ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -205,4 +206,33 @@ export async function decrypt(data: ArrayBuffer, key: CryptoKey): Promise<string
     { name: 'AES-GCM', iv: iv as BufferSource }, key, ciphertext as BufferSource
   );
   return decoder.decode(plaintext);
+}
+
+// ==================== 恢复码 ====================
+
+/** 生成随机恢复码（32字节 = 64位十六进制，分组显示用） */
+export function generateRecoveryCode(): string {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return bufToHex(arr.buffer as ArrayBuffer);
+}
+
+/** 用恢复码加密主密码，返回 { encryptedMasterPwd, recoverySalt } */
+export async function encryptMasterPwdWithRecovery(
+  masterPwd: string, recoveryCode: string
+): Promise<{ encryptedMasterPwd: string; recoverySalt: string }> {
+  const recoverySalt = generateSalt();
+  const key = await deriveKey(recoveryCode, SALT_PREFIX_RECOVERY + recoverySalt, ['encrypt', 'decrypt']);
+  const buf = await encrypt(masterPwd, key);
+  const encryptedMasterPwd = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  return { encryptedMasterPwd, recoverySalt };
+}
+
+/** 用恢复码解密主密码 */
+export async function decryptMasterPwdWithRecovery(
+  encryptedMasterPwd: string, recoverySalt: string, recoveryCode: string
+): Promise<string> {
+  const key = await deriveKey(recoveryCode, SALT_PREFIX_RECOVERY + recoverySalt, ['encrypt', 'decrypt']);
+  const bytes = Uint8Array.from(atob(encryptedMasterPwd), c => c.charCodeAt(0));
+  return decrypt(bytes.buffer as ArrayBuffer, key);
 }
