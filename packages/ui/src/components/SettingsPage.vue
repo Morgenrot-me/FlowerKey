@@ -8,7 +8,7 @@
 
     <!-- WebDAV 配置 -->
     <div class="space-y-2">
-      <p class="font-medium text-gray-700">WebDAV 同步</p>
+      <p class="font-medium text-gray-700 dark:text-gray-300">WebDAV 同步</p>
       <input v-model="form.url" placeholder="服务器地址（如 https://dav.jianguoyun.com/dav/）" class="input" />
       <input v-model="form.username" placeholder="用户名" class="input" />
       <input v-model="form.password" type="password" placeholder="密码" class="input" />
@@ -27,7 +27,7 @@
       >
         {{ syncStore.syncing ? '同步中...' : '立即同步' }}
       </button>
-      <p v-if="syncStore.lastResult" class="text-gray-500">
+      <p v-if="syncStore.lastResult" class="text-gray-500 dark:text-gray-400">
         上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
       </p>
       <p v-if="syncStore.error" class="text-red-500">{{ syncStore.error }}</p>
@@ -35,7 +35,7 @@
 
     <!-- 危险操作 -->
     <div class="border-t pt-3 space-y-2">
-      <p class="font-medium text-gray-700">危险操作</p>
+      <p class="font-medium text-gray-700 dark:text-gray-300">危险操作</p>
       <button @click="confirmClear" class="w-full py-1.5 border border-red-300 text-red-500 rounded hover:bg-red-50">
         清除本地数据
       </button>
@@ -71,5 +71,5 @@ function confirmClear() {
 </script>
 
 <style scoped>
-.input { @apply w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-400; }
+.input { @apply w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100; }
 </style>

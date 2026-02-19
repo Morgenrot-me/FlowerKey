@@ -3,9 +3,9 @@
 -->
 <template>
   <div class="fixed inset-0 bg-black/30 flex items-end justify-center z-50">
-    <div class="bg-white w-full max-h-[80vh] rounded-t-xl p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-gray-900 w-full max-h-[80vh] rounded-t-xl p-4 overflow-y-auto">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-sm font-bold">{{ entry ? '编辑' : '新建' }}{{ typeLabel }}</h3>
+        <h3 class="text-sm font-bold dark:text-gray-100">{{ entry ? '编辑' : '新建' }}{{ typeLabel }}</h3>
         <button @click="$emit('cancel')" class="text-gray-400 text-lg">&times;</button>
       </div>
 
@@ -101,5 +101,5 @@ function save() {
 </script>
 
 <style scoped>
-.input { @apply w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400; }
+.input { @apply w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100; }
 </style>

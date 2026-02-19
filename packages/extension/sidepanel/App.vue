@@ -3,28 +3,28 @@
   完整管理界面：密码/书签/文件引用的增删改查
 -->
 <template>
-  <div class="h-screen flex flex-col bg-white">
+  <div class="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-gray-100">
     <SetupForm v-if="!mainStore.isSetup" @done="() => {}" class="p-4" />
     <UnlockForm v-else-if="!mainStore.isUnlocked" @unlocked="() => {}" class="p-4" />
 
     <template v-else>
       <!-- 顶栏 -->
-      <header class="flex items-center gap-2 px-3 py-2 border-b">
+      <header class="flex items-center gap-2 px-3 py-2 border-b dark:border-gray-700">
         <h1 class="text-sm font-bold">🔑 花钥</h1>
         <input
           v-model="searchQuery" placeholder="搜索..."
-          class="flex-1 px-2 py-1 border rounded text-xs"
+          class="flex-1 px-2 py-1 border rounded text-xs dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
           @input="onSearch"
         />
-        <button @click="mainStore.lock()" class="text-xs text-gray-400 hover:text-gray-600">锁定</button>
+        <button @click="mainStore.lock()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">锁定</button>
       </header>
 
       <!-- 导航标签 -->
-      <nav class="flex border-b text-xs">
+      <nav class="flex border-b text-xs dark:border-gray-700">
         <button
           v-for="tab in tabs" :key="tab.key"
           @click="currentTab = tab.key"
-          :class="['flex-1 py-2', currentTab === tab.key ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500']"
+          :class="['flex-1 py-2', currentTab === tab.key ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 dark:text-gray-400']"
         >{{ tab.label }}</button>
       </nav>
 
@@ -39,7 +39,7 @@
           <button
             v-for="f in entriesStore.folders" :key="f"
             @click="entriesStore.currentFolder = entriesStore.currentFolder === f ? '' : f"
-            :class="['px-2 py-0.5 rounded', entriesStore.currentFolder === f ? 'bg-blue-100 text-blue-600' : 'bg-gray-100']"
+            :class="['px-2 py-0.5 rounded', entriesStore.currentFolder === f ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
           >{{ f || '未分类' }}</button>
         </div>
 
@@ -53,7 +53,7 @@
       </div>
 
       <!-- 底部操作栏 -->
-      <footer class="border-t px-3 py-2">
+      <footer class="border-t px-3 py-2 dark:border-gray-700">
         <button
           @click="showAddForm = true"
           class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
