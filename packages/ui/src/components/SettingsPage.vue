@@ -6,6 +6,16 @@
   <div class="p-4 space-y-4 text-xs">
     <h2 class="text-sm font-bold">设置</h2>
 
+    <!-- 数据安全警告 -->
+    <div v-if="!syncStore.config && !hasRecovery"
+      class="p-2 bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded text-orange-700 dark:text-orange-300">
+      ⚠️ 未配置 WebDAV 同步且未生成恢复码。卸载插件将永久丢失所有数据，建议至少完成其中一项。
+    </div>
+    <div v-else-if="!syncStore.config"
+      class="p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded text-yellow-700 dark:text-yellow-400">
+      未配置 WebDAV 同步，卸载插件将丢失数据。
+    </div>
+
     <!-- WebDAV 配置 -->
     <div class="space-y-2">
       <p class="font-medium text-gray-700 dark:text-gray-300">WebDAV 同步</p>
@@ -92,16 +102,19 @@
 import { ref, onMounted } from 'vue';
 import { useSyncStore } from '../stores/sync';
 import { useMainStore } from '../stores/main';
-import type { WebDAVConfig } from '@flowerkey/core';
+import { db, type WebDAVConfig } from '@flowerkey/core';
 
 const syncStore = useSyncStore();
 const mainStore = useMainStore();
 
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
+const hasRecovery = ref(false);
 
 onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
+  const data = await db.getMasterData();
+  hasRecovery.value = !!data?.encryptedMasterPwd;
 });
 
 async function saveConfig() {
@@ -113,6 +126,7 @@ async function saveConfig() {
 const recoveryCode = ref('');
 async function handleGenerateRecovery() {
   recoveryCode.value = await mainStore.generateRecovery();
+  hasRecovery.value = true;
 }
 
 // 方案二：修改主密码
