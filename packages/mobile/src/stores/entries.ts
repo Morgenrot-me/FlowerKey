@@ -1,9 +1,10 @@
 /**
- * 花钥移动端 - 条目状态管理
+ * 花钥移动端 - 条目状态管理（SQLite 版）
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { db, type Entry, type EntryType } from '@flowerkey/core';
+import type { Entry, EntryType } from '@flowerkey/core';
+import * as sqliteDb from '../db-sqlite';
 
 export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
@@ -22,21 +23,21 @@ export const useEntriesStore = defineStore('entries', () => {
 
   async function load(type: EntryType = 'password') {
     currentType.value = type;
-    entries.value = await db.getEntriesByType(type);
+    entries.value = await sqliteDb.getEntriesByType(type);
   }
 
   async function create(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) {
-    await db.createEntry(data);
+    await sqliteDb.createEntry(data);
     await load(currentType.value);
   }
 
   async function update(id: string, data: Partial<Entry>) {
-    await db.updateEntry(id, data);
+    await sqliteDb.updateEntry(id, data);
     await load(currentType.value);
   }
 
   async function remove(id: string) {
-    await db.deleteEntry(id);
+    await sqliteDb.deleteEntry(id);
     await load(currentType.value);
   }
 

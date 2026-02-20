@@ -5,5 +5,8 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import './style.css';
+import { initSQLite } from './db-sqlite';
 
-createApp(App).use(createPinia()).mount('#app');
+initSQLite().then(() => {
+  createApp(App).use(createPinia()).mount('#app');
+});
