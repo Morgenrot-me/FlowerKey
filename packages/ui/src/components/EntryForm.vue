@@ -67,12 +67,12 @@
 import { ref, computed, onMounted } from 'vue';
 import type { Entry, EntryType } from '@flowerkey/core';
 
-const props = defineProps<{ entry?: Entry; type: EntryType }>();
+const props = defineProps<{ entry?: Entry; type: EntryType; initialMode?: 'generate' | 'store' }>();
 const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]; cancel: [] }>();
 
 const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用' }[props.type]));
 
-const pwdMode = ref<'generate' | 'store'>('generate');
+const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
 const form = ref({
   codename: '', salt: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '', fileName: '',

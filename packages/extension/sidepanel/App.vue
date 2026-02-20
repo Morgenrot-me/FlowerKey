@@ -54,10 +54,11 @@
 
       <!-- 底部操作栏 -->
       <footer class="border-t px-3 py-2 dark:border-gray-700">
-        <button
-          @click="showAddForm = true"
-          class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-        >+ 新建</button>
+        <div v-if="currentTab === 'password'" class="flex gap-2">
+          <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
+          <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
+        </div>
+        <button v-else @click="openAdd()" class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 新建</button>
       </footer>
 
       <!-- 新建/编辑弹窗 -->
@@ -65,6 +66,7 @@
         v-if="showAddForm"
         :entry="editingEntry"
         :type="entriesStore.currentType"
+        :initialMode="addMode"
         @save="onSave"
         @cancel="closeForm"
       />
@@ -90,6 +92,7 @@ const entriesStore = useEntriesStore();
 const searchQuery = ref('');
 const showAddForm = ref(false);
 const editingEntry = ref<Entry | undefined>();
+const addMode = ref<'generate' | 'store' | undefined>();
 const currentTab = ref('password');
 const bookmarkEncrypt = ref(true);
 
@@ -140,6 +143,11 @@ function onSearch() {
   entriesStore.search(searchQuery.value);
 }
 
+function openAdd(mode?: 'generate' | 'store') {
+  addMode.value = mode;
+  showAddForm.value = true;
+}
+
 function editEntry(entry: Entry) {
   editingEntry.value = entry;
   showAddForm.value = true;
@@ -169,5 +177,6 @@ async function onSave(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) {
 function closeForm() {
   showAddForm.value = false;
   editingEntry.value = undefined;
+  addMode.value = undefined;
 }
 </script>
