@@ -99,6 +99,7 @@ const bookmarkEncrypt = ref(true);
 const tabs = [
   { key: 'password', label: '密码' },
   { key: 'bookmark', label: '书签' },
+  { key: 'note', label: '笔记' },
   { key: 'file_ref', label: '文件' },
   { key: 'settings', label: '设置' },
 ];
