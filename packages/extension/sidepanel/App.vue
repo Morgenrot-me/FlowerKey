@@ -20,12 +20,16 @@
       </header>
 
       <!-- 导航标签 -->
-      <nav class="flex border-b text-xs dark:border-gray-700">
+      <nav class="flex border-b dark:border-gray-700">
         <button
           v-for="tab in tabs" :key="tab.key"
           @click="currentTab = tab.key"
-          :class="['flex-1 py-2', currentTab === tab.key ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 dark:text-gray-400']"
-        >{{ tab.label }}</button>
+          :class="['flex-1 py-2 flex flex-col items-center gap-0.5 text-[11px] transition-colors',
+            currentTab === tab.key ? 'text-blue-600 border-b-2 border-blue-500 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
+        >
+          <span class="text-base leading-none">{{ tab.icon }}</span>
+          <span>{{ tab.label }}</span>
+        </button>
       </nav>
 
       <!-- 设置页 -->
@@ -67,6 +71,8 @@
         :entry="editingEntry"
         :type="entriesStore.currentType"
         :initialMode="addMode"
+        :folders="entriesStore.folders"
+        :tags="entriesStore.tags"
         @save="onSave"
         @cancel="closeForm"
       />
@@ -97,11 +103,10 @@ const currentTab = ref('password');
 const bookmarkEncrypt = ref(true);
 
 const tabs = [
-  { key: 'password', label: '密码' },
-  { key: 'bookmark', label: '书签' },
-  { key: 'note', label: '笔记' },
-  { key: 'file_ref', label: '文件' },
-  { key: 'settings', label: '设置' },
+  { key: 'password', icon: '🔑', label: '密码' },
+  { key: 'bookmark', icon: '🔖', label: '书签' },
+  { key: 'note', icon: '📝', label: '笔记' },
+  { key: 'settings', icon: '⚙️', label: '设置' },
 ];
 
 function syncSession() {
