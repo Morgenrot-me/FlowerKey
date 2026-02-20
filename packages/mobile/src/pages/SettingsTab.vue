@@ -16,6 +16,7 @@
       <!-- 同步方式选择 -->
       <div class="px-4 py-3">
         <p class="text-sm font-medium mb-2">同步方式</p>
+        <p class="text-xs text-gray-400 mb-2">WebDAV 可与浏览器插件互通；iCloud 仅限 iOS 设备间同步。</p>
         <div class="flex gap-2">
           <button @click="syncStore.setSyncMode('webdav')"
             :class="['flex-1 py-2 rounded-xl text-sm border', syncStore.syncMode === 'webdav' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300']">
@@ -51,8 +52,18 @@
       </div>
 
       <!-- iCloud 说明 -->
-      <div v-else class="px-4 py-3">
-        <p class="text-xs text-gray-500">数据将同步至 iCloud Drive / FlowerKey 目录，无需额外配置。请确保设备已登录 iCloud 并开启 iCloud Drive。</p>
+      <div v-else class="px-4 py-3 flex flex-col gap-2">
+        <p class="text-xs text-gray-500">数据将同步至 iCloud Drive / FlowerKey 目录，无需账号密码，开箱即用。</p>
+        <button @click="showICloudGuide = !showICloudGuide" class="text-left text-xs text-blue-500">
+          {{ showICloudGuide ? '▲ 收起' : '▼ 使用前请确认' }}
+        </button>
+        <div v-if="showICloudGuide" class="p-3 bg-blue-50 rounded-xl flex flex-col gap-1.5 text-xs text-gray-600 leading-relaxed">
+          <p class="font-medium">iCloud 同步前提</p>
+          <p>① 设置 → 顶部账户 → iCloud → 确认已开启 <b>iCloud Drive</b></p>
+          <p>② 设置 → 顶部账户 → iCloud → 向下找到花钥，确认已开启同步开关</p>
+          <p>③ 多设备同步时，所有设备均需登录<b>同一 Apple ID</b></p>
+          <p class="text-gray-400">🔒 花钥只上传加密密文，Apple 无法读取任何内容。你的主密码永远不会离开设备。</p>
+        </div>
       </div>
 
       <!-- 同步操作 -->
@@ -171,6 +182,7 @@ const mainStore = useMainStore();
 const syncStore = useSyncStore();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
+const showICloudGuide = ref(false);
 
 onMounted(async () => {
   await syncStore.loadConfig();

@@ -15,6 +15,7 @@
     <!-- WebDAV 配置 -->
     <div class="space-y-2">
       <p class="font-medium text-gray-700 dark:text-gray-300">WebDAV 同步</p>
+      <p class="text-[10px] text-gray-400 dark:text-gray-500">配置后可与手机端花钥双向同步，WebDAV 是浏览器插件与移动端互通的唯一方式。</p>
       <input v-model="form.url" placeholder="服务器地址（如 https://dav.jianguoyun.com/dav/）" class="input" />
       <input v-model="form.username" placeholder="用户名" class="input" />
       <input v-model="form.password" type="password" placeholder="密码" class="input" />
