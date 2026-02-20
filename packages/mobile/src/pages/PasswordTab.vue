@@ -36,6 +36,8 @@
         <p class="text-xs text-gray-400 px-1">代号用于区分不同网站，相同主密码+代号在任何设备都生成相同密码，即使数据丢失也可还原。</p>
         <input v-model="form.description" placeholder="描述（可选）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
+        <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）"
+          class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
       </div>
     </div>
   </div>
@@ -51,7 +53,7 @@ const store = useEntriesStore();
 const main = useMainStore();
 const copiedId = ref('');
 const showForm = ref(false);
-const form = ref({ codename: '', description: '' });
+const form = ref({ codename: '', description: '', url: '' });
 
 onMounted(() => store.load('password'));
 
@@ -64,8 +66,8 @@ async function generate(e: typeof store.filtered[0]) {
 
 async function save() {
   if (!form.value.codename.trim()) return;
-  await store.create({ type: 'password', codename: form.value.codename.trim(), description: form.value.description, tags: [], folder: '' });
-  form.value = { codename: '', description: '' };
+  await store.create({ type: 'password', codename: form.value.codename.trim(), description: form.value.description, url: form.value.url || undefined, tags: [], folder: '' });
+  form.value = { codename: '', description: '', url: '' };
   showForm.value = false;
 }
 </script>
