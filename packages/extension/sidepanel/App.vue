@@ -119,10 +119,11 @@ onMounted(async () => {
     const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
     if (state?.isUnlocked && state.masterPwd) {
       // background 内存仍持有 masterPwd，直接恢复 sidepanel 状态
+      // 先赋值再设 isUnlocked，避免 watch 用空 masterPwd 触发 setUnlocked
       mainStore.masterPwd = state.masterPwd;
       mainStore.userSalt = state.userSalt;
-      mainStore.isUnlocked = true;
       db.setDbKey(await deriveDatabaseKey(state.masterPwd, state.userSalt));
+      mainStore.isUnlocked = true;
     }
   }
   if (mainStore.isUnlocked) await entriesStore.loadEntries();
@@ -130,11 +131,11 @@ onMounted(async () => {
 });
 
 watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (unlocked) {
+  if (unlocked && mainStore.masterPwd) {
     // 解锁时将 masterPwd 同步给 background 内存（仅此一次传输）
     chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
     entriesStore.loadEntries();
-  } else {
+  } else if (!unlocked) {
     chrome.runtime.sendMessage({ type: 'setLocked' });
   }
 });
