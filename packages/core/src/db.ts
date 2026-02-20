@@ -9,7 +9,7 @@ import { encrypt, decrypt } from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /** 需要加密存储的敏感字段 */
-const ENCRYPTED_FIELDS = ['codename', 'url', 'title', 'description', 'fileName', 'sourceUrl'] as const;
+const ENCRYPTED_FIELDS = ['codename', 'url', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword'] as const;
 type EncryptedField = typeof ENCRYPTED_FIELDS[number];
 
 export class FlowerKeyDB extends Dexie {

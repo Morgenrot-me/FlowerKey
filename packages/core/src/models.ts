@@ -24,6 +24,7 @@ export interface Entry {
   salt?: string;
   charsetMode?: CharsetMode;
   passwordLength?: number;
+  storedPassword?: string;  // 存储模式：直接加密存储任意密码（与生成模式互斥）
 
   // 书签条目字段
   url?: string;

@@ -12,20 +12,30 @@
       <div class="space-y-2 text-xs">
         <!-- 密码条目字段 -->
         <template v-if="type === 'password'">
-          <input v-model="form.codename" placeholder="区分代号" class="input" />
-          <input v-model="form.salt" placeholder="自定义盐（可选）" class="input" />
-          <div class="flex gap-2">
-            <select v-model="form.charsetMode" class="input flex-1">
-              <option value="alphanumeric">字母+数字</option>
-              <option value="with_symbols">含特殊字符</option>
-            </select>
-            <select v-model.number="form.passwordLength" class="input w-20">
-              <option :value="8">8位</option>
-              <option :value="16">16位</option>
-              <option :value="24">24位</option>
-              <option :value="32">32位</option>
-            </select>
+          <div class="flex gap-2 text-xs">
+            <button @click="pwdMode = 'generate'" :class="['flex-1 py-1 rounded border', pwdMode === 'generate' ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 dark:border-gray-600']">生成模式</button>
+            <button @click="pwdMode = 'store'" :class="['flex-1 py-1 rounded border', pwdMode === 'store' ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 dark:border-gray-600']">存储模式</button>
           </div>
+          <template v-if="pwdMode === 'generate'">
+            <input v-model="form.codename" placeholder="区分代号" class="input" />
+            <input v-model="form.salt" placeholder="自定义盐（可选）" class="input" />
+            <div class="flex gap-2">
+              <select v-model="form.charsetMode" class="input flex-1">
+                <option value="alphanumeric">字母+数字</option>
+                <option value="with_symbols">含特殊字符</option>
+              </select>
+              <select v-model.number="form.passwordLength" class="input w-20">
+                <option :value="8">8位</option>
+                <option :value="16">16位</option>
+                <option :value="24">24位</option>
+                <option :value="32">32位</option>
+              </select>
+            </div>
+          </template>
+          <template v-else>
+            <input v-model="form.codename" placeholder="名称（如 github）" class="input" />
+            <input v-model="form.storedPassword" type="password" placeholder="密码（加密存储）" class="input" autocomplete="new-password" />
+          </template>
         </template>
 
         <!-- 书签条目字段 -->
@@ -62,9 +72,10 @@ const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]
 
 const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用' }[props.type]));
 
+const pwdMode = ref<'generate' | 'store'>('generate');
 const form = ref({
   codename: '', salt: '', charsetMode: 'alphanumeric' as const,
-  passwordLength: 16, title: '', url: '', fileName: '',
+  passwordLength: 16, storedPassword: '', title: '', url: '', fileName: '',
   sourceUrl: '', folder: '', description: '',
 });
 const tagsInput = ref('');
@@ -73,6 +84,7 @@ onMounted(() => {
   if (props.entry) {
     Object.assign(form.value, props.entry);
     tagsInput.value = props.entry.tags?.join(', ') || '';
+    if (props.entry.storedPassword) pwdMode.value = 'store';
   }
 });
 
@@ -82,20 +94,18 @@ function save() {
     tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean),
     folder: form.value.folder || '/',
     description: form.value.description,
-    ...(props.type === 'password' && {
+    ...(props.type === 'password' && pwdMode.value === 'generate' && {
       codename: form.value.codename,
       salt: form.value.salt,
       charsetMode: form.value.charsetMode,
       passwordLength: form.value.passwordLength,
     }),
-    ...(props.type === 'bookmark' && {
-      title: form.value.title,
-      url: form.value.url,
+    ...(props.type === 'password' && pwdMode.value === 'store' && {
+      codename: form.value.codename,
+      storedPassword: form.value.storedPassword,
     }),
-    ...(props.type === 'file_ref' && {
-      fileName: form.value.fileName,
-      sourceUrl: form.value.sourceUrl,
-    }),
+    ...(props.type === 'bookmark' && { title: form.value.title, url: form.value.url }),
+    ...(props.type === 'file_ref' && { fileName: form.value.fileName, sourceUrl: form.value.sourceUrl }),
   });
 }
 </script>

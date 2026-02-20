@@ -20,7 +20,7 @@
         </div>
       </div>
       <div class="flex gap-1 shrink-0">
-        <button v-if="entry.type === 'password'" @click="onGenerate(entry)" :class="['px-1.5 py-0.5 rounded', copiedId === entry.id ? 'bg-green-50 text-green-600 dark:bg-green-900 dark:text-green-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300']">{{ copiedId === entry.id ? '已复制' : '生成' }}</button>
+        <button v-if="entry.type === 'password'" @click="onAction(entry)" :class="['px-1.5 py-0.5 rounded', copiedId === entry.id ? 'bg-green-50 text-green-600 dark:bg-green-900 dark:text-green-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300']">{{ copiedId === entry.id ? '已复制' : (entry.storedPassword ? '复制' : '生成') }}</button>
         <button @click="$emit('edit', entry)" class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded hover:bg-gray-200">编辑</button>
         <button @click="$emit('delete', entry.id)" class="px-1.5 py-0.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded">删除</button>
       </div>
@@ -36,8 +36,12 @@ defineProps<{ entries: Entry[] }>();
 const emit = defineEmits<{ edit: [Entry]; delete: [string]; generate: [Entry] }>();
 
 const copiedId = ref('');
-function onGenerate(entry: Entry) {
-  emit('generate', entry);
+function onAction(entry: Entry) {
+  if (entry.storedPassword) {
+    navigator.clipboard.writeText(entry.storedPassword);
+  } else {
+    emit('generate', entry);
+  }
   copiedId.value = entry.id;
   setTimeout(() => { copiedId.value = ''; }, 1500);
 }
