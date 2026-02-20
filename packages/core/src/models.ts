@@ -24,6 +24,7 @@ export interface Entry {
   charsetMode?: CharsetMode;
   passwordLength?: number;
   storedPassword?: string;  // 存储模式：直接加密存储任意密码（与生成模式互斥）
+  appPackage?: string;      // 关联 Android App 包名（明文，用于 AutofillService 匹配）
 
   // 书签条目字段
   url?: string;

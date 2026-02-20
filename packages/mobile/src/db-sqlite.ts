@@ -30,7 +30,8 @@ export async function initSQLite() {
       createdAt INTEGER, updatedAt INTEGER,
       codename TEXT, charsetMode TEXT, passwordLength INTEGER, storedPassword TEXT,
       url TEXT, title TEXT, favicon TEXT, encrypted INTEGER,
-      content TEXT, fileName TEXT, sourceUrl TEXT, description TEXT
+      content TEXT, fileName TEXT, sourceUrl TEXT, description TEXT,
+      appPackage TEXT
     );
     CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT, updatedAt INTEGER);
     CREATE TABLE IF NOT EXISTS changelog (
@@ -38,6 +39,8 @@ export async function initSQLite() {
       operation TEXT, timestamp INTEGER, synced INTEGER, deviceId TEXT
     );
   `);
+  // 旧数据库迁移：补充 appPackage 列（已存在时忽略错误）
+  try { await db.execute('ALTER TABLE entries ADD COLUMN appPackage TEXT'); } catch {}
 }
 
 // ==================== 加密/解密 ====================
@@ -86,14 +89,15 @@ export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'update
   const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };
   const stored = await encryptEntry(entry);
   await db!.run(
-    `INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [stored.id, stored.type, stored.folder ?? '', JSON.stringify(stored.tags ?? []),
      stored.createdAt, stored.updatedAt, stored.codename ?? null, stored.charsetMode ?? null,
      stored.passwordLength ?? null, stored.storedPassword ?? null, stored.url ?? null,
      stored.title ?? null, stored.favicon ?? null,
      stored.encrypted === false ? 0 : null,
-     stored.content ?? null, stored.fileName ?? null, stored.sourceUrl ?? null, stored.description ?? null]
+     stored.content ?? null, stored.fileName ?? null, stored.sourceUrl ?? null, stored.description ?? null,
+     stored.appPackage ?? null]
   );
   await logChange(entry.id, 'create');
   return entry;

@@ -176,13 +176,11 @@ public class AutofillAuthActivity extends Activity {
         try {
             SQLiteDatabase db = openDb();
             Cursor c = db.rawQuery(
-                "SELECT codename FROM entries WHERE type='password' AND codename IS NOT NULL", null);
+                "SELECT codename FROM entries WHERE type='password' AND appPackage=? AND codename IS NOT NULL",
+                new String[]{packageName});
             SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
             while (c.moveToNext()) {
-                try {
-                    String enc = c.getString(0);
-                    result.add(aesGcmDecrypt(enc, aesKey));
-                } catch (Exception ignored) {}
+                try { result.add(aesGcmDecrypt(c.getString(0), aesKey)); } catch (Exception ignored) {}
             }
             c.close(); db.close();
         } catch (Exception ignored) {}
