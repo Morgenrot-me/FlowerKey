@@ -116,6 +116,32 @@
         清除本地数据
       </button>
     </div>
+
+    <!-- 安全说明 -->
+    <div class="border-t pt-3 space-y-2">
+      <button @click="showSecurity = !showSecurity" class="w-full text-left font-medium text-gray-700 dark:text-gray-300 flex justify-between items-center">
+        <span>安全说明</span>
+        <span class="text-gray-400">{{ showSecurity ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showSecurity" class="space-y-2 text-gray-500 dark:text-gray-400 leading-relaxed">
+        <p class="font-medium text-gray-600 dark:text-gray-300">本地存储了什么</p>
+        <table class="w-full text-[10px] border-collapse">
+          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400">verifyHash</td><td>明文哈希，仅用于验证密码，无法反推主密码</td></tr>
+          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400">代号/URL/标题</td><td>AES-256-GCM 加密后存储</td></tr>
+          <tr><td class="py-1 pr-2 text-gray-400">id/类型/标签</td><td>明文（索引字段，不含敏感信息）</td></tr>
+        </table>
+        <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">从未存储</p>
+        <ul class="list-disc list-inside text-[10px] space-y-0.5">
+          <li>主密码本身</li>
+          <li>任何网站的实际密码（生成模式）</li>
+          <li>数据库加密密钥（仅存于内存，锁定后清除）</li>
+        </ul>
+        <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
+        <p class="text-[10px]">PBKDF2（600,000 次迭代，SHA-256）+ AES-256-GCM，基于浏览器原生 Web Crypto API，零外部依赖。</p>
+        <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">网络请求</p>
+        <p class="text-[10px]">本插件仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -206,6 +232,7 @@ async function handleChangePwd() {
 
 // 方案三：导出/导入
 const importMsg = ref('');
+const showSecurity = ref(false);
 
 function handleExport() {
   mainStore.exportData().then(json => {
