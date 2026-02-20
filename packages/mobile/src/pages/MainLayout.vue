@@ -7,6 +7,7 @@
     <div class="flex-1 overflow-hidden">
       <PasswordTab v-if="tab === 'password'" />
       <BookmarkTab v-else-if="tab === 'bookmark'" />
+      <NoteTab v-else-if="tab === 'note'" />
       <SettingsTab v-else-if="tab === 'settings'" @lock="$emit('lock')" />
     </div>
 
@@ -26,6 +27,7 @@
 import { ref } from 'vue';
 import PasswordTab from './PasswordTab.vue';
 import BookmarkTab from './BookmarkTab.vue';
+import NoteTab from './NoteTab.vue';
 import SettingsTab from './SettingsTab.vue';
 
 defineEmits<{ lock: [] }>();
@@ -33,6 +35,7 @@ const tab = ref('password');
 const tabs = [
   { key: 'password', icon: '🔑', label: '密码' },
   { key: 'bookmark', icon: '🔖', label: '书签' },
+  { key: 'note', icon: '📝', label: '笔记' },
   { key: 'settings', icon: '⚙️', label: '设置' },
 ];
 </script>

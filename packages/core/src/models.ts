@@ -4,7 +4,7 @@
  */
 
 /** 条目类型 */
-export type EntryType = 'password' | 'bookmark' | 'file_ref';
+export type EntryType = 'password' | 'bookmark' | 'file_ref' | 'note';
 
 /** 密码输出字符集模式 */
 export type CharsetMode = 'alphanumeric' | 'with_symbols';
@@ -31,6 +31,9 @@ export interface Entry {
   title?: string;
   favicon?: string;
   encrypted?: boolean;  // false = 书签明文存储（不加密）
+
+  // 笔记字段
+  content?: string;  // 笔记正文（加密存储）
 
   // 文件引用字段
   fileName?: string;

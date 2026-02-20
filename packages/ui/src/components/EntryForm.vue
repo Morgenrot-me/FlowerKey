@@ -48,6 +48,12 @@
           <input v-model="form.url" placeholder="URL" class="input" />
         </template>
 
+        <!-- 笔记字段 -->
+        <template v-if="type === 'note'">
+          <input v-model="form.title" placeholder="标题（可选）" class="input" />
+          <textarea v-model="form.content" placeholder="笔记内容（端到端加密）" rows="6" class="input resize-none" />
+        </template>
+
         <!-- 文件引用字段 -->
         <template v-if="type === 'file_ref'">
           <input v-model="form.fileName" placeholder="文件名" class="input" />
@@ -59,7 +65,7 @@
         <input v-model="tagsInput" placeholder="标签（逗号分隔）" class="input" />
         <textarea v-model="form.description" placeholder="描述" rows="2" class="input" />
 
-        <button @click="save" :disabled="type === 'password' && !form.codename.trim()" class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
+        <button @click="save" :disabled="(type === 'password' && !form.codename.trim()) || (type === 'note' && !form.content.trim())" class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
           保存
         </button>
       </div>
@@ -74,14 +80,14 @@ import type { Entry, EntryType } from '@flowerkey/core';
 const props = defineProps<{ entry?: Entry; type: EntryType; initialMode?: 'generate' | 'store' }>();
 const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]; cancel: [] }>();
 
-const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用' }[props.type]));
+const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用', note: '笔记' }[props.type] ?? ''));
 
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
 const showPwd = ref(false);
 const form = ref({
   codename: '', salt: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '', fileName: '',
-  sourceUrl: '', folder: '', description: '',
+  sourceUrl: '', content: '', folder: '', description: '',
 });
 const tagsInput = ref('');
 
@@ -111,6 +117,7 @@ function save() {
     }),
     ...(props.type === 'bookmark' && { title: form.value.title, url: form.value.url }),
     ...(props.type === 'file_ref' && { fileName: form.value.fileName, sourceUrl: form.value.sourceUrl }),
+    ...(props.type === 'note' && { title: form.value.title, content: form.value.content }),
   });
 }
 </script>

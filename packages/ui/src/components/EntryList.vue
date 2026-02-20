@@ -14,7 +14,7 @@
           {{ entry.codename || entry.title || entry.fileName || '未命名' }}
         </div>
         <div class="text-gray-400 truncate">
-          {{ entry.description || entry.url || entry.sourceUrl || '' }}
+          {{ entry.type === 'note' ? (entry.content?.slice(0, 60) || '') : (entry.description || entry.url || entry.sourceUrl || '') }}
         </div>
         <div v-if="entry.tags?.length" class="flex gap-1 mt-0.5">
           <span v-for="t in entry.tags" :key="t" class="px-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded text-[10px]">{{ t }}</span>
