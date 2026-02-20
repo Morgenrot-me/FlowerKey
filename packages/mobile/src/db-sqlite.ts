@@ -13,7 +13,7 @@ const DB_NAME = 'flowerkey';
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 let db: Awaited<ReturnType<SQLiteConnection['createConnection']>> | null = null;
 
-const ENCRYPTED_FIELDS = ['codename', 'url', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
+const ENCRYPTED_FIELDS = ['codename', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
 type EncryptedField = typeof ENCRYPTED_FIELDS[number];
 
 let _dbKey: CryptoKey | null = null;
