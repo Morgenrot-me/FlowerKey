@@ -381,6 +381,162 @@ shadow.getElementById('fk-copy')!.addEventListener('click', () => {
   });
 });
 
+// ==================== 内联自动填充浮层 ====================
+const fillStyle = document.createElement('style');
+fillStyle.textContent = `
+  .fk-fill-popup {
+    position: fixed;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 2147483646;
+    min-width: 180px;
+    max-width: 280px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .fk-fill-header {
+    padding: 6px 10px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-weight: 600;
+    font-size: 11px;
+    border-bottom: 1px solid #dbeafe;
+  }
+  .fk-fill-item {
+    padding: 7px 10px;
+    cursor: pointer;
+    color: #111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fk-fill-item:hover { background: #eff6ff; color: #1d4ed8; }
+  .fk-fill-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .fk-fill-body input {
+    width: 100%; padding: 5px 8px; border: 1px solid #e5e7eb; border-radius: 5px;
+    font-size: 12px; outline: none; box-sizing: border-box; color: #111;
+  }
+  .fk-fill-body input:focus { border-color: #2563eb; }
+  .fk-fill-body button {
+    padding: 5px; background: #2563eb; color: white; border: none;
+    border-radius: 5px; cursor: pointer; font-size: 12px;
+  }
+  .fk-fill-body button:hover { background: #1d4ed8; }
+  .fk-fill-err { color: #ef4444; font-size: 11px; }
+  @media (prefers-color-scheme: dark) {
+    .fk-fill-popup { background: #1e2433; border-color: #374151; }
+    .fk-fill-header { background: #1a2540; color: #93c5fd; border-color: #2d3748; }
+    .fk-fill-item { color: #e2e8f0; }
+    .fk-fill-item:hover { background: #1e3a5f; color: #60a5fa; }
+    .fk-fill-body input { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+    .fk-fill-body input:focus { border-color: #3b82f6; }
+  }
+`;
+document.documentElement.appendChild(fillStyle);
+
+let fillPopup: HTMLElement | null = null;
+
+function removeFillPopup() {
+  fillPopup?.remove();
+  fillPopup = null;
+}
+
+function mountPopup(input: HTMLInputElement, content: HTMLElement) {
+  removeFillPopup();
+  const rect = input.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = 'fk-fill-popup';
+  const header = document.createElement('div');
+  header.className = 'fk-fill-header';
+  header.textContent = '🔑 花钥';
+  popup.appendChild(header);
+  popup.appendChild(content);
+  popup.style.cssText = `position:absolute;top:${rect.bottom + window.scrollY + 2}px;left:${rect.left + window.scrollX}px;`;
+  document.documentElement.appendChild(popup);
+  fillPopup = popup;
+}
+
+function showEntries(input: HTMLInputElement, entries: { id: string; codename: string }[]) {
+  const wrap = document.createElement('div');
+  for (const entry of entries) {
+    const item = document.createElement('div');
+    item.className = 'fk-fill-item';
+    item.textContent = entry.codename || '（无代号）';
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      chrome.runtime.sendMessage({ type: 'fillFromEntry', id: entry.id }, (res) => {
+        if (res?.password) {
+          input.value = res.password;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        removeFillPopup();
+      });
+    });
+    wrap.appendChild(item);
+  }
+  mountPopup(input, wrap);
+}
+
+function showUnlockForm(input: HTMLInputElement) {
+  const body = document.createElement('div');
+  body.className = 'fk-fill-body';
+  const pwdInput = document.createElement('input');
+  pwdInput.type = 'password';
+  pwdInput.placeholder = '记忆密码';
+  const err = document.createElement('div');
+  err.className = 'fk-fill-err';
+  err.style.display = 'none';
+  const btn = document.createElement('button');
+  btn.textContent = '解锁';
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const pwd = pwdInput.value;
+    if (!pwd) return;
+    chrome.runtime.sendMessage({ type: 'unlockFromContent', masterPwd: pwd }, (res) => {
+      if (res?.ok) {
+        chrome.runtime.sendMessage({ type: 'getMatchingEntries', host: location.hostname }, (r) => {
+          if (r?.entries?.length) showEntries(input, r.entries);
+          else removeFillPopup();
+        });
+      } else {
+        err.textContent = res?.error || '密码错误';
+        err.style.display = 'block';
+      }
+    });
+  });
+  body.appendChild(pwdInput);
+  body.appendChild(err);
+  body.appendChild(btn);
+  mountPopup(input, body);
+  // 延迟聚焦，避免触发 focusout 关闭浮层
+  setTimeout(() => pwdInput.focus(), 50);
+}
+
+function onPasswordFocus(e: FocusEvent) {
+  const input = e.target as HTMLInputElement;
+  chrome.runtime.sendMessage({ type: 'getMatchingEntries', host: location.hostname }, (res) => {
+    if (res?.locked) { showUnlockForm(input); return; }
+    if (res?.entries?.length) showEntries(input, res.entries);
+  });
+}
+
+document.addEventListener('focusin', (e) => {
+  const t = e.target as HTMLElement;
+  if (fillPopup?.contains(t)) return;
+  if (t.tagName === 'INPUT' && (t as HTMLInputElement).type === 'password') onPasswordFocus(e as FocusEvent);
+  else removeFillPopup();
+}, true);
+
+document.addEventListener('focusout', (e) => {
+  setTimeout(() => {
+    if (!fillPopup?.contains(document.activeElement)) removeFillPopup();
+  }, 150);
+}, true);
+
 // ==================== 接收消息 ====================
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'fillPassword') {

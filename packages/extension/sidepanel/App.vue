@@ -86,7 +86,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
-import { db, deriveDatabaseKey, type Entry, type EntryType } from '@flowerkey/core';
+import { db, type Entry, type EntryType } from '@flowerkey/core';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
@@ -111,40 +111,30 @@ const tabs = [
   { key: 'settings', icon: '⚙️', label: '设置' },
 ];
 
-function syncSession() {
-  chrome.runtime.sendMessage({
-    type: 'setSession',
-    isUnlocked: mainStore.isUnlocked,
-    masterPwd: mainStore.masterPwd,
-    userSalt: mainStore.userSalt,
-    unlockedAt: mainStore.isUnlocked ? Date.now() : 0,
-  });
-}
-
 onMounted(async () => {
   chrome.runtime.connect({ name: 'sidepanel' });
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  // 从 background 内存状态恢复解锁（masterPwd 不经过 storage）
   if (!mainStore.isUnlocked) {
-    const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt', 'unlockedAt']);
-    if (session.isUnlocked && session.masterPwd) {
-      const timeoutMin: number = (await db.getConfig<number>('lockTimeout')) ?? 5;
-      const elapsed = (Date.now() - (session.unlockedAt ?? 0)) / 60000;
-      if (elapsed < timeoutMin) {
-        mainStore.masterPwd = session.masterPwd;
-        mainStore.userSalt = session.userSalt;
-        mainStore.isUnlocked = true;
-        db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
-      }
+    const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
+    if (state?.isUnlocked) {
+      // background 已解锁但 sidepanel 刚打开：需要用户重新输入密码
+      // （masterPwd 不持久化，service worker 重启后自动锁定）
     }
   }
   if (mainStore.isUnlocked) await entriesStore.loadEntries();
   else if (!bookmarkEncrypt.value) await entriesStore.loadEntries('bookmark');
 });
 
-watch(() => mainStore.isUnlocked, (unlocked) => {
-  syncSession();
-  if (unlocked) entriesStore.loadEntries();
+watch(() => mainStore.isUnlocked, async (unlocked) => {
+  if (unlocked) {
+    // 解锁时将 masterPwd 同步给 background 内存（仅此一次传输）
+    chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+    entriesStore.loadEntries();
+  } else {
+    chrome.runtime.sendMessage({ type: 'setLocked' });
+  }
 });
 
 watch(currentTab, (tab) => {
