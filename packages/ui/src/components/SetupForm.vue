@@ -1,6 +1,6 @@
 <!--
   花钥 - 首次设置表单
-  设置记忆密码和自定义盐
+  设置记忆密码和密码生成盐（userSalt）
 -->
 <template>
   <div class="space-y-3">
@@ -15,10 +15,21 @@
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
     />
     <p class="text-[10px] text-gray-400 dark:text-gray-500">记忆密码决定所有生成密码的结果，输入有误将导致生成不同密码，确认输入以保证一致性。</p>
-    <input
-      v-model="salt" placeholder="自定义盐（可选，留空自动生成）"
-      class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
-    />
+
+    <!-- 高级选项：密码生成盐 -->
+    <button @click="showSalt = !showSalt" class="w-full text-left text-[10px] text-blue-500 hover:underline">
+      {{ showSalt ? '▲ 收起高级选项' : '▼ 高级选项（可选）' }}
+    </button>
+    <div v-if="showSalt" class="space-y-1.5">
+      <input
+        v-model="salt" placeholder="密码生成盐（默认 FlowerKey）"
+        class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+      />
+      <p class="text-[10px] text-orange-600 dark:text-orange-400">
+        ⚠️ 此盐参与所有密码的生成计算，设置后不可更改。多设备使用时必须在所有设备上填写相同的值，否则生成的密码将不一致。建议保持默认值。
+      </p>
+    </div>
+
     <p v-if="error" class="text-xs text-red-500">{{ error }}</p>
     <button
       @click="submit" :disabled="loading"
@@ -39,6 +50,7 @@ const mainStore = useMainStore();
 const pwd = ref('');
 const confirmPwd = ref('');
 const salt = ref('');
+const showSalt = ref(false);
 const error = ref('');
 const loading = ref(false);
 

@@ -23,7 +23,6 @@
             <template v-if="pwdMode === 'generate'">
               <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
               <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">相同主密码+代号在任何设备生成相同密码，数据丢失也可还原。</p>
-              <input v-model="form.salt" placeholder="自定义盐（可选）" class="input" />
               <div class="flex gap-2">
                 <select v-model="form.charsetMode" class="input flex-[3]">
                   <option value="alphanumeric">字母+数字</option>
@@ -121,7 +120,7 @@ const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
 const showPwd = ref(false);
 const form = ref({
-  codename: '', salt: '', charsetMode: 'alphanumeric' as const,
+  codename: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '',
   content: '', folder: '', description: '',
 });
@@ -168,7 +167,7 @@ function save() {
     folder: form.value.folder || '/',
     description: form.value.description,
     ...(props.type === 'password' && pwdMode.value === 'generate' && {
-      codename: form.value.codename, salt: form.value.salt,
+      codename: form.value.codename,
       charsetMode: form.value.charsetMode, passwordLength: form.value.passwordLength,
     }),
     ...(props.type === 'password' && pwdMode.value === 'store' && {
