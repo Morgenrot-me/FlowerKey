@@ -25,11 +25,11 @@
               <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">相同主密码+代号在任何设备生成相同密码，数据丢失也可还原。</p>
               <input v-model="form.salt" placeholder="自定义盐（可选）" class="input" />
               <div class="flex gap-2">
-                <select v-model="form.charsetMode" class="input flex-1">
+                <select v-model="form.charsetMode" class="input flex-[3]">
                   <option value="alphanumeric">字母+数字</option>
                   <option value="with_symbols">含特殊字符</option>
                 </select>
-                <select v-model.number="form.passwordLength" class="input w-20">
+                <select v-model.number="form.passwordLength" class="input flex-[2]">
                   <option :value="8">8位</option>
                   <option :value="16">16位</option>
                   <option :value="24">24位</option>
@@ -164,7 +164,7 @@ onMounted(() => {
 function save() {
   emit('save', {
     type: props.type,
-    tags: selectedTags.value,
+    tags: [...selectedTags.value],
     folder: form.value.folder || '/',
     description: form.value.description,
     ...(props.type === 'password' && pwdMode.value === 'generate' && {

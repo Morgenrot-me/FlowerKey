@@ -115,19 +115,25 @@ function syncSession() {
     isUnlocked: mainStore.isUnlocked,
     masterPwd: mainStore.masterPwd,
     userSalt: mainStore.userSalt,
+    unlockedAt: mainStore.isUnlocked ? Date.now() : 0,
   });
 }
 
 onMounted(async () => {
+  chrome.runtime.connect({ name: 'sidepanel' });
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   if (!mainStore.isUnlocked) {
-    const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt']);
+    const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt', 'unlockedAt']);
     if (session.isUnlocked && session.masterPwd) {
-      mainStore.masterPwd = session.masterPwd;
-      mainStore.userSalt = session.userSalt;
-      mainStore.isUnlocked = true;
-      db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
+      const timeoutMin: number = (await db.getConfig<number>('lockTimeout')) ?? 5;
+      const elapsed = (Date.now() - (session.unlockedAt ?? 0)) / 60000;
+      if (elapsed < timeoutMin) {
+        mainStore.masterPwd = session.masterPwd;
+        mainStore.userSalt = session.userSalt;
+        mainStore.isUnlocked = true;
+        db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
+      }
     }
   }
   if (mainStore.isUnlocked) await entriesStore.loadEntries();

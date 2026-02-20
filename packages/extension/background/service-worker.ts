@@ -36,6 +36,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'sidepanel') return;
+  port.onDisconnect.addListener(async () => {
+    const lockOnClose = (await db.getConfig<boolean>('lockOnClose')) ?? false;
+    if (lockOnClose) {
+      await chrome.storage.session.set({ isUnlocked: false, masterPwd: '', userSalt: '', unlockedAt: 0 });
+    }
+  });
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'getUnlockState') {
     getSession().then(s => sendResponse({ isUnlocked: s.isUnlocked }));
@@ -104,7 +114,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'setSession') {
-    chrome.storage.session.set({ isUnlocked: msg.isUnlocked, masterPwd: msg.masterPwd ?? '', userSalt: msg.userSalt ?? '' });
+    chrome.storage.session.set({ isUnlocked: msg.isUnlocked, masterPwd: msg.masterPwd ?? '', userSalt: msg.userSalt ?? '', unlockedAt: msg.unlockedAt ?? 0 });
     sendResponse();
     return;
   }

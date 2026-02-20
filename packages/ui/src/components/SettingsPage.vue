@@ -59,6 +59,27 @@
       <p v-if="syncStore.error" class="text-red-500">{{ syncStore.error }}</p>
     </div>
 
+    <!-- 锁定超时 -->
+    <div class="border-t pt-3 space-y-2">
+      <p class="font-medium text-gray-700 dark:text-gray-300">自动锁定</p>
+      <div class="flex items-center gap-2">
+        <span class="text-gray-500 dark:text-gray-400">闲置</span>
+        <select v-model.number="lockTimeout" @change="saveLockTimeout" class="input flex-1">
+          <option :value="1">1 分钟</option>
+          <option :value="5">5 分钟</option>
+          <option :value="15">15 分钟</option>
+          <option :value="30">30 分钟</option>
+          <option :value="60">1 小时</option>
+          <option :value="480">8 小时</option>
+        </select>
+        <span class="text-gray-500 dark:text-gray-400">后锁定</span>
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" v-model="lockOnClose" @change="saveLockOnClose" class="rounded" />
+        <span class="text-gray-500 dark:text-gray-400">关闭侧边栏时立即锁定</span>
+      </label>
+    </div>
+
     <!-- 书签加密 -->
     <div class="border-t pt-3 space-y-2">
       <p class="font-medium text-gray-700 dark:text-gray-300">书签设置</p>
@@ -197,6 +218,8 @@ onMounted(async () => {
   const data = await db.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  lockTimeout.value = (await db.getConfig<number>('lockTimeout')) ?? 5;
+  lockOnClose.value = (await db.getConfig<boolean>('lockOnClose')) ?? false;
 });
 
 async function saveConfig() {
@@ -206,6 +229,15 @@ async function saveConfig() {
 
 // 书签加密设置
 const bookmarkEncrypt = ref(true);
+const lockTimeout = ref(5);
+const lockOnClose = ref(false);
+
+async function saveLockTimeout() {
+  await db.setConfig('lockTimeout', lockTimeout.value);
+}
+async function saveLockOnClose() {
+  await db.setConfig('lockOnClose', lockOnClose.value);
+}
 const showBookmarkPwdInput = ref(false);
 const bookmarkPwdInput = ref('');
 const bookmarkEncryptProcessing = ref(false);
