@@ -369,10 +369,15 @@ function scheduleGenerate() {
 // ==================== 复制 ====================
 shadow.getElementById('fk-copy')!.addEventListener('click', () => {
   const pwd = (shadow.getElementById('fk-pwd') as HTMLElement).textContent || '';
+  const codename = (shadow.getElementById('fk-codename') as HTMLInputElement).value.trim();
+  const masterPwd = (shadow.getElementById('fk-master') as HTMLInputElement).value;
+  const mode = (shadow.getElementById('fk-mode') as HTMLSelectElement).value;
+  const length = parseInt((shadow.getElementById('fk-length') as HTMLSelectElement).value);
   navigator.clipboard.writeText(pwd).then(() => {
     const btn = shadow.getElementById('fk-copy')!;
     btn.textContent = '已复制';
     setTimeout(() => { btn.textContent = '复制'; }, 1500);
+    chrome.runtime.sendMessage({ type: 'generatePasswordDirect', masterPwd, codename, mode, length, url: location.href });
   });
 });
 

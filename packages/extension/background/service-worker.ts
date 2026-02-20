@@ -76,7 +76,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const password = await generatePassword(msg.masterPwd, userSalt, msg.codename, msg.mode, msg.length);
         if (verified) {
           const existing = await db.entries.where('type').equals('password').filter(e => e.codename === msg.codename).first();
-          if (!existing) await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '' });
+          if (!existing) await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '', ...(msg.url && { url: msg.url }) });
         }
         sendResponse({ password, verified });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
