@@ -29,6 +29,7 @@ export interface Entry {
   url?: string;
   title?: string;
   favicon?: string;
+  encrypted?: boolean;  // false = 书签明文存储（不加密）
 
   // 文件引用字段
   fileName?: string;

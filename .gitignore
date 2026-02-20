@@ -5,6 +5,11 @@ dist/
 .DS_Store
 Thumbs.db
 
+# IDE / 工具
+.claude/
+.vscode/
+app.js
+
 # Capacitor 生成的原生项目
 packages/mobile/android/
 packages/mobile/ios/

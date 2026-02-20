@@ -7,13 +7,9 @@
     <h2 class="text-sm font-bold">设置</h2>
 
     <!-- 数据安全警告 -->
-    <div v-if="!syncStore.config && !hasRecovery"
+    <div v-if="!syncStore.config"
       class="p-2 bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded text-orange-700 dark:text-orange-300">
-      ⚠️ 未配置 WebDAV 同步且未生成恢复码。卸载插件将永久丢失所有数据，建议至少完成其中一项。
-    </div>
-    <div v-else-if="!syncStore.config"
-      class="p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded text-yellow-700 dark:text-yellow-400">
-      未配置 WebDAV 同步，卸载插件将丢失数据。
+      ⚠️ 未配置 WebDAV 同步。卸载插件或换设备将永久丢失所有数据，建议配置同步或定期导出备份。
     </div>
 
     <!-- WebDAV 配置 -->
@@ -43,6 +39,31 @@
       <p v-if="syncStore.error" class="text-red-500">{{ syncStore.error }}</p>
     </div>
 
+    <!-- 书签加密 -->
+    <div class="border-t pt-3 space-y-2">
+      <p class="font-medium text-gray-700 dark:text-gray-300">书签设置</p>
+      <p class="text-gray-500 dark:text-gray-400">
+        当前：书签{{ bookmarkEncrypt ? '已加密' : '未加密' }}。
+        {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
+      </p>
+      <div v-if="!showBookmarkPwdInput">
+        <button @click="showBookmarkPwdInput = true" class="w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
+          {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
+        </button>
+      </div>
+      <div v-else class="space-y-1">
+        <p class="text-yellow-600 dark:text-yellow-400">请输入主密码以确认操作：</p>
+        <input v-model="bookmarkPwdInput" type="password" placeholder="主密码" class="input" @keyup.enter="confirmBookmarkEncrypt" />
+        <div class="flex gap-2">
+          <button @click="confirmBookmarkEncrypt" :disabled="bookmarkEncryptProcessing" class="flex-1 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
+            {{ bookmarkEncryptProcessing ? '处理中...' : '确认' }}
+          </button>
+          <button @click="cancelBookmarkEncrypt" class="flex-1 py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">取消</button>
+        </div>
+        <p v-if="bookmarkEncryptError" class="text-red-500">{{ bookmarkEncryptError }}</p>
+      </div>
+    </div>
+
     <!-- 账户安全 -->
     <div class="border-t pt-3 space-y-3">
       <p class="font-medium text-gray-700 dark:text-gray-300">账户安全</p>
@@ -51,7 +72,7 @@
       <div class="space-y-1">
         <p class="text-gray-500 dark:text-gray-400">恢复码可在忘记主密码时恢复账户，请妥善保管。</p>
         <button @click="handleGenerateRecovery" class="w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
-          生成新恢复码
+          {{ hasRecovery ? '重新生成恢复码（旧码将失效）' : '生成恢复码' }}
         </button>
         <div v-if="recoveryCode" class="p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded break-all font-mono select-all">
           {{ recoveryCode }}
@@ -102,19 +123,20 @@
 import { ref, onMounted } from 'vue';
 import { useSyncStore } from '../stores/sync';
 import { useMainStore } from '../stores/main';
-import { db, type WebDAVConfig } from '@flowerkey/core';
+import type { WebDAVConfig } from '@flowerkey/core';
+import { db } from '@flowerkey/core';
 
 const syncStore = useSyncStore();
 const mainStore = useMainStore();
 
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
-const hasRecovery = ref(false);
 
 onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   const data = await db.getMasterData();
-  hasRecovery.value = !!data?.encryptedMasterPwd;
+  hasRecovery.value = !!(data?.encryptedMasterPwd);
+  bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
 });
 
 async function saveConfig() {
@@ -122,9 +144,40 @@ async function saveConfig() {
   await syncStore.saveConfig({ ...form.value });
 }
 
+// 书签加密设置
+const bookmarkEncrypt = ref(true);
+const showBookmarkPwdInput = ref(false);
+const bookmarkPwdInput = ref('');
+const bookmarkEncryptProcessing = ref(false);
+const bookmarkEncryptError = ref('');
+
+function cancelBookmarkEncrypt() {
+  showBookmarkPwdInput.value = false;
+  bookmarkPwdInput.value = '';
+  bookmarkEncryptError.value = '';
+}
+
+async function confirmBookmarkEncrypt() {
+  bookmarkEncryptError.value = '';
+  bookmarkEncryptProcessing.value = true;
+  try {
+    const ok = await mainStore.unlock(bookmarkPwdInput.value);
+    if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
+    const newVal = !bookmarkEncrypt.value;
+    await db.setBookmarkEncryption(newVal);
+    await db.setConfig('bookmarkEncrypt', newVal);
+    bookmarkEncrypt.value = newVal;
+    cancelBookmarkEncrypt();
+  } finally {
+    bookmarkEncryptProcessing.value = false;
+  }
+}
+
 // 方案一：恢复码
 const recoveryCode = ref('');
+const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
+  if (hasRecovery.value && !confirm('生成新恢复码后，旧恢复码将立即失效，确认继续？')) return;
   recoveryCode.value = await mainStore.generateRecovery();
   hasRecovery.value = true;
 }

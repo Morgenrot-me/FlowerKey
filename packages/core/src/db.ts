@@ -33,7 +33,7 @@ export class FlowerKeyDB extends Dexie {
 
   /** 加密条目敏感字段，返回存储用对象 */
   private async encryptEntry(entry: Entry): Promise<Entry> {
-    if (!this._dbKey) return entry;
+    if (!this._dbKey || entry.encrypted === false) return entry;
     const result = { ...entry };
     for (const field of ENCRYPTED_FIELDS) {
       const val = entry[field as EncryptedField];
@@ -48,7 +48,7 @@ export class FlowerKeyDB extends Dexie {
 
   /** 解密条目敏感字段 */
   private async decryptEntry(entry: Entry): Promise<Entry> {
-    if (!this._dbKey) return entry;
+    if (!this._dbKey || entry.encrypted === false) return entry;
     const result = { ...entry };
     for (const field of ENCRYPTED_FIELDS) {
       const val = entry[field as EncryptedField];
@@ -101,6 +101,21 @@ export class FlowerKeyDB extends Dexie {
     this._dbKey = newKey;
     const reEncrypted = await Promise.all(decrypted.map(e => this.encryptEntry(e)));
     await this.entries.bulkPut(reEncrypted);
+  }
+
+  /** 批量设置书签加密状态（encrypt=true 加密所有书签，false 解密所有书签） */
+  async setBookmarkEncryption(encrypt: boolean): Promise<void> {
+    const bookmarks = await this.entries.where('type').equals('bookmark').toArray();
+    const processed = await Promise.all(bookmarks.map(async (e) => {
+      const plain = await this.decryptEntry(e);
+      if (encrypt) {
+        const { encrypted: _, ...rest } = plain;
+        return this.encryptEntry(rest as Entry);
+      } else {
+        return { ...plain, encrypted: false as const };
+      }
+    }));
+    await this.entries.bulkPut(processed);
   }
 
   async createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {

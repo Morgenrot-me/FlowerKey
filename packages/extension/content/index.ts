@@ -184,7 +184,7 @@ shadow.appendChild(style);
 // ==================== 悬浮球 ====================
 const ball = document.createElement('div');
 ball.className = 'ball';
-ball.innerHTML = `<svg viewBox="0 0 24 24" fill="#1e40af"><path d="M12.65 10A6 6 0 1 0 10 12.65L18.35 21 21 18.35l-1.5-1.5-1.5 1.5-1.5-1.5 1.5-1.5L12.65 10zM7 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>`;
+ball.innerHTML = `<svg viewBox="0 0 24 24" fill="white"><path d="M12.65 10A6 6 0 1 0 10 12.65L18.35 21 21 18.35l-1.5-1.5-1.5 1.5-1.5-1.5 1.5-1.5L12.65 10zM7 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>`;
 shadow.appendChild(ball);
 
 // ==================== 浮层面板 ====================
@@ -227,7 +227,8 @@ let panelX = -1, panelY = -1; // -1 表示跟随悬浮球
 
 function updatePositions() {
   const clampedY = Math.max(22, Math.min(window.innerHeight - 66, ballY));
-  const clampedX = Math.max(0, Math.min(window.innerWidth - 44, ballX));
+  const clampedX = snapSide === 'right' ? window.innerWidth - 74 : 14;
+  ball.classList.toggle('snap-left', snapSide === 'left');
   ball.style.top = `${clampedY}px`;
   ball.style.left = `${clampedX}px`;
   if (isMobile) {
@@ -235,20 +236,14 @@ function updatePositions() {
     return;
   }
   const ph = panel.offsetHeight || 300;
-  if (panelX >= 0) {
-    panel.style.left = `${Math.max(0, Math.min(window.innerWidth - 280, panelX))}px`;
-    panel.style.right = 'auto';
-    panel.style.top = `${Math.max(12, Math.min(window.innerHeight - ph - 8, panelY))}px`;
+  if (snapSide === 'right') {
+    panel.style.right = '12px';
+    panel.style.left = 'auto';
   } else {
-    if (snapSide === 'right') {
-      panel.style.right = `${window.innerWidth - clampedX - 44 + 8}px`;
-      panel.style.left = 'auto';
-    } else {
-      panel.style.left = `${clampedX + 52}px`;
-      panel.style.right = 'auto';
-    }
-    panel.style.top = `${Math.max(12, Math.min(clampedY, window.innerHeight - ph - 8))}px`;
+    panel.style.left = '12px';
+    panel.style.right = 'auto';
   }
+  panel.style.top = `${Math.max(12, Math.min(clampedY, window.innerHeight - ph - 8))}px`;
 }
 updatePositions();
 
@@ -268,16 +263,14 @@ ball.addEventListener('pointerdown', (e) => {
       updatePositions();
     }
   };
-  const onUp = () => {
+  const onUp = (e: PointerEvent) => {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     if (isDragging) {
-      const midX = window.innerWidth / 2;
-      snapSide = ballX + 22 < midX ? 'left' : 'right';
-      ballX = snapSide === 'right' ? window.innerWidth - 74 : 14;
+      snapSide = ballX + 22 < window.innerWidth / 2 ? 'left' : 'right';
       ball.style.transition = 'left 0.2s ease, top 0.1s ease';
       updatePositions();
-      setTimeout(() => { ball.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease'; }, 220);
+      setTimeout(() => { ball.style.transition = ''; }, 220);
       return;
     }
     togglePanel();
@@ -391,6 +384,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       input.value = msg.password;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
+  }
+  if (msg.type === 'getPageMeta') {
+    sendResponse({
+      title: document.title,
+      url: location.href,
+      favicon: (document.querySelector('link[rel~="icon"]') as HTMLLinkElement)?.href || `${location.origin}/favicon.ico`,
+      image: (document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content || (document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement)?.content || '',
+      description: (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '',
+    });
+    return;
   }
   sendResponse();
 });

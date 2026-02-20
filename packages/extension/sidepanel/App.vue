@@ -5,7 +5,7 @@
 <template>
   <div class="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-gray-100">
     <SetupForm v-if="!mainStore.isSetup" @done="() => {}" class="p-4" />
-    <UnlockForm v-else-if="!mainStore.isUnlocked" @unlocked="() => {}" class="p-4" />
+    <UnlockForm v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" @unlocked="() => {}" class="p-4" />
 
     <template v-else>
       <!-- 顶栏 -->
@@ -77,7 +77,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
-import type { Entry, EntryType } from '@flowerkey/core';
+import { db, deriveDatabaseKey, type Entry, type EntryType } from '@flowerkey/core';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
@@ -91,6 +91,7 @@ const searchQuery = ref('');
 const showAddForm = ref(false);
 const editingEntry = ref<Entry | undefined>();
 const currentTab = ref('password');
+const bookmarkEncrypt = ref(true);
 
 const tabs = [
   { key: 'password', label: '密码' },
@@ -110,7 +111,18 @@ function syncSession() {
 
 onMounted(async () => {
   await mainStore.checkSetup();
+  bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  if (!mainStore.isUnlocked) {
+    const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt']);
+    if (session.isUnlocked && session.masterPwd) {
+      mainStore.masterPwd = session.masterPwd;
+      mainStore.userSalt = session.userSalt;
+      mainStore.isUnlocked = true;
+      db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
+    }
+  }
   if (mainStore.isUnlocked) await entriesStore.loadEntries();
+  else if (!bookmarkEncrypt.value) await entriesStore.loadEntries('bookmark');
 });
 
 watch(() => mainStore.isUnlocked, (unlocked) => {
@@ -119,7 +131,9 @@ watch(() => mainStore.isUnlocked, (unlocked) => {
 });
 
 watch(currentTab, (tab) => {
-  if (tab !== 'settings') entriesStore.loadEntries(tab as EntryType);
+  if (tab !== 'settings' && (mainStore.isUnlocked || (tab === 'bookmark' && !bookmarkEncrypt.value))) {
+    entriesStore.loadEntries(tab as EntryType);
+  }
 });
 
 function onSearch() {

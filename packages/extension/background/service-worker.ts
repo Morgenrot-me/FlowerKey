@@ -91,28 +91,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'getPageMeta') {
-    chrome.tabs.query({ active: true, currentWindow: true }, async tabs => {
-      const tab = tabs[0];
+    (async () => {
+      const tabs = await chrome.tabs.query({ active: true });
+      const tab = tabs.find(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about'));
       if (!tab?.id) { sendResponse({}); return; }
       try {
-        const [result] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => ({
-            title: document.title,
-            url: location.href,
-            favicon: (document.querySelector('link[rel~="icon"]') as HTMLLinkElement)?.href
-              || `${location.origin}/favicon.ico`,
-            image: (document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content
-              || (document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement)?.content
-              || '',
-            description: (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content
-              || (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content
-              || '',
-          }),
-        });
-        sendResponse(result.result ?? {});
+        const result = await chrome.tabs.sendMessage(tab.id, { type: 'getPageMeta' });
+        sendResponse(result ?? {});
       } catch { sendResponse({ title: tab.title || '', url: tab.url || '', favicon: tab.favIconUrl || '', image: '', description: '' }); }
-    });
+    })();
     return true;
   }
 
