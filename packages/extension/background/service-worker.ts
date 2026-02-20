@@ -63,7 +63,7 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'getUnlockState') {
-    sendResponse({ isUnlocked: _isUnlocked, userSalt: _userSalt });
+    sendResponse({ isUnlocked: _isUnlocked, userSalt: _userSalt, masterPwd: _masterPwd });
     return;
   }
 
