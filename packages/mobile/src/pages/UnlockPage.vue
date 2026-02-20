@@ -4,6 +4,7 @@
 <template>
   <div class="flex-1 flex flex-col justify-center px-8 gap-4">
     <h1 class="text-2xl font-bold text-center text-blue-600">🔑 花钥</h1>
+    <p class="text-xs text-center text-gray-400">主密码不存储，数据库密钥仅存于内存，锁定后立即清除</p>
     <input v-model="pwd" type="password" placeholder="输入记忆密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400"
       @keyup.enter="submit" />

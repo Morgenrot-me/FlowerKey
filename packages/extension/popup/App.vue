@@ -50,7 +50,7 @@
           class="w-full py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50">
           {{ saving ? '保存中...' : saved ? '✓ 已收藏' : '收藏' }}
         </button>
-        <p v-if="saveError" class="text-xs text-red-500 text-center">{{ saveError }}</p>
+        <p v-if="saveError" class="text-xs text-red-500 text-center">{{ saveError }} <button @click="saveBookmark" class="underline">重试</button></p>
         <p v-if="initError" class="text-xs text-red-400 text-center break-all">{{ initError }}</p>
       </div>
 
@@ -162,6 +162,8 @@ function onUnlocked() {}
 async function saveBookmark() {
   saving.value = true; saveError.value = '';
   try {
+    const existing = await db.getBookmarkByUrl(form.value.url);
+    if (existing) { saveError.value = '该网址已收藏'; return; }
     const tags = tagsInput.value ? tagsInput.value.split(',').map(t => t.trim()).filter(Boolean) : [];
     await entriesStore.createEntry({
       type: 'bookmark',

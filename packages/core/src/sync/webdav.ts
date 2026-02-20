@@ -4,6 +4,7 @@
  */
 
 import { createClient, type WebDAVClient } from 'webdav';
+import type { StorageBackend } from './backend.js';
 
 export interface WebDAVConfig {
   url: string;
@@ -12,7 +13,7 @@ export interface WebDAVConfig {
   basePath?: string;
 }
 
-export class FlowerKeyWebDAV {
+export class FlowerKeyWebDAV implements StorageBackend {
   private client: WebDAVClient;
   private base: string;
 

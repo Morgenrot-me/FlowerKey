@@ -5,6 +5,7 @@
  */
 
 import { FlowerKeyWebDAV, type WebDAVConfig } from './webdav.js';
+import type { StorageBackend } from './backend.js';
 import { serializeOpLog, deserializeOpLog, type OpLogEntry } from './changelog.js';
 import { encrypt, decrypt, deriveDatabaseKey } from '../crypto.js';
 import { db } from '../db.js';
@@ -14,13 +15,14 @@ const LOCK_TIMEOUT_MS = 60_000;
 const OPLOG_COMPACT_THRESHOLD = 20;
 
 export class SyncEngine {
-  private dav: FlowerKeyWebDAV;
+  private dav: StorageBackend;
   private masterPwd: string;
   private userSalt: string;
   private deviceId: string;
+  encryptMismatchCount = 0;
 
-  constructor(config: WebDAVConfig, masterPwd: string, userSalt: string, deviceId: string) {
-    this.dav = new FlowerKeyWebDAV(config);
+  constructor(backend: StorageBackend | WebDAVConfig, masterPwd: string, userSalt: string, deviceId: string) {
+    this.dav = 'url' in backend ? new FlowerKeyWebDAV(backend) : backend;
     this.masterPwd = masterPwd;
     this.userSalt = userSalt;
     this.deviceId = deviceId;
@@ -56,7 +58,7 @@ export class SyncEngine {
   }
 
   /** 执行一次完整同步 */
-  async sync(): Promise<{ pushed: number; pulled: number }> {
+  async sync(): Promise<{ pushed: number; pulled: number; encryptMismatch?: number }> {
     await this.dav.ensureDir();
 
     if (!(await this.acquireLock())) {
@@ -64,10 +66,13 @@ export class SyncEngine {
     }
 
     try {
+      this.encryptMismatchCount = 0;
       const pushed = await this.push();
       const pulled = await this.pull();
       await this.maybeCompact();
-      return { pushed, pulled };
+      const result: { pushed: number; pulled: number; encryptMismatch?: number } = { pushed, pulled };
+      if (this.encryptMismatchCount > 0) result.encryptMismatch = this.encryptMismatchCount;
+      return result;
     } finally {
       await this.releaseLock();
     }
@@ -145,6 +150,17 @@ export class SyncEngine {
 
     const remote = op.payload as Entry;
     if (!remote) return;
+
+    // 检测书签加密状态不一致：远端明文（encrypted===false）而本地加密，或反之
+    if (remote.type === 'bookmark') {
+      const localEncrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+      const remoteEncrypt = remote.encrypted !== false;
+      if (localEncrypt !== remoteEncrypt) {
+        // 跳过写入，数据不被篡改
+        this.encryptMismatchCount++;
+        return;
+      }
+    }
 
     const local = await db.getEntry(op.entryId);
     if (!local || local.updatedAt <= remote.updatedAt) {

@@ -22,6 +22,22 @@
       <button @click="saveConfig" class="w-full py-1.5 bg-gray-800 text-white rounded hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500">
         保存配置
       </button>
+      <!-- 坚果云教程 -->
+      <button @click="showDavGuide = !showDavGuide" class="w-full text-left text-blue-500 hover:underline">
+        {{ showDavGuide ? '▲ 收起' : '▼ 如何配置坚果云？' }}
+      </button>
+      <div v-if="showDavGuide" class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded space-y-1.5 text-gray-600 dark:text-gray-300 leading-relaxed">
+        <p class="font-medium">坚果云配置步骤</p>
+        <p>① 登录坚果云网页版 → 右上角头像 → <b>账户信息</b> → <b>安全选项</b></p>
+        <p>② 找到「第三方应用管理」→ <b>添加应用</b>，名称随意，点击<b>生成密码</b></p>
+        <p>③ 回到花钥，填写：</p>
+        <table class="w-full text-[10px] mt-1">
+          <tr><td class="pr-2 text-gray-400 whitespace-nowrap">服务器地址</td><td class="font-mono">https://dav.jianguoyun.com/dav/</td></tr>
+          <tr><td class="pr-2 text-gray-400">用户名</td><td>坚果云注册邮箱</td></tr>
+          <tr><td class="pr-2 text-gray-400">密码</td><td>刚才生成的<b>应用密码</b>（非登录密码）</td></tr>
+        </table>
+        <p class="text-[10px] text-gray-400 pt-1">🔒 花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</p>
+      </div>
     </div>
 
     <!-- 同步操作 -->
@@ -36,6 +52,9 @@
       <p v-if="syncStore.lastResult" class="text-gray-500 dark:text-gray-400">
         上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
       </p>
+      <p v-if="syncStore.lastResult?.encryptMismatch" class="text-orange-600 dark:text-orange-400">
+        ⚠️ {{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请在所有设备上统一书签加密设置后重新同步。
+      </p>
       <p v-if="syncStore.error" class="text-red-500">{{ syncStore.error }}</p>
     </div>
 
@@ -46,6 +65,8 @@
         当前：书签{{ bookmarkEncrypt ? '已加密' : '未加密' }}。
         {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
       </p>
+      <p class="text-[10px] text-gray-400 dark:text-gray-500">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
+      <p v-if="!bookmarkEncrypt" class="text-orange-600 dark:text-orange-400">⚠️ 书签以明文存储于本地 IndexedDB，任何能访问浏览器数据的程序均可读取。</p>
       <div v-if="!showBookmarkPwdInput">
         <button @click="showBookmarkPwdInput = true" class="w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
           {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
@@ -77,6 +98,7 @@
         <div v-if="recoveryCode" class="p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded break-all font-mono select-all">
           {{ recoveryCode }}
           <p class="text-yellow-600 dark:text-yellow-400 mt-1 font-sans">请抄写或打印保存，关闭后不再显示。</p>
+          <p class="text-red-600 dark:text-red-400 mt-1 font-sans font-medium">⚠️ 恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</p>
         </div>
       </div>
 
@@ -86,6 +108,7 @@
           修改主密码
         </button>
         <div v-if="showChangePwd" class="space-y-1">
+          <p class="text-[10px] text-gray-400 dark:text-gray-500">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
           <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
           <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
           <button @click="handleChangePwd" :disabled="changingPwd" class="w-full py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50">
@@ -106,6 +129,16 @@
           </label>
         </div>
         <p v-if="importMsg" class="text-green-600">{{ importMsg }}</p>
+      </div>
+
+      <!-- 方案四：批量导入书签 -->
+      <div class="space-y-1">
+        <p class="text-gray-500 dark:text-gray-400">从浏览器导出的书签 HTML 文件批量导入（跳过已存在 URL）。</p>
+        <label class="block w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 text-center cursor-pointer">
+          导入浏览器书签
+          <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
+        </label>
+        <p v-if="importBookmarkMsg" class="text-green-600">{{ importBookmarkMsg }}</p>
       </div>
     </div>
 
@@ -233,6 +266,7 @@ async function handleChangePwd() {
 // 方案三：导出/导入
 const importMsg = ref('');
 const showSecurity = ref(false);
+const showDavGuide = ref(false);
 
 function handleExport() {
   mainStore.exportData().then(json => {
@@ -249,6 +283,23 @@ async function handleImport(e: Event) {
   const text = await file.text();
   const count = await mainStore.importData(text);
   importMsg.value = `已导入 ${count} 条新条目`;
+}
+
+const importBookmarkMsg = ref('');
+async function handleImportBookmarks(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const html = await file.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const links = Array.from(doc.querySelectorAll('a[href]'));
+  const items = links.map(a => ({
+    title: a.textContent?.trim() || a.getAttribute('href') || '',
+    url: a.getAttribute('href') || '',
+    favicon: a.getAttribute('icon') || undefined,
+  })).filter(i => i.url.startsWith('http'));
+  const encrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  const count = await db.importBookmarks(items, encrypt);
+  importBookmarkMsg.value = `已导入 ${count} 条书签（跳过重复 ${items.length - count} 条）`;
 }
 
 function confirmClear() {

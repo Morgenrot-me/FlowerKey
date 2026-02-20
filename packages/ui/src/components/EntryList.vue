@@ -8,6 +8,7 @@
       v-for="entry in entries" :key="entry.id"
       class="px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-xs"
     >
+      <img v-if="entry.favicon" :src="entry.favicon" class="w-4 h-4 shrink-0 rounded-sm" @error="(e) => (e.target as HTMLImageElement).style.display='none'" />
       <div class="flex-1 min-w-0">
         <div class="font-medium truncate">
           {{ entry.codename || entry.title || entry.fileName || '未命名' }}
@@ -22,10 +23,10 @@
       <div class="flex gap-1 shrink-0">
         <button v-if="entry.type === 'password'" @click="onAction(entry)" :class="['px-1.5 py-0.5 rounded', copiedId === entry.id ? 'bg-green-50 text-green-600 dark:bg-green-900 dark:text-green-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300']">{{ copiedId === entry.id ? '已复制' : (entry.storedPassword ? '复制' : '生成') }}</button>
         <button @click="$emit('edit', entry)" class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded hover:bg-gray-200">编辑</button>
-        <button @click="$emit('delete', entry.id)" class="px-1.5 py-0.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded">删除</button>
+        <button @click="confirmDelete(entry.id)" class="px-1.5 py-0.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded">删除</button>
       </div>
     </div>
-    <div v-if="!entries.length" class="p-6 text-center text-xs text-gray-400">暂无数据</div>
+    <div v-if="!entries.length" class="p-6 text-center text-xs text-gray-400">暂无条目，点击下方按钮新建</div>
   </div>
 </template>
 
@@ -36,6 +37,9 @@ defineProps<{ entries: Entry[] }>();
 const emit = defineEmits<{ edit: [Entry]; delete: [string]; generate: [Entry] }>();
 
 const copiedId = ref('');
+function confirmDelete(id: string) {
+  if (confirm('确定删除此条目？')) emit('delete', id);
+}
 function onAction(entry: Entry) {
   if (entry.storedPassword) {
     navigator.clipboard.writeText(entry.storedPassword);

@@ -15,7 +15,7 @@
           <div class="font-medium truncate">{{ e.title || '未命名' }}</div>
           <div class="text-xs text-blue-400 truncate">{{ e.url }}</div>
         </div>
-        <button @click="store.remove(e.id)" class="text-red-400 text-sm px-2">删除</button>
+        <button @click="confirmDelete(e.id)" class="text-red-400 text-sm px-2">删除</button>
       </div>
       <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无书签</div>
     </div>
@@ -43,6 +43,10 @@ const showForm = ref(false);
 const form = ref({ title: '', url: '' });
 
 onMounted(() => store.load('bookmark'));
+
+function confirmDelete(id: string) {
+  if (confirm('确定删除此书签？')) store.remove(id);
+}
 
 async function save() {
   if (!form.value.url.trim()) return;

@@ -20,7 +20,7 @@
           {{ copiedId === e.id ? '已复制' : '生成' }}
         </button>
       </div>
-      <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无密码条目</div>
+      <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无密码条目，点击右上角新建</div>
     </div>
 
     <!-- 新建表单 -->
@@ -31,8 +31,9 @@
         <button @click="save" class="text-blue-500 font-medium">保存</button>
       </div>
       <div class="flex-1 px-4 py-4 flex flex-col gap-3">
-        <input v-model="form.codename" placeholder="区分代号（必填）"
+        <input v-model="form.codename" placeholder="区分代号（必填，如 github）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
+        <p class="text-xs text-gray-400 px-1">代号用于区分不同网站，相同主密码+代号在任何设备都生成相同密码，即使数据丢失也可还原。</p>
         <input v-model="form.description" placeholder="描述（可选）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
       </div>

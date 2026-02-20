@@ -1,7 +1,7 @@
 {
   "name": "flowerkey",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.3.0",
   "type": "module",
   "description": "花钥 - 密码生成管理 + 书签收藏 + 文件引用管理工具",
   "scripts": {

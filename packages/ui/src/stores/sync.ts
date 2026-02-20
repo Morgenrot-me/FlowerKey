@@ -11,7 +11,7 @@ import { useMainStore } from './main';
 export const useSyncStore = defineStore('sync', () => {
   const config = ref<WebDAVConfig | null>(null);
   const syncing = ref(false);
-  const lastResult = ref<{ pushed: number; pulled: number } | null>(null);
+  const lastResult = ref<{ pushed: number; pulled: number; encryptMismatch?: number } | null>(null);
   const error = ref('');
 
   async function loadConfig() {

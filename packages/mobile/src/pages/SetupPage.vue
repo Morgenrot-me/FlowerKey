@@ -5,10 +5,12 @@
   <div class="flex-1 flex flex-col justify-center px-8 gap-4">
     <h1 class="text-2xl font-bold text-center text-blue-600">🔑 花钥</h1>
     <p class="text-sm text-gray-500 text-center">设置你的记忆密码</p>
+    <p class="text-xs text-center text-gray-400">密码永不上传，所有数据仅存于本设备，无任何遥测</p>
     <input v-model="pwd" type="password" placeholder="记忆密码（至少4位）"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
     <input v-model="pwd2" type="password" placeholder="确认记忆密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
+    <p class="text-xs text-gray-400">记忆密码决定所有生成密码的结果，输入有误将导致生成不同密码，确认输入以保证一致性。</p>
     <p v-if="err" class="text-red-500 text-sm text-center">{{ err }}</p>
     <button @click="submit" :disabled="loading"
       class="w-full py-3 bg-blue-500 text-white rounded-xl font-medium disabled:opacity-50">

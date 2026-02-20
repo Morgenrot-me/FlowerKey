@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "FlowerKey 花钥",
   "version": "0.1.7",
-  "description": "密码生成管理 + 书签收藏 + 文件引用管理工具",
+  "description": "无后端密码管理 + 加密书签收藏。主密码永不上传，端到端加密，WebDAV 自托管同步，换设备无需迁移。",
   "permissions": [
     "storage",
     "activeTab",

@@ -17,7 +17,8 @@
             <button @click="pwdMode = 'store'" :class="['flex-1 py-1 rounded border', pwdMode === 'store' ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 dark:border-gray-600']">存储模式</button>
           </div>
           <template v-if="pwdMode === 'generate'">
-            <input v-model="form.codename" placeholder="区分代号" class="input" />
+            <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
+            <p class="text-[10px] text-gray-400 dark:text-gray-500">代号用于区分不同网站，相同主密码+代号在任何设备都生成相同密码，即使数据丢失也可还原。</p>
             <input v-model="form.salt" placeholder="自定义盐（可选）" class="input" />
             <div class="flex gap-2">
               <select v-model="form.charsetMode" class="input flex-1">
@@ -34,7 +35,10 @@
           </template>
           <template v-else>
             <input v-model="form.codename" placeholder="名称（如 github）" class="input" />
-            <input v-model="form.storedPassword" type="password" placeholder="密码（加密存储）" class="input" autocomplete="new-password" />
+            <div class="relative">
+              <input v-model="form.storedPassword" :type="showPwd ? 'text' : 'password'" placeholder="密码（加密存储）" class="input pr-10" autocomplete="new-password" />
+              <button type="button" @click="showPwd = !showPwd" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px]">{{ showPwd ? '隐藏' : '显示' }}</button>
+            </div>
           </template>
         </template>
 
@@ -55,7 +59,7 @@
         <input v-model="tagsInput" placeholder="标签（逗号分隔）" class="input" />
         <textarea v-model="form.description" placeholder="描述" rows="2" class="input" />
 
-        <button @click="save" class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+        <button @click="save" :disabled="type === 'password' && !form.codename.trim()" class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50">
           保存
         </button>
       </div>
@@ -73,6 +77,7 @@ const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]
 const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用' }[props.type]));
 
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
+const showPwd = ref(false);
 const form = ref({
   codename: '', salt: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '', fileName: '',

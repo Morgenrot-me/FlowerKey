@@ -242,6 +242,31 @@ export class FlowerKeyDB extends Dexie {
     await this.entries.each(e => e.tags?.forEach(t => set.add(t)));
     return Array.from(set).sort();
   }
+
+  /** 按 URL 查找书签（用于重复检测） */
+  async getBookmarkByUrl(url: string): Promise<Entry | undefined> {
+    const row = await this.entries.where('type').equals('bookmark').filter(e => e.url === url).first();
+    return row ? this.decryptEntry(row) : undefined;
+  }
+
+  /** 批量导入书签（跳过已存在 URL） */
+  async importBookmarks(items: { title: string; url: string; favicon?: string }[], encrypt: boolean): Promise<number> {
+    let count = 0;
+    for (const item of items) {
+      const exists = await this.entries.where('type').equals('bookmark').filter(e => e.url === item.url).count();
+      if (exists) continue;
+      const entry: Entry = {
+        id: crypto.randomUUID(), type: 'bookmark',
+        title: item.title, url: item.url, favicon: item.favicon,
+        tags: [], folder: '', description: '',
+        createdAt: Date.now(), updatedAt: Date.now(),
+        ...(encrypt ? {} : { encrypted: false }),
+      };
+      await this.entries.put(encrypt ? await this.encryptEntry(entry) : entry);
+      count++;
+    }
+    return count;
+  }
 }
 
 /** 全局数据库单例 */
