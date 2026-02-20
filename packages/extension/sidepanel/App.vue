@@ -71,6 +71,7 @@
         :entry="editingEntry"
         :type="entriesStore.currentType"
         :initialMode="addMode"
+        :initialUrl="editingEntry ? undefined : currentTabUrl"
         :folders="entriesStore.folders"
         :tags="entriesStore.tags"
         @save="onSave"
@@ -99,6 +100,7 @@ const searchQuery = ref('');
 const showAddForm = ref(false);
 const editingEntry = ref<Entry | undefined>();
 const addMode = ref<'generate' | 'store' | undefined>();
+const currentTabUrl = ref('');
 const currentTab = ref('password');
 const bookmarkEncrypt = ref(true);
 
@@ -155,8 +157,10 @@ function onSearch() {
   entriesStore.search(searchQuery.value);
 }
 
-function openAdd(mode?: 'generate' | 'store') {
+async function openAdd(mode?: 'generate' | 'store') {
   addMode.value = mode;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  currentTabUrl.value = tab?.url ?? '';
   showAddForm.value = true;
 }
 

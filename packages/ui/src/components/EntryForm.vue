@@ -23,6 +23,7 @@
             <template v-if="pwdMode === 'generate'">
               <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
               <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">相同主密码+代号在任何设备生成相同密码，数据丢失也可还原。</p>
+              <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
               <div class="flex gap-2">
                 <select v-model="form.charsetMode" class="input flex-[3]">
                   <option value="alphanumeric">字母+数字</option>
@@ -110,6 +111,7 @@ const props = defineProps<{
   entry?: Entry;
   type: EntryType;
   initialMode?: 'generate' | 'store';
+  initialUrl?: string;
   folders?: string[];
   tags?: string[];
 }>();
@@ -157,6 +159,8 @@ onMounted(() => {
     Object.assign(form.value, props.entry);
     selectedTags.value = [...(props.entry.tags ?? [])];
     if (props.entry.storedPassword) pwdMode.value = 'store';
+  } else if (props.initialUrl) {
+    form.value.url = props.initialUrl;
   }
 });
 
@@ -169,9 +173,11 @@ function save() {
     ...(props.type === 'password' && pwdMode.value === 'generate' && {
       codename: form.value.codename,
       charsetMode: form.value.charsetMode, passwordLength: form.value.passwordLength,
+      ...(form.value.url && { url: form.value.url }),
     }),
     ...(props.type === 'password' && pwdMode.value === 'store' && {
       codename: form.value.codename, storedPassword: form.value.storedPassword,
+      ...(form.value.url && { url: form.value.url }),
     }),
     ...((props.type === 'bookmark' || props.type === 'file_ref') && { title: form.value.title, url: form.value.url }),
     ...(props.type === 'note' && { title: form.value.title, content: form.value.content }),
