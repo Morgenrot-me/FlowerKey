@@ -174,11 +174,15 @@ async function deleteEntry(id: string) {
 }
 
 async function generateForEntry(entry: Entry) {
-  if (!entry.codename) return;
-  const pwd = await mainStore.genPassword(
-    entry.codename, entry.charsetMode || 'alphanumeric', entry.passwordLength || 16
-  );
+  const pwd = entry.storedPassword
+    ? entry.storedPassword
+    : entry.codename
+      ? await mainStore.genPassword(entry.codename, entry.charsetMode || 'alphanumeric', entry.passwordLength || 16)
+      : null;
+  if (!pwd) return;
   await navigator.clipboard.writeText(pwd);
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'fillPassword', password: pwd });
 }
 
 async function onSave(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) {

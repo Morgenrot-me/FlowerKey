@@ -41,11 +41,7 @@ function confirmDelete(id: string) {
   if (confirm('确定删除此条目？')) emit('delete', id);
 }
 function onAction(entry: Entry) {
-  if (entry.storedPassword) {
-    navigator.clipboard.writeText(entry.storedPassword);
-  } else {
-    emit('generate', entry);
-  }
+  emit('generate', entry);
   copiedId.value = entry.id;
   setTimeout(() => { copiedId.value = ''; }, 1500);
 }
