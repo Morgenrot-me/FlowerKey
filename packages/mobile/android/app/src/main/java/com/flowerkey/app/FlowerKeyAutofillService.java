@@ -211,36 +211,39 @@ public class FlowerKeyAutofillService extends AutofillService {
     private List<AutofillId> findPasswordFields(AssistStructure.ViewNode node) {
         List<AutofillId> all = new ArrayList<>();
         List<AutofillId> newPwd = new ArrayList<>();
-        collectPasswordFields(node, all, newPwd);
-        // 全是新密码框（注册/改密纯新密码）→ 全填；否则只填非新密码框
-        if (!newPwd.isEmpty() && newPwd.size() == all.size()) return all;
-        List<AutofillId> current = new ArrayList<>(all);
-        current.removeAll(newPwd);
-        return current.isEmpty() ? all : current;
+        AutofillId[] focused = {null};
+        boolean[] focusedIsNew = {false};
+        collectPasswordFields(node, all, newPwd, focused, focusedIsNew);
+        if (focused[0] == null) return all.isEmpty() ? all : java.util.Collections.singletonList(all.get(0));
+        // 焦点在新密码框 → 返回所有新密码框（新密码+确认框同时填）
+        // 焦点在普通密码框 → 只返回该框
+        if (focusedIsNew[0]) return newPwd.isEmpty() ? java.util.Collections.singletonList(focused[0]) : newPwd;
+        return java.util.Collections.singletonList(focused[0]);
     }
 
     private void collectPasswordFields(AssistStructure.ViewNode node,
-                                        List<AutofillId> all, List<AutofillId> newPwd) {
+                                        List<AutofillId> all, List<AutofillId> newPwd,
+                                        AutofillId[] focused, boolean[] focusedIsNew) {
         if (node.getAutofillType() != android.view.View.AUTOFILL_TYPE_NONE) {
             String[] hints = node.getAutofillHints();
+            boolean isPwd = false, isNew = false;
             if (hints != null) {
-                boolean isPwd = false, isNew = false;
                 for (String h : hints) {
                     if (h == null) continue;
                     String hl = h.toLowerCase();
                     if (hl.contains("password")) isPwd = true;
                     if (hl.contains("new") || hl.equals("new-password")) isNew = true;
                 }
-                if (isPwd) {
-                    all.add(node.getAutofillId());
-                    if (isNew) newPwd.add(node.getAutofillId());
-                    for (int i = 0; i < node.getChildCount(); i++) collectPasswordFields(node.getChildAt(i), all, newPwd);
-                    return;
-                }
             }
-            if ((node.getInputType() & 0x80) != 0) all.add(node.getAutofillId());
+            if (!isPwd && (node.getInputType() & 0x80) != 0) isPwd = true;
+            if (isPwd) {
+                all.add(node.getAutofillId());
+                if (isNew) newPwd.add(node.getAutofillId());
+                if (node.isFocused()) { focused[0] = node.getAutofillId(); focusedIsNew[0] = isNew; }
+            }
         }
-        for (int i = 0; i < node.getChildCount(); i++) collectPasswordFields(node.getChildAt(i), all, newPwd);
+        for (int i = 0; i < node.getChildCount(); i++)
+            collectPasswordFields(node.getChildAt(i), all, newPwd, focused, focusedIsNew);
     }
 
     private String extractWebDomain(AssistStructure.ViewNode node) {
