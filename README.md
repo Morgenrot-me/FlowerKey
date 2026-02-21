@@ -12,6 +12,7 @@
 - 🔒 **端到端加密** — AES-256-GCM 加密敏感字段，主密码永不离开本地
 - ☁️ **WebDAV 同步** — 兼容坚果云等服务，增量同步，LWW 冲突解决
 - 📱 **多端支持** — Chrome/Edge 插件 + Android/iOS 移动端
+- 🤖 **自动填充** — 浏览器插件内联填充 + Android AutofillService，识别已解锁状态，无需重复输入主密码
 
 ---
 
@@ -175,6 +176,52 @@ scripts/
 - 跨设备保持书签、标签、文件夹结构一致
 
 坚果云限制：每 30 分钟 600 次请求。
+
+---
+
+## 自动填充机制
+
+### 浏览器插件（Chrome/Edge）
+
+content script 监听页面密码框的 `focusin` 事件，在密码框下方弹出内联浮层：
+
+- **已解锁**：查询 background service worker 中与当前页面 hostname 匹配的条目，直接展示列表，点击一键填充
+- **未解锁**：浮层内嵌解锁表单，输入主密码验证后展示匹配条目
+
+匹配逻辑：`new URL(entry.url).hostname === location.hostname`
+
+密码填充后通过 `input` + `change` 事件触发页面框架（React/Vue/Angular）的响应式更新。
+
+### Android AutofillService
+
+系统检测到密码框时触发 `FlowerKeyAutofillService`，弹出"使用花钥填充密码"选项：
+
+- **App 已解锁**：`FlowerKeyApp`（Application 单例）内存中有 `dbKey`，直接跳过主密码输入，按 URL hostname 或 packageName 查询匹配条目展示
+- **App 未解锁**：打开 `AutofillAuthActivity`，用户输入主密码验证后展示匹配条目
+
+匹配优先级：
+1. WebView/Chrome 场景：提取 `AssistStructure` 中的 `webDomain`，按 `url LIKE '%domain%'` 匹配
+2. 原生 App 场景：按 `appPackage` 字段精确匹配
+
+### masterPwd 生命周期
+
+```
+解锁
+  │
+  ├─ 浏览器插件：masterPwd 存于 background service worker 内存变量
+  │   sidepanel 重开时发送 restoreDbKey 消息，background 重新派生 dbKey
+  │   masterPwd 永不离开 background 内存，不写入 chrome.storage
+  │
+  └─ Android：masterPwd 仅在 AutofillAuthActivity 验证时短暂存在于栈变量
+      验证成功后派生 dbKey 写入 FlowerKeyApp 内存，masterPwd 不保留
+      App 解锁（Vue 层）时通过 AutofillStatePlugin 同步 dbKey 到 FlowerKeyApp
+
+锁定
+  ├─ 浏览器插件：background 内存变量清零，dbKey 清除
+  └─ Android：FlowerKeyApp.setLocked() 清除内存中的 dbKey
+```
+
+进程终止（App 被杀死 / 浏览器关闭）后内存自动清除，无需额外处理。
 
 ## 版本管理
 
