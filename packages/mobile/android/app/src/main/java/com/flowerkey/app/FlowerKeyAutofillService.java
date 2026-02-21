@@ -3,7 +3,6 @@ package com.flowerkey.app;
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
 import android.content.Intent;
-import android.content.IntentSender;
 import android.os.CancellationSignal;
 import android.service.autofill.AutofillService;
 import android.service.autofill.Dataset;
@@ -21,7 +20,8 @@ import java.util.List;
 
 /**
  * 花钥自动填充服务
- * 检测密码框 → 触发 AutofillAuthActivity → 用户输入主密码+代号 → 生成密码填充
+ * 检测密码框 → 提取 URL/packageName → 触发 AutofillAuthActivity
+ * 若 App 已解锁则直接展示匹配条目，否则要求输入主密码
  */
 public class FlowerKeyAutofillService extends AutofillService {
 
@@ -37,20 +37,21 @@ public class FlowerKeyAutofillService extends AutofillService {
         }
 
         String packageName = structure.getActivityComponent().getPackageName();
+        // 尝试从 AssistStructure 提取 WebView URL（Chrome/WebView 会填充 webDomain）
+        String webDomain = extractWebDomain(structure.getWindowNodeAt(0).getRootViewNode());
 
-        // 构建触发 AuthActivity 的 IntentSender
         Intent authIntent = new Intent(this, AutofillAuthActivity.class);
         authIntent.putExtra(AutofillAuthActivity.EXTRA_AUTOFILL_ID, passwordFieldId);
         authIntent.putExtra(AutofillAuthActivity.EXTRA_PACKAGE_NAME, packageName);
+        if (webDomain != null) authIntent.putExtra(AutofillAuthActivity.EXTRA_WEB_DOMAIN, webDomain);
         authIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        PendingIntent pi = PendingIntent.getActivity(this, 0, authIntent,
+        PendingIntent pi = PendingIntent.getActivity(this, packageName.hashCode(), authIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
         RemoteViews presentation = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
         presentation.setTextViewText(android.R.id.text1, "🔑 使用花钥填充密码");
 
-        // 空占位 Dataset，点击后触发认证流程
         Dataset dataset = new Dataset.Builder()
             .setValue(passwordFieldId, AutofillValue.forText(""), presentation)
             .setAuthentication(pi.getIntentSender())
@@ -76,6 +77,17 @@ public class FlowerKeyAutofillService extends AutofillService {
         }
         for (int i = 0; i < node.getChildCount(); i++) {
             AutofillId found = findPasswordField(node.getChildAt(i));
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    /** 递归提取 WebView 的 webDomain（Chrome/WebView 填充场景） */
+    private String extractWebDomain(AssistStructure.ViewNode node) {
+        String domain = node.getWebDomain();
+        if (domain != null && !domain.isEmpty()) return domain;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            String found = extractWebDomain(node.getChildAt(i));
             if (found != null) return found;
         }
         return null;

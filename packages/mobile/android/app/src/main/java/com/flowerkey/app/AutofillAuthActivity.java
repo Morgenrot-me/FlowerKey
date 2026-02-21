@@ -12,11 +12,9 @@ import android.widget.*;
 
 import org.json.JSONObject;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 import javax.crypto.Cipher;
@@ -28,29 +26,35 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 花钥自动填充认证界面
- * 流程：输入主密码 → 验证 → 解密 codename 列表 → 用户选择/输入 → 生成密码 → 回传填充
+ * 若 App 已解锁：直接用 URL/packageName 匹配条目展示，用户一键填充
+ * 若未解锁：输入主密码 → 验证 → 展示匹配条目
  */
 public class AutofillAuthActivity extends Activity {
 
-    static final String EXTRA_AUTOFILL_ID = "autofill_id";
+    static final String EXTRA_AUTOFILL_ID  = "autofill_id";
     static final String EXTRA_PACKAGE_NAME = "package_name";
+    static final String EXTRA_WEB_DOMAIN   = "web_domain";
 
-    private static final int ITERATIONS = 600_000;
+    private static final int    ITERATIONS = 600_000;
     private static final String SALT_VERIFY = "flowerkey_verify_";
     private static final String SALT_DBENC  = "flowerkey_dbenc_";
 
     private AutofillId autofillId;
+    private String     packageName;
+    private String     webDomain;   // 可能为 null（原生 app）
 
-    // UI 阶段：0=输入主密码, 1=选择/输入代号
     private LinearLayout layout;
-    private EditText etMaster;
-    private byte[] dbKey;
-    private String userSalt;
+    private EditText     etMaster;
+    private byte[]       dbKey;
+    private String       userSalt;
+    private String       masterPwd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        autofillId = getIntent().getParcelableExtra(EXTRA_AUTOFILL_ID);
+        autofillId  = getIntent().getParcelableExtra(EXTRA_AUTOFILL_ID);
+        packageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
+        webDomain   = getIntent().getStringExtra(EXTRA_WEB_DOMAIN);
 
         ScrollView scroll = new ScrollView(this);
         layout = new LinearLayout(this);
@@ -60,10 +64,19 @@ public class AutofillAuthActivity extends Activity {
         scroll.addView(layout);
         setContentView(scroll);
 
-        showMasterPwdStep();
+        // 若 App 已解锁，直接进入条目选择步骤
+        FlowerKeyApp app = FlowerKeyApp.get();
+        if (app != null && app.isUnlocked()) {
+            dbKey    = app.getDbKey();
+            userSalt = app.getUserSalt();
+            List<EntryItem> entries = queryMatchingEntries();
+            showEntryStep(entries, null);
+        } else {
+            showMasterPwdStep();
+        }
     }
 
-    // ==================== 第一步：输入主密码 ====================
+    // ==================== 第一步：输入主密码（未解锁时） ====================
 
     private void showMasterPwdStep() {
         layout.removeAllViews();
@@ -91,13 +104,11 @@ public class AutofillAuthActivity extends Activity {
     }
 
     private void verifyAndProceed() {
-        String master = etMaster.getText().toString();
-        if (master.isEmpty()) return;
+        masterPwd = etMaster.getText().toString();
+        if (masterPwd.isEmpty()) return;
         try {
-            // 读取 masterPasswordData
             SQLiteDatabase db = openDb();
-            Cursor c = db.rawQuery(
-                "SELECT value FROM config WHERE key='masterPasswordData'", null);
+            Cursor c = db.rawQuery("SELECT value FROM config WHERE key='masterPasswordData'", null);
             if (!c.moveToFirst()) { c.close(); db.close(); toast("花钥未初始化"); return; }
             JSONObject data = new JSONObject(c.getString(0));
             c.close(); db.close();
@@ -106,48 +117,46 @@ public class AutofillAuthActivity extends Activity {
             String verifySalt = data.optString("verifySalt", "");
             String storedHash = data.getString("verifyHash");
 
-            // 验证主密码：PBKDF2(master, "flowerkey_verify_" + verifySalt)
             String verifyInput = verifySalt.isEmpty() ? userSalt : verifySalt;
-            byte[] hash = pbkdf2(master, SALT_VERIFY + verifyInput);
-            if (!toHex(hash).equals(storedHash)) {
-                toast("主密码错误");
-                return;
-            }
+            byte[] hash = pbkdf2(masterPwd, SALT_VERIFY + verifyInput);
+            if (!toHex(hash).equals(storedHash)) { toast("主密码错误"); return; }
 
-            // 派生 dbKey：PBKDF2(master, "flowerkey_dbenc_" + userSalt)
-            dbKey = pbkdf2(master, SALT_DBENC + userSalt);
-
-            // 解密所有 codename，进入第二步
-            List<String> codenames = decryptCodenames();
-            showCodenameStep(master, codenames);
-
-        } catch (Exception e) {
-            toast("验证失败：" + e.getMessage());
-        }
+            dbKey = pbkdf2(masterPwd, SALT_DBENC + userSalt);
+            List<EntryItem> entries = queryMatchingEntries();
+            showEntryStep(entries, masterPwd);
+        } catch (Exception e) { toast("验证失败：" + e.getMessage()); }
     }
 
-    // ==================== 第二步：选择/输入代号 ====================
+    // ==================== 第二步：展示匹配条目 ====================
 
-    private void showCodenameStep(String master, List<String> codenames) {
+    private void showEntryStep(List<EntryItem> entries, String master) {
         layout.removeAllViews();
 
         TextView title = new TextView(this);
-        title.setText("选择区分代号");
+        title.setText(entries.isEmpty() ? "选择区分代号" : "选择密码条目");
         title.setTextSize(16);
         layout.addView(title);
 
-        EditText etCodename = new EditText(this);
-        etCodename.setHint("区分代号");
-        if (!codenames.isEmpty()) etCodename.setText(codenames.get(0));
-        layout.addView(etCodename);
-
-        // 已有代号列表，点击快速填入
-        for (String cn : codenames) {
+        // 展示匹配条目（一键填充）
+        for (EntryItem entry : entries) {
             Button btn = new Button(this);
-            btn.setText(cn);
-            btn.setOnClickListener(v -> etCodename.setText(cn));
+            String label = entry.codename;
+            if (entry.description != null && !entry.description.isEmpty())
+                label += "  " + entry.description;
+            btn.setText(label);
+            btn.setOnClickListener(v -> fillEntry(entry, master));
             layout.addView(btn);
         }
+
+        // 手动输入代号（兜底）
+        TextView hint = new TextView(this);
+        hint.setText(entries.isEmpty() ? "未找到匹配条目，请手动输入：" : "或手动输入代号：");
+        hint.setTextSize(12);
+        layout.addView(hint);
+
+        EditText etCodename = new EditText(this);
+        etCodename.setHint("区分代号");
+        layout.addView(etCodename);
 
         Button btnFill = new Button(this);
         btnFill.setText("生成并填充");
@@ -155,42 +164,79 @@ public class AutofillAuthActivity extends Activity {
             String codename = etCodename.getText().toString().trim();
             if (codename.isEmpty()) { toast("请输入区分代号"); return; }
             try {
-                String password = generatePassword(master, codename);
-                returnPassword(password);
-            } catch (Exception e) {
-                toast("生成失败：" + e.getMessage());
-            }
+                String pwd = generatePassword(master != null ? master : masterPwd, codename);
+                returnPassword(pwd);
+            } catch (Exception e) { toast("生成失败：" + e.getMessage()); }
         });
         layout.addView(btnFill);
 
-        Button btnBack = new Button(this);
-        btnBack.setText("返回");
-        btnBack.setOnClickListener(v -> showMasterPwdStep());
-        layout.addView(btnBack);
+        Button btnCancel = new Button(this);
+        btnCancel.setText("取消");
+        btnCancel.setOnClickListener(v -> { setResult(RESULT_CANCELED); finish(); });
+        layout.addView(btnCancel);
     }
 
-    // ==================== 解密 codename ====================
+    private void fillEntry(EntryItem entry, String master) {
+        try {
+            String pwd;
+            if (entry.storedPassword != null) {
+                pwd = entry.storedPassword;
+            } else {
+                pwd = generatePassword(master != null ? master : masterPwd, entry.codename);
+            }
+            returnPassword(pwd);
+        } catch (Exception e) { toast("填充失败：" + e.getMessage()); }
+    }
 
-    private List<String> decryptCodenames() {
-        List<String> result = new ArrayList<>();
+    // ==================== 查询匹配条目 ====================
+
+    private static class EntryItem {
+        String codename, description, storedPassword;
+    }
+
+    /**
+     * 按 webDomain（URL hostname）或 packageName 匹配条目
+     * url 字段未加密，可直接 SQL 查询；codename/storedPassword 需解密
+     */
+    private List<EntryItem> queryMatchingEntries() {
+        List<EntryItem> result = new ArrayList<>();
         try {
             SQLiteDatabase db = openDb();
-            Cursor c = db.rawQuery(
-                "SELECT codename FROM entries WHERE type='password' AND appPackage=? AND codename IS NOT NULL",
-                new String[]{packageName});
             SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
+
+            Cursor c;
+            if (webDomain != null && !webDomain.isEmpty()) {
+                // WebView/Chrome：按 URL hostname 匹配（url 字段存储完整 URL 或 hostname）
+                c = db.rawQuery(
+                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND url LIKE ?",
+                    new String[]{"%" + webDomain + "%"});
+            } else {
+                // 原生 app：按 appPackage 匹配
+                c = db.rawQuery(
+                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND appPackage=?",
+                    new String[]{packageName});
+            }
+
             while (c.moveToNext()) {
-                try { result.add(aesGcmDecrypt(c.getString(0), aesKey)); } catch (Exception ignored) {}
+                try {
+                    EntryItem item = new EntryItem();
+                    item.codename = aesGcmDecrypt(c.getString(0), aesKey);
+                    String desc = c.getString(1);
+                    item.description = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
+                    String sp = c.getString(2);
+                    item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
+                    result.add(item);
+                } catch (Exception ignored) {}
             }
             c.close(); db.close();
         } catch (Exception ignored) {}
         return result;
     }
 
-    /** AES-256-GCM 解密，格式：[version(1B) + IV(12B) + ciphertext+tag] base64 */
+    // ==================== 加密工具 ====================
+
     private String aesGcmDecrypt(String b64, SecretKeySpec key) throws Exception {
-        byte[] bytes = Base64.getDecoder().decode(b64);
-        // bytes[0] = version, bytes[1..12] = IV, bytes[13..] = ciphertext+tag
+        byte[] bytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
         byte[] iv = new byte[12];
         System.arraycopy(bytes, 1, iv, 0, 12);
         byte[] ct = new byte[bytes.length - 13];
@@ -200,12 +246,10 @@ public class AutofillAuthActivity extends Activity {
         return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
     }
 
-    // ==================== 密码生成 ====================
-
-    private String generatePassword(String masterPwd, String codename) throws Exception {
-        byte[] masterKey = pbkdf2(masterPwd, userSalt);
-        byte[] rawBytes = hmacSha256(masterKey, codename.getBytes(StandardCharsets.UTF_8));
-        byte[] mixBytes = hmacSha256(masterKey, (codename + "_mix").getBytes(StandardCharsets.UTF_8));
+    private String generatePassword(String pwd, String codename) throws Exception {
+        byte[] masterKey = pbkdf2(pwd, userSalt);
+        byte[] rawBytes  = hmacSha256(masterKey, codename.getBytes(StandardCharsets.UTF_8));
+        byte[] mixBytes  = hmacSha256(masterKey, (codename + "_mix").getBytes(StandardCharsets.UTF_8));
         return encodePassword(rawBytes, mixBytes, 16);
     }
 
@@ -221,8 +265,6 @@ public class AutofillAuthActivity extends Activity {
         arr[digitPos] = DIGITS.charAt((mix[2] & 0xFF) % DIGITS.length());
         return new String(arr);
     }
-
-    // ==================== 工具方法 ====================
 
     private byte[] pbkdf2(String password, String salt) throws Exception {
         KeySpec spec = new PBEKeySpec(
@@ -258,11 +300,6 @@ public class AutofillAuthActivity extends Activity {
         finish();
     }
 
-    private void toast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-    }
-
-    private int dp(int dp) {
-        return (int) (dp * getResources().getDisplayMetrics().density);
-    }
+    private void toast(String msg) { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show(); }
+    private int dp(int dp) { return (int) (dp * getResources().getDisplayMetrics().density); }
 }

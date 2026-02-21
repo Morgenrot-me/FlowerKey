@@ -8,6 +8,22 @@ import { generateSalt, createVerifyHash, verifyMasterPassword, generatePassword,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
   type Entry, type CharsetMode } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+// Android 原生 Plugin：同步解锁状态供 AutofillService 使用
+const AutofillState = registerPlugin<{
+  setUnlocked(opts: { masterPwd: string; userSalt: string }): Promise<void>;
+  setLocked(): Promise<void>;
+}>('AutofillState');
+
+function syncAutofillState(pwd: string, salt: string) {
+  if (Capacitor.getPlatform() === 'android')
+    AutofillState.setUnlocked({ masterPwd: pwd, userSalt: salt }).catch(() => {});
+}
+function clearAutofillState() {
+  if (Capacitor.getPlatform() === 'android')
+    AutofillState.setLocked().catch(() => {});
+}
 
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
@@ -31,6 +47,7 @@ export const useMainStore = defineStore('main', () => {
     isSetup.value = true;
     isUnlocked.value = true;
     sqliteDb.setDbKey(await deriveDatabaseKey(pwd, s));
+    syncAutofillState(pwd, s);
   }
 
   async function unlock(pwd: string): Promise<boolean> {
@@ -42,11 +59,15 @@ export const useMainStore = defineStore('main', () => {
       userSalt.value = data.userSalt;
       isUnlocked.value = true;
       sqliteDb.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      syncAutofillState(pwd, data.userSalt);
     }
     return ok;
   }
 
-  function lock() { masterPwd.value = ''; isUnlocked.value = false; sqliteDb.clearDbKey(); }
+  function lock() {
+    masterPwd.value = ''; isUnlocked.value = false; sqliteDb.clearDbKey();
+    clearAutofillState();
+  }
 
   async function genPassword(codename: string, mode: CharsetMode = 'alphanumeric', length = 16) {
     return generatePassword(masterPwd.value, userSalt.value, codename, mode, length);
