@@ -459,12 +459,21 @@ function mountPopup(input: HTMLInputElement, content: HTMLElement) {
   fillPopup = popup;
 }
 
-function showEntries(input: HTMLInputElement, entries: { id: string; codename: string }[]) {
+function showEntries(input: HTMLInputElement, entries: { id: string; codename: string; description?: string }[]) {
   const wrap = document.createElement('div');
+  wrap.style.cssText = 'max-height:200px;overflow-y:auto';
   for (const entry of entries) {
     const item = document.createElement('div');
     item.className = 'fk-fill-item';
-    item.textContent = entry.codename || '（无代号）';
+    const name = document.createElement('div');
+    name.textContent = entry.codename || '（无代号）';
+    item.appendChild(name);
+    if (entry.description) {
+      const desc = document.createElement('div');
+      desc.style.cssText = 'font-size:11px;opacity:0.6;margin-top:1px';
+      desc.textContent = entry.description;
+      item.appendChild(desc);
+    }
     item.addEventListener('mousedown', (e) => {
       e.preventDefault();
       chrome.runtime.sendMessage({ type: 'fillFromEntry', id: entry.id }, (res) => {

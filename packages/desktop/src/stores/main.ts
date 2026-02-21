@@ -1,18 +1,24 @@
 /**
- * 花钥移动端 - 主状态管理
- * 认证状态、密码生成，复用 @flowerkey/core
+ * 花钥桌面端 - 主状态管理
+ * 管理认证状态、当前视图、全局搜索等
  */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { db, generateSalt, createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+import {
+  db, generateSalt, generateDeviceId,
+  createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  type Entry, type CharsetMode } from '@flowerkey/core';
+  encryptEntry, decryptEntry,
+  type Entry, type CharsetMode,
+} from '@flowerkey/core';
 
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
   const isSetup = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
+  const searchQuery = ref('');
+  const currentView = ref<'passwords' | 'bookmarks' | 'files' | 'settings'>('passwords');
 
   async function checkSetup() {
     const data = await db.getMasterData();
@@ -20,11 +26,17 @@ export const useMainStore = defineStore('main', () => {
     return isSetup.value;
   }
 
-  async function setup(pwd: string) {
-    const s = 'FlowerKey';
+  async function setup(pwd: string, salt?: string) {
+    const s = salt || 'FlowerKey';
     const verifySalt = generateSalt();
     const hash = await createVerifyHash(pwd, verifySalt);
     await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
+
+    const deviceId = await db.getConfig<string>('deviceId');
+    if (!deviceId) {
+      await db.setConfig('deviceId', generateDeviceId());
+    }
+
     masterPwd.value = pwd;
     userSalt.value = s;
     isSetup.value = true;
@@ -45,9 +57,13 @@ export const useMainStore = defineStore('main', () => {
     return ok;
   }
 
-  function lock() { masterPwd.value = ''; isUnlocked.value = false; db.clearDbKey(); }
+  function lock() {
+    masterPwd.value = '';
+    isUnlocked.value = false;
+    db.clearDbKey();
+  }
 
-  async function genPassword(codename: string, mode: CharsetMode = 'alphanumeric', length = 16) {
+  async function genPassword(codename: string, mode: CharsetMode = 'alphanumeric', length = 16): Promise<string> {
     return generatePassword(masterPwd.value, userSalt.value, codename, mode, length);
   }
 
@@ -89,7 +105,7 @@ export const useMainStore = defineStore('main', () => {
 
   async function exportData(): Promise<string> {
     const entries = await db.entries.toArray();
-    const decrypted = await Promise.all(entries.map(e => db['decryptEntry'](e)));
+    const decrypted = await Promise.all(entries.map(e => decryptEntry(e, db.getDbKey())));
     return JSON.stringify({ version: 1, exportedAt: Date.now(), entries: decrypted }, null, 2);
   }
 
@@ -98,13 +114,19 @@ export const useMainStore = defineStore('main', () => {
     let count = 0;
     for (const entry of entries) {
       const exists = await db.getEntry(entry.id);
-      if (!exists) { await db.entries.put(await db['encryptEntry'](entry)); count++; }
+      if (!exists) {
+        await db.entries.put(await encryptEntry(entry, db.getDbKey()));
+        count++;
+      }
     }
     return count;
   }
 
   function getDbKey() { return db.getDbKey(); }
 
-  return { isUnlocked, isSetup, userSalt, checkSetup, setup, unlock, lock, genPassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey };
+  return {
+    isUnlocked, isSetup, userSalt, searchQuery, currentView,
+    checkSetup, setup, unlock, lock, genPassword,
+    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
+  };
 });

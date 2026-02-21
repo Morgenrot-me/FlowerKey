@@ -176,7 +176,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const matched = all.filter(e => {
           if (!e.url) return false;
           try { return new URL(e.url).hostname === host; } catch { return false; }
-        }).map(e => ({ id: e.id, codename: e.codename || '' }));
+        }).map(e => ({ id: e.id, codename: e.codename || '', description: e.description || '' }));
         sendResponse({ entries: matched, locked: false });
       } catch { sendResponse({ entries: [], locked: false }); }
     })();
