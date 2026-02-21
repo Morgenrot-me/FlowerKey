@@ -32,7 +32,8 @@ public class AutofillStatePlugin extends Plugin {
         if (masterPwd == null || userSalt == null) { call.reject("missing params"); return; }
         try {
             byte[] dbKey = pbkdf2(masterPwd, SALT_DBENC + userSalt);
-            FlowerKeyApp.get().setUnlocked(dbKey, userSalt);
+            byte[] masterKey = pbkdf2(masterPwd, userSalt);  // PBKDF2(masterPwd, userSalt) 用于密码生成
+            FlowerKeyApp.get().setUnlocked(dbKey, masterKey, userSalt);
             call.resolve();
         } catch (Exception e) { call.reject(e.getMessage()); }
     }
