@@ -8,6 +8,7 @@ import { ref } from 'vue';
 import { SyncEngine, type WebDAVConfig, type LocalDbAdapter } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 import { ICloudBackend } from './icloud';
+import { NativeWebDAVBackend } from './webdav-native';
 import { useMainStore } from './main';
 
 const sqliteAdapter: LocalDbAdapter = {
@@ -56,7 +57,7 @@ export const useSyncStore = defineStore('sync', () => {
       const deviceId = await sqliteDb.getConfig<string>('deviceId') ?? 'unknown';
       const backend = syncMode.value === 'icloud'
         ? new ICloudBackend()
-        : config.value!;
+        : new NativeWebDAVBackend(config.value!);
       const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);
       lastResult.value = await engine.sync();
     } catch (e) {

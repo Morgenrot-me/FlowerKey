@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appName: '花钥',
   webDir: 'dist',
   server: { androidScheme: 'https' },
+  plugins: {
+    CapacitorHttp: { enabled: true },
+  },
 };
 
 export default config;
