@@ -156,18 +156,27 @@ public class FlowerKeyAutofillService extends AutofillService {
             SQLiteDatabase db = SQLiteDatabase.openDatabase(
                 getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READONLY);
             SecretKeySpec aesKey = new SecretKeySpec(app.getDbKey(), "AES");
-            Cursor c = (webDomain != null && !webDomain.isEmpty())
-                ? db.rawQuery("SELECT codename,storedPassword FROM entries WHERE type='password' AND url LIKE ?",
-                    new String[]{"%" + webDomain + "%"})
-                : db.rawQuery("SELECT codename,storedPassword FROM entries WHERE type='password' AND appPackage=?",
-                    new String[]{packageName});
+            // url 是加密字段，无法 SQL LIKE，全量读取后解密过滤
+            Cursor c = db.rawQuery(
+                "SELECT codename, storedPassword, url, appPackage FROM entries WHERE type='password'", null);
             while (c.moveToNext()) {
                 try {
-                    EntryItem item = new EntryItem();
-                    item.codename = aesGcmDecrypt(c.getString(0), aesKey);
-                    String sp = c.getString(1);
-                    item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
-                    result.add(item);
+                    boolean match = false;
+                    if (webDomain != null && !webDomain.isEmpty()) {
+                        String rawUrl = c.getString(2);
+                        if (rawUrl != null && !rawUrl.isEmpty())
+                            match = aesGcmDecrypt(rawUrl, aesKey).contains(webDomain);
+                    } else {
+                        String rawPkg = c.getString(3);
+                        match = packageName.equals(rawPkg);
+                    }
+                    if (match) {
+                        EntryItem item = new EntryItem();
+                        item.codename = aesGcmDecrypt(c.getString(0), aesKey);
+                        String sp = c.getString(1);
+                        item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
+                        result.add(item);
+                    }
                 } catch (Exception ignored) {}
             }
             c.close(); db.close();
