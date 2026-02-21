@@ -293,8 +293,10 @@ public class AutofillAuthActivity extends Activity {
     }
 
     private void returnPassword(String password) {
+        RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
+        rv.setTextViewText(android.R.id.text1, "花钥");
         Dataset dataset = new Dataset.Builder()
-            .setValue(autofillId, AutofillValue.forText(password))
+            .setValue(autofillId, AutofillValue.forText(password), rv)
             .build();
         Intent reply = new Intent();
         reply.putExtra(android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
