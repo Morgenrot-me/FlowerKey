@@ -132,7 +132,7 @@
     <div class="bg-white rounded-xl divide-y">
       <div class="px-4 py-3 flex items-center justify-between">
         <span class="text-sm">版本</span>
-        <span class="text-sm text-gray-400">0.1.0</span>
+        <span class="text-sm text-gray-400">{{ version }}</span>
       </div>
     </div>
     <button @click="$emit('lock')" class="w-full py-3 border border-red-300 text-red-500 rounded-xl text-sm">锁定</button>
@@ -146,6 +146,9 @@ import { useSyncStore } from '../stores/sync';
 import { db, type WebDAVConfig } from '@flowerkey/core';
 
 defineEmits<{ lock: [] }>();
+
+declare const __APP_VERSION__: string;
+const version = __APP_VERSION__;
 
 const mainStore = useMainStore();
 const syncStore = useSyncStore();
