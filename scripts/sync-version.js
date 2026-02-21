@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 
 const root = JSON.parse(readFileSync('package.json', 'utf8'));
 const version = root.version;
-const pkgs = ['packages/core', 'packages/ui', 'packages/extension', 'packages/mobile'];
+const pkgs = ['packages/core', 'packages/ui', 'packages/extension', 'packages/mobile', 'packages/desktop'];
 
 for (const pkg of pkgs) {
   const path = `${pkg}/package.json`;
@@ -12,6 +12,13 @@ for (const pkg of pkgs) {
   writeFileSync(path, JSON.stringify(json, null, 2) + '\n');
   console.log(`${pkg}: ${version}`);
 }
+
+// 同步 tauri.conf.json
+const tauriConfPath = 'packages/desktop/src-tauri/tauri.conf.json';
+const tauriConf = JSON.parse(readFileSync(tauriConfPath, 'utf8'));
+tauriConf.version = version;
+writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + '\n');
+console.log(`tauri.conf.json: ${version}`);
 
 // 同步 manifest.json
 const manifestPath = 'packages/extension/manifest.json';
