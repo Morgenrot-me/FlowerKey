@@ -209,42 +209,33 @@ public class AutofillAuthActivity extends Activity {
     }
 
     /**
-     * url 字段是 AES-GCM 加密的，无法 SQL LIKE 匹配。
-     * 改为：全量读取 password 条目 → 逐行解密 url → 判断是否包含 webDomain / packageName
+     * url 字段明文存储，可直接 SQL LIKE 匹配
+     * codename/description/storedPassword 需 AES-GCM 解密
      */
     private List<EntryItem> queryMatchingEntries() {
         List<EntryItem> result = new ArrayList<>();
         try {
             SQLiteDatabase db = openDb();
             SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
-            Cursor c = db.rawQuery(
-                "SELECT codename, description, storedPassword, url, appPackage FROM entries WHERE type='password'", null);
+            Cursor c;
+            if (webDomain != null && !webDomain.isEmpty()) {
+                c = db.rawQuery(
+                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND url LIKE ?",
+                    new String[]{"%" + webDomain + "%"});
+            } else {
+                c = db.rawQuery(
+                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND appPackage=?",
+                    new String[]{packageName});
+            }
             while (c.moveToNext()) {
                 try {
-                    String rawUrl = c.getString(3);
-                    String rawPkg = c.getString(4);
-
-                    boolean match = false;
-                    if (webDomain != null && !webDomain.isEmpty()) {
-                        if (rawUrl != null && !rawUrl.isEmpty()) {
-                            String decUrl = aesGcmDecrypt(rawUrl, aesKey);
-                            match = decUrl.contains(webDomain);
-                        }
-                    } else if (packageName != null) {
-                        if (rawPkg != null && !rawPkg.isEmpty()) {
-                            match = rawPkg.equals(packageName);
-                        }
-                    }
-
-                    if (match) {
-                        EntryItem item = new EntryItem();
-                        item.codename    = aesGcmDecrypt(c.getString(0), aesKey);
-                        String desc = c.getString(1);
-                        item.description = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
-                        String sp = c.getString(2);
-                        item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
-                        result.add(item);
-                    }
+                    EntryItem item = new EntryItem();
+                    item.codename    = aesGcmDecrypt(c.getString(0), aesKey);
+                    String desc = c.getString(1);
+                    item.description = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
+                    String sp = c.getString(2);
+                    item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
+                    result.add(item);
                 } catch (Exception ignored) {}
             }
             c.close(); db.close();

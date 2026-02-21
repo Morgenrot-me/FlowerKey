@@ -199,9 +199,9 @@ content script 监听页面密码框的 `focusin` 事件，在密码框下方弹
 - **App 已解锁**：`FlowerKeyApp`（Application 单例）内存中有 `dbKey`，直接跳过主密码输入，按 URL hostname 或 packageName 查询匹配条目展示
 - **App 未解锁**：打开 `AutofillAuthActivity`，用户输入主密码验证后展示匹配条目
 
-匹配优先级：
-1. WebView/Chrome 场景：提取 `AssistStructure` 中的 `webDomain`，按 `url LIKE '%domain%'` 匹配
-2. 原生 App 场景：按 `appPackage` 字段精确匹配
+匹配逻辑：
+1. WebView/Chrome 场景：提取 `AssistStructure` 中的 `webDomain`，按 `url LIKE '%domain%'` 匹配（`url` 明文存储）
+2. 原生 App 场景：按 `appPackage` 字段精确匹配（明文存储）
 
 ### masterPwd 生命周期
 

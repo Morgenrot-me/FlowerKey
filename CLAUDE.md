@@ -48,13 +48,32 @@ dbKey      = PBKDF2(masterPwd, "flowerkey_dbenc_" + userSalt)
 
 密码生成：`HMAC-SHA256(masterKey, codename)` → 编码为指定字符集
 
-## IndexedDB 加密字段
+## IndexedDB / SQLite 加密字段
 
 以下字段 AES-256-GCM 加密后以 base64 存储：
-`codename`, `url`, `title`, `description`, `fileName`, `sourceUrl`
+`codename`, `title`, `description`, `fileName`, `sourceUrl`, `storedPassword`, `content`
 
-未加密字段（IndexedDB 索引需要）：
-`id`, `type`, `folder`, `tags`, `createdAt`, `updatedAt`
+未加密字段（索引 / 匹配需要）：
+`id`, `type`, `folder`, `tags`, `url`, `appPackage`, `favicon`, `createdAt`, `updatedAt`
+
+> 注意：`url` 和 `appPackage` 明文存储，供 Android AutofillService SQL 直接匹配。
+
+## Android AutofillService 三级回退
+
+```
+Level 1：内联建议（Android 11+，已解锁，有匹配条目）
+         → 键盘上方芯片，点击直接填充，零界面
+Level 2：Dialog Activity（已解锁，无匹配 / Android 10-）
+         → 悬浮小窗，展示匹配条目或手动输入代号
+Level 3：Dialog Activity（未解锁）
+         → 输入主密码验证后展示匹配条目
+```
+
+匹配逻辑：
+- WebView/Chrome：`url LIKE '%webDomain%'`（url 明文）
+- 原生 App：`appPackage = ?`（精确匹配）
+
+密码生成：`FlowerKeyApp` 内存中的 `masterKey` + `HMAC-SHA256(masterKey, codename)`
 
 ## 常用命令
 

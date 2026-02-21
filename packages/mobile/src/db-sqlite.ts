@@ -156,8 +156,8 @@ export async function reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey):
   for (const entry of decrypted) {
     const stored = await encryptEntry(entry);
     await db!.run(
-      `UPDATE entries SET codename=?,url=?,title=?,description=?,fileName=?,sourceUrl=?,storedPassword=?,content=? WHERE id=?`,
-      [stored.codename ?? null, stored.url ?? null, stored.title ?? null, stored.description ?? null,
+      `UPDATE entries SET codename=?,title=?,description=?,fileName=?,sourceUrl=?,storedPassword=?,content=? WHERE id=?`,
+      [stored.codename ?? null, stored.title ?? null, stored.description ?? null,
        stored.fileName ?? null, stored.sourceUrl ?? null, stored.storedPassword ?? null, stored.content ?? null, stored.id]
     );
   }
