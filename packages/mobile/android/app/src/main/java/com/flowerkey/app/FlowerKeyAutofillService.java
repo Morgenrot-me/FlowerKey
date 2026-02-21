@@ -235,7 +235,14 @@ public class FlowerKeyAutofillService extends AutofillService {
                     if (hl.contains("new") || hl.equals("new-password")) isNew = true;
                 }
             }
-            if (!isPwd && (node.getInputType() & 0x80) != 0) isPwd = true;
+            if (!isPwd) {
+                int variation = node.getInputType() & android.text.InputType.TYPE_MASK_VARIATION;
+                if (variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        || variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                        || variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD) {
+                    isPwd = true;
+                }
+            }
             if (isPwd) {
                 all.add(node.getAutofillId());
                 if (isNew) newPwd.add(node.getAutofillId());

@@ -23,7 +23,7 @@ scripts/
 |------|------|
 | 框架 | Vue 3 + TypeScript |
 | 状态管理 | Pinia |
-| 本地存储 | Dexie.js (IndexedDB) |
+| 本地存储 | SQLite（移动端：@capacitor-community/sqlite；插件端：Dexie.js IndexedDB） |
 | 加密 | Web Crypto API（零外部依赖） |
 | 云同步 | WebDAV（webdav npm 包） |
 | 移动端 | Capacitor 7 |
@@ -74,6 +74,11 @@ Level 3：Dialog Activity（未解锁）
 - 原生 App：`appPackage = ?`（精确匹配）
 
 密码生成：`FlowerKeyApp` 内存中的 `masterKey` + `HMAC-SHA256(masterKey, codename)`
+
+AutofillAuthActivity 安全措施：
+
+- `FLAG_SECURE`：禁止截屏/录屏/任务切换器预览
+- 手动输入代号填充后自动写入 changelog（synced=0），下次同步时推送到 WebDAV
 
 ## 常用命令
 

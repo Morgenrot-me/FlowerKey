@@ -84,6 +84,8 @@ public class AutofillAuthActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE);
         autofillIds = getIntent().getParcelableArrayListExtra(EXTRA_AUTOFILL_IDS);
         packageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
         webDomain   = getIntent().getStringExtra(EXTRA_WEB_DOMAIN);
@@ -147,7 +149,8 @@ public class AutofillAuthActivity extends Activity {
             dbKey = pbkdf2(pwd, SALT_DBENC + userSalt);
             // 存入 App 内存，后续生成密码用
             byte[] masterKey = pbkdf2(pwd, userSalt);
-            FlowerKeyApp.get().setUnlocked(dbKey, masterKey, userSalt);
+            FlowerKeyApp app2 = FlowerKeyApp.get();
+            if (app2 != null) app2.setUnlocked(dbKey, masterKey, userSalt);
 
             showEntryStep(queryMatchingEntries(), false);
         } catch (Exception e) { toast("验证失败：" + e.getMessage()); }
@@ -165,7 +168,6 @@ public class AutofillAuthActivity extends Activity {
                 layout.addView(makeEntryButton(entry));
                 layout.addView(makeSpacing(6));
             }
-            layout.addView(makeDivider());
         }
 
         TextView hint = new TextView(this);
@@ -272,7 +274,9 @@ public class AutofillAuthActivity extends Activity {
                 } catch (Exception ignored) {}
             }
             c.close();
+            String changedId;
             if (targetId != null) {
+                changedId = targetId;
                 if (webDomain != null && !webDomain.isEmpty())
                     db.execSQL("UPDATE entries SET url=? WHERE id=?", new Object[]{webDomain, targetId});
                 else
@@ -280,14 +284,35 @@ public class AutofillAuthActivity extends Activity {
             } else {
                 // 新建条目
                 String id = java.util.UUID.randomUUID().toString();
+                changedId = id;
                 String encCodename = aesGcmEncrypt(codename, aesKey);
                 long now = System.currentTimeMillis();
                 String url = (webDomain != null && !webDomain.isEmpty()) ? webDomain : null;
                 String pkg = (url == null) ? packageName : null;
+                // 自动填入 App 名称作为 description
+                String appLabel = null;
+                if (pkg != null) {
+                    try {
+                        appLabel = getPackageManager()
+                            .getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0)).toString();
+                    } catch (Exception ignored) {}
+                }
+                String encDesc = (appLabel != null) ? aesGcmEncrypt(appLabel, aesKey) : null;
                 db.execSQL(
-                    "INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,url,appPackage) VALUES (?,?,?,?,?,?,?,?,?)",
-                    new Object[]{id, "password", "", "[]", now, now, encCodename, url, pkg});
+                    "INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,description,url,appPackage) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    new Object[]{id, "password", "", "[]", now, now, encCodename, encDesc, url, pkg});
             }
+            // 写入 changelog，让同步引擎感知此变更
+            String operation = (targetId != null) ? "update" : "create";
+            String deviceId = "unknown";
+            try {
+                Cursor dc = db.rawQuery("SELECT value FROM config WHERE key='deviceId'", null);
+                if (dc.moveToFirst()) deviceId = dc.getString(0).replaceAll("^\"|\"$", "");
+                dc.close();
+            } catch (Exception ignored) {}
+            db.execSQL(
+                "INSERT INTO changelog (entryId,entryType,operation,timestamp,synced,deviceId) VALUES (?,?,?,?,?,?)",
+                new Object[]{changedId, "entry", operation, System.currentTimeMillis(), 0, deviceId});
             db.close();
         } catch (Exception ignored) {}
     }

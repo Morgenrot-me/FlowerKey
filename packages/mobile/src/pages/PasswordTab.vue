@@ -42,6 +42,11 @@
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
         <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
+        <div v-if="form.appPackage" class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-600 rounded-xl">
+          <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">关联 App</span>
+          <span class="text-sm text-gray-600 dark:text-gray-300 flex-1 truncate">{{ form.appPackage }}</span>
+          <button @click="() => { if (confirm('解除与此 App 的关联？')) form.appPackage = '' }" class="text-xs text-red-400 shrink-0">解除</button>
+        </div>
         <button v-if="editingId" @click="remove" class="w-full py-3 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl text-sm">删除条目</button>
       </div>
     </div>
@@ -60,7 +65,7 @@ const main = useMainStore();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
-const form = ref({ codename: '', description: '', url: '' });
+const form = ref({ codename: '', description: '', url: '', appPackage: '' });
 const formPwdPreview = ref('');
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
 
@@ -72,20 +77,20 @@ onMounted(() => store.load('password'));
 
 function openNew() {
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '' };
+  form.value = { codename: '', description: '', url: '', appPackage: '' };
   showForm.value = true;
 }
 
 function openEdit(e: Entry) {
   editingId.value = e.id;
-  form.value = { codename: e.codename || '', description: e.description || '', url: e.url || '' };
+  form.value = { codename: e.codename || '', description: e.description || '', url: e.url || '', appPackage: e.appPackage || '' };
   showForm.value = true;
 }
 
 function closeForm() {
   showForm.value = false;
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '' };
+  form.value = { codename: '', description: '', url: '', appPackage: '' };
 }
 
 async function generate(e: Entry) {
@@ -97,7 +102,7 @@ async function generate(e: Entry) {
 
 async function save() {
   if (!form.value.codename.trim()) return;
-  const data = { codename: form.value.codename.trim(), description: form.value.description, url: form.value.url || undefined };
+  const data = { codename: form.value.codename.trim(), description: form.value.description, url: form.value.url || undefined, appPackage: form.value.appPackage || undefined };
   if (editingId.value) {
     await store.update(editingId.value, data);
   } else {
