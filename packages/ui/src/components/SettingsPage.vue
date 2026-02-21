@@ -179,17 +179,19 @@
         <span class="text-gray-400">{{ showSecurity ? '▲' : '▼' }}</span>
       </button>
       <div v-if="showSecurity" class="space-y-2 text-gray-500 dark:text-gray-400 leading-relaxed">
-        <p class="font-medium text-gray-600 dark:text-gray-300">本地存储了什么</p>
+        <p class="font-medium text-gray-600 dark:text-gray-300">设计理念</p>
+        <p class="text-[10px]">花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
+        <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">本地存储了什么</p>
         <table class="w-full text-[10px] border-collapse">
-          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400">verifyHash</td><td>明文哈希，仅用于验证密码，无法反推主密码</td></tr>
-          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400">代号/URL/标题</td><td>AES-256-GCM 加密后存储</td></tr>
-          <tr><td class="py-1 pr-2 text-gray-400">id/类型/标签</td><td>明文（索引字段，不含敏感信息）</td></tr>
+          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
+          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
+          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>明文哈希，仅用于验证主密码，无法反推主密码本身</td></tr>
         </table>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">从未存储</p>
         <ul class="list-disc list-inside text-[10px] space-y-0.5">
           <li>主密码本身</li>
-          <li>任何网站的实际密码（生成模式）</li>
-          <li>数据库加密密钥（仅存于内存，锁定后清除）</li>
+          <li>任何网站的实际密码（按需生成，用完即弃）</li>
+          <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
         <p class="text-[10px]">PBKDF2（600,000 次迭代，SHA-256）+ AES-256-GCM，基于浏览器原生 Web Crypto API，零外部依赖。</p>

@@ -173,6 +173,24 @@
       </div>
     </div>
 
+    <!-- 安全说明 -->
+    <div class="bg-white rounded-xl">
+      <button @click="showSecurity = !showSecurity" class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium">
+        <span>安全说明</span>
+        <span class="text-gray-400">{{ showSecurity ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showSecurity" class="px-4 pb-4 flex flex-col gap-2 text-xs text-gray-500 leading-relaxed">
+        <p class="text-gray-600 font-medium">设计理念</p>
+        <p>花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
+        <p class="text-gray-600 font-medium pt-1">本地存储了什么</p>
+        <p><span class="text-gray-400">区分代号/标题/描述</span>　加密存储，解锁后才可读取</p>
+        <p><span class="text-gray-400">网址/包名/标签</span>　明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</p>
+        <p><span class="text-gray-400">verifyHash</span>　明文哈希，仅用于验证主密码，无法反推主密码本身</p>
+        <p class="text-gray-600 font-medium pt-1">从未存储</p>
+        <p>主密码本身 · 任何网站的实际密码（按需生成，用完即弃）· 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
+      </div>
+    </div>
+
     <!-- 版本 + 锁定 -->
     <div class="bg-white rounded-xl divide-y">
       <div class="px-4 py-3 flex items-center justify-between">
@@ -206,6 +224,7 @@ const syncStore = useSyncStore();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
 const showICloudGuide = ref(false);
+const showSecurity = ref(false);
 const isAndroid = Capacitor.getPlatform() === 'android';
 const autofillEnabled = ref(false);
 
