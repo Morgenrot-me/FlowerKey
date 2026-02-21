@@ -108,7 +108,8 @@ powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assem
 Entry {
   id, type, tags, folder, description, createdAt, updatedAt  // 明文
   codename?, charsetMode?, passwordLength?, storedPassword?   // 密码条目（加密）
-  url?, favicon?                                              // 书签/密码条目（明文）
+  url?                                                        // 密码/书签条目（明文）
+  favicon?                                                    // 书签条目（明文，网站图标URL）
   title?, description?, fileName?, sourceUrl?, content?       // 书签/文件引用（加密）
   appPackage?                                                 // Android 包名（明文）
 }
