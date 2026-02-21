@@ -93,6 +93,22 @@ export async function deleteEntry(id: string): Promise<void> {
   await logChange(id, 'delete');
 }
 
+/** 同步专用：直接写入条目，不记录 changelog（避免循环同步） */
+export async function putEntry(entry: Entry): Promise<void> {
+  const stored = await encryptEntry(entry, _dbKey);
+  await db!.run(
+    `INSERT OR REPLACE INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [stored.id, stored.type, stored.folder ?? '', JSON.stringify(stored.tags ?? []),
+     stored.createdAt, stored.updatedAt, stored.codename ?? null, stored.charsetMode ?? null,
+     stored.passwordLength ?? null, stored.storedPassword ?? null, stored.url ?? null,
+     stored.title ?? null, stored.favicon ?? null,
+     stored.encrypted === false ? 0 : null,
+     stored.content ?? null, stored.fileName ?? null, stored.sourceUrl ?? null, stored.description ?? null,
+     stored.appPackage ?? null]
+  );
+}
+
 export async function getEntry(id: string): Promise<Entry | undefined> {
   const res = await db!.query('SELECT * FROM entries WHERE id=?', [id]);
   if (!res.values?.length) return undefined;
@@ -147,6 +163,31 @@ export async function getConfig<T>(key: string): Promise<T | undefined> {
 export async function setConfig(key: string, value: unknown): Promise<void> {
   await db!.run('INSERT OR REPLACE INTO config (key,value,updatedAt) VALUES (?,?,?)',
     [key, JSON.stringify(value), Date.now()]);
+}
+
+export async function setSecretConfig(key: string, value: unknown): Promise<void> {
+  if (!_dbKey) throw new Error('未解锁');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, _dbKey, new TextEncoder().encode(JSON.stringify(value)));
+  const combined = new Uint8Array(12 + enc.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(enc), 12);
+  await setConfig(key, { __enc: btoa(String.fromCharCode(...combined)) });
+}
+
+export async function getSecretConfig<T>(key: string): Promise<T | undefined> {
+  const item = await getConfig<{ __enc?: string } | T>(key);
+  if (!item) return undefined;
+  const v = item as { __enc?: string };
+  if (!v?.__enc) return item as T;
+  if (!_dbKey) return undefined;
+  try {
+    const bytes = Uint8Array.from(atob(v.__enc), c => c.charCodeAt(0));
+    const iv = bytes.slice(0, 12);
+    const data = bytes.slice(12);
+    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, _dbKey, data);
+    return JSON.parse(new TextDecoder().decode(dec)) as T;
+  } catch { return undefined; }
 }
 
 export async function getMasterData(): Promise<MasterPasswordData | undefined> {

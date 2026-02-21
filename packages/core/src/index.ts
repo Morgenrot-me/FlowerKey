@@ -8,5 +8,6 @@ export * from './crypto.js';
 export { FlowerKeyDB, db, encryptEntry, decryptEntry, ENCRYPTED_FIELDS } from './db.js';
 export type { EncryptedField } from './db.js';
 export { SyncEngine } from './sync/engine.js';
+export type { LocalDbAdapter } from './sync/engine.js';
 export type { WebDAVConfig } from './sync/webdav.js';
 export type { StorageBackend } from './sync/backend.js';

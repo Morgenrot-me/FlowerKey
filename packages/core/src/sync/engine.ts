@@ -9,21 +9,46 @@ import type { StorageBackend } from './backend.js';
 import { serializeOpLog, deserializeOpLog, type OpLogEntry } from './changelog.js';
 import { encrypt, decrypt } from '../crypto.js';
 import { db, encryptEntry } from '../db.js';
-import type { Entry } from '../models.js';
+import type { Entry, ChangeLog } from '../models.js';
 
 const LOCK_TIMEOUT_MS = 60_000;
 const OPLOG_COMPACT_THRESHOLD = 20;
+
+/** 本地数据库适配接口，允许移动端注入 SQLite 实现 */
+export interface LocalDbAdapter {
+  getUnsyncedLogs(): Promise<ChangeLog[]>;
+  markLogsSynced(ids: number[]): Promise<void>;
+  getEntry(id: string): Promise<Entry | undefined>;
+  putEntry(entry: Entry): Promise<void>;
+  deleteEntry(id: string): Promise<void>;
+  getAllEntries(): Promise<Entry[]>;
+  getConfig<T>(key: string): Promise<T | undefined>;
+  setConfig(key: string, value: unknown): Promise<void>;
+}
+
+const defaultAdapter: LocalDbAdapter = {
+  getUnsyncedLogs: () => db.getUnsyncedLogs(),
+  markLogsSynced: (ids) => db.markLogsSynced(ids),
+  getEntry: (id) => db.getEntry(id),
+  putEntry: async (entry) => { await db.entries.put(await encryptEntry(entry, db.getDbKey())); },
+  deleteEntry: (id) => db.entries.delete(id),
+  getAllEntries: () => db.entries.toArray(),
+  getConfig: (key) => db.getConfig(key),
+  setConfig: (key, value) => db.setConfig(key, value),
+};
 
 export class SyncEngine {
   private dav: StorageBackend;
   private dbKey: CryptoKey;
   private deviceId: string;
+  private local: LocalDbAdapter;
   encryptMismatchCount = 0;
 
-  constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string) {
+  constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string, localAdapter?: LocalDbAdapter) {
     this.dav = 'url' in backend ? new FlowerKeyWebDAV(backend) : backend;
     this.dbKey = dbKey;
     this.deviceId = deviceId;
+    this.local = localAdapter ?? defaultAdapter;
   }
 
   private async encryptText(text: string): Promise<ArrayBuffer> {
@@ -74,12 +99,12 @@ export class SyncEngine {
 
   /** 推送本地未同步变更 */
   private async push(): Promise<number> {
-    const unsyncedLogs = await db.getUnsyncedLogs();
+    const unsyncedLogs = await this.local.getUnsyncedLogs();
     if (!unsyncedLogs.length) return 0;
 
     const opEntries: OpLogEntry[] = [];
     for (const log of unsyncedLogs) {
-      const entry = log.operation !== 'delete' ? await db.getEntry(log.entryId) : undefined;
+      const entry = log.operation !== 'delete' ? await this.local.getEntry(log.entryId) : undefined;
       opEntries.push({
         entryId: log.entryId,
         entryType: log.entryType,
@@ -95,14 +120,14 @@ export class SyncEngine {
     await this.dav.write(filename, encrypted);
 
     const ids = unsyncedLogs.map(l => l.id!).filter(Boolean) as number[];
-    await db.markLogsSynced(ids);
+    await this.local.markLogsSynced(ids);
 
     return opEntries.length;
   }
 
   /** 拉取远端新变更并应用 */
   private async pull(): Promise<number> {
-    const state = await db.getConfig<{ lastSyncTime: number }>('syncState');
+    const state = await this.local.getConfig<{ lastSyncTime: number }>('syncState');
     const lastSync = state?.lastSyncTime ?? 0;
 
     const files = await this.dav.listOplog();
@@ -124,7 +149,7 @@ export class SyncEngine {
     }
 
     if (newFiles.length > 0) {
-      await db.setConfig('syncState', { lastSyncTime: Date.now() });
+      await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
     }
 
     return applied;
@@ -135,9 +160,9 @@ export class SyncEngine {
     if (op.entryType !== 'entry') return;
 
     if (op.operation === 'delete') {
-      const local = await db.getEntry(op.entryId);
+      const local = await this.local.getEntry(op.entryId);
       if (!local || local.updatedAt <= op.timestamp) {
-        await db.entries.delete(op.entryId);
+        await this.local.deleteEntry(op.entryId);
       }
       return;
     }
@@ -147,19 +172,17 @@ export class SyncEngine {
 
     // 检测书签加密状态不一致：远端明文（encrypted===false）而本地加密，或反之
     if (remote.type === 'bookmark') {
-      const localEncrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+      const localEncrypt = (await this.local.getConfig<boolean>('bookmarkEncrypt')) ?? true;
       const remoteEncrypt = remote.encrypted !== false;
       if (localEncrypt !== remoteEncrypt) {
-        // 跳过写入，数据不被篡改
         this.encryptMismatchCount++;
         return;
       }
     }
 
-    const local = await db.getEntry(op.entryId);
+    const local = await this.local.getEntry(op.entryId);
     if (!local || local.updatedAt <= remote.updatedAt) {
-      // 重新加密后写入，绕过 ChangeLog（避免循环同步）
-      await db.entries.put(await encryptEntry(remote, db.getDbKey()));
+      await this.local.putEntry(remote);
     }
   }
 
@@ -168,16 +191,15 @@ export class SyncEngine {
     const files = await this.dav.listOplog();
     if (files.length < OPLOG_COMPACT_THRESHOLD) return;
 
-    const allEntries = await db.entries.toArray();
+    const allEntries = await this.local.getAllEntries();
     const snapshot = JSON.stringify(allEntries);
     const encrypted = await this.encryptText(snapshot);
     await this.dav.write('vault.enc', encrypted);
 
-    // 删除旧 oplog
     for (const f of files) {
       await this.dav.remove(`oplog/${f}`);
     }
-    await db.setConfig('syncState', { lastSyncTime: Date.now() });
+    await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
   }
 
   /** 首次加入：从远端全量快照恢复 */
@@ -186,10 +208,9 @@ export class SyncEngine {
     if (!buf) return false;
     const text = await this.decryptBuf(buf);
     const entries = JSON.parse(text) as Entry[];
-    await db.transaction('rw', db.entries, async () => {
-      await db.entries.clear();
-      await db.entries.bulkPut(entries);
-    });
+    for (const entry of entries) {
+      await this.local.putEntry(entry);
+    }
     return true;
   }
 }

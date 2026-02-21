@@ -5,9 +5,21 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { SyncEngine, db, type WebDAVConfig } from '@flowerkey/core';
+import { SyncEngine, type WebDAVConfig, type LocalDbAdapter } from '@flowerkey/core';
+import * as sqliteDb from '../db-sqlite';
 import { ICloudBackend } from './icloud';
 import { useMainStore } from './main';
+
+const sqliteAdapter: LocalDbAdapter = {
+  getUnsyncedLogs: () => sqliteDb.getUnsyncedLogs(),
+  markLogsSynced: (ids) => sqliteDb.markLogsSynced(ids),
+  getEntry: (id) => sqliteDb.getEntry(id),
+  putEntry: (entry) => sqliteDb.putEntry(entry),
+  deleteEntry: (id) => sqliteDb.deleteEntry(id),
+  getAllEntries: () => sqliteDb.getAllEntries(),
+  getConfig: (key) => sqliteDb.getConfig(key),
+  setConfig: (key, value) => sqliteDb.setConfig(key, value),
+};
 
 export type SyncMode = 'webdav' | 'icloud';
 
@@ -19,18 +31,18 @@ export const useSyncStore = defineStore('sync', () => {
   const error = ref('');
 
   async function loadConfig() {
-    syncMode.value = (await db.getConfig<SyncMode>('syncMode')) ?? 'webdav';
-    config.value = await db.getSecretConfig<WebDAVConfig>('webdavConfig') ?? null;
+    syncMode.value = (await sqliteDb.getConfig<SyncMode>('syncMode')) ?? 'webdav';
+    config.value = await sqliteDb.getSecretConfig<WebDAVConfig>('webdavConfig') ?? null;
   }
 
   async function saveConfig(cfg: WebDAVConfig) {
-    await db.setSecretConfig('webdavConfig', cfg);
+    await sqliteDb.setSecretConfig('webdavConfig', cfg);
     config.value = cfg;
   }
 
   async function setSyncMode(mode: SyncMode) {
     syncMode.value = mode;
-    await db.setConfig('syncMode', mode);
+    await sqliteDb.setConfig('syncMode', mode);
   }
 
   async function sync() {
@@ -41,11 +53,11 @@ export const useSyncStore = defineStore('sync', () => {
     syncing.value = true;
     error.value = '';
     try {
-      const deviceId = await db.getConfig<string>('deviceId') ?? 'unknown';
+      const deviceId = await sqliteDb.getConfig<string>('deviceId') ?? 'unknown';
       const backend = syncMode.value === 'icloud'
         ? new ICloudBackend()
         : config.value!;
-      const engine = new SyncEngine(backend, main.getDbKey(), deviceId);
+      const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);
       lastResult.value = await engine.sync();
     } catch (e) {
       error.value = (e as Error).message;
