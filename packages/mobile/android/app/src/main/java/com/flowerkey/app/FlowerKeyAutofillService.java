@@ -127,7 +127,6 @@ public class FlowerKeyAutofillService extends AutofillService {
         rv.setTextViewText(android.R.id.text1, label);
 
         Dataset.Builder builder = new Dataset.Builder()
-            .setValue(fieldId, AutofillValue.forText(""), rv)
             .setAuthentication(pi.getIntentSender());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && spec != null) {
@@ -137,9 +136,11 @@ public class FlowerKeyAutofillService extends AutofillService {
                         new SliceSpec("androidx.slice", 1))
                     .addText(label, null, Collections.singletonList(android.app.slice.SliceItem.FORMAT_TEXT))
                     .build();
-                builder.setValue(fieldId, AutofillValue.forText(""), rv,
+                builder.setValue(fieldId, null, rv,
                     new InlinePresentation(slice, spec, false));
             } catch (Exception ignored) {}
+        } else {
+            builder.setValue(fieldId, null, rv);
         }
         return builder.build();
     }
