@@ -107,9 +107,10 @@ powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assem
 ```typescript
 Entry {
   id, type, tags, folder, description, createdAt, updatedAt  // 明文
-  codename?, salt?, charsetMode?, passwordLength?             // 密码条目（加密）
-  url?, title?, favicon?                                      // 书签条目（加密）
-  fileName?, sourceUrl?                                       // 文件引用（加密）
+  codename?, charsetMode?, passwordLength?, storedPassword?   // 密码条目（加密）
+  url?, favicon?                                              // 书签/密码条目（明文）
+  title?, description?, fileName?, sourceUrl?, content?       // 书签/文件引用（加密）
+  appPackage?                                                 // Android 包名（明文）
 }
 ```
 
