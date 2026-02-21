@@ -19,4 +19,8 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
+
+    <!-- 自动填充悬浮窗样式：Dialog 主题，视觉上悬浮于原 App 上方 -->
+    <style name="AppTheme.Dialog" parent="Theme.AppCompat.Light.Dialog">
+    </style>
 </resources>

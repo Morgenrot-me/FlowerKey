@@ -28,7 +28,7 @@
         <activity
             android:name=".AutofillAuthActivity"
             android:exported="false"
-            android:theme="@style/AppTheme" />
+            android:theme="@style/AppTheme.Dialog" />
 
         <service
             android:name=".FlowerKeyAutofillService"
