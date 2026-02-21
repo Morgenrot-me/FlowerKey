@@ -295,7 +295,7 @@ public class AutofillAuthActivity extends Activity {
             .setValue(autofillId, AutofillValue.forText(password))
             .build();
         Intent reply = new Intent();
-        reply.putExtra(android.service.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
+        reply.putExtra(android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
         setResult(RESULT_OK, reply);
         finish();
     }
