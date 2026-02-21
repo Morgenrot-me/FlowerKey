@@ -62,18 +62,6 @@
             <textarea v-model="form.content" placeholder="笔记内容（端到端加密）" rows="6" class="input resize-none" />
           </template>
 
-          <!-- 公共字段：文件夹 combobox -->
-          <div class="relative" ref="folderRef">
-            <input v-model="form.folder" placeholder="文件夹（如 工作）" class="input"
-              @focus="showFolderDrop = true" @blur="hideFolderDrop" />
-            <ul v-if="showFolderDrop && folderOptions.length"
-              class="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg shadow-lg max-h-32 overflow-y-auto text-xs">
-              <li v-for="f in folderOptions" :key="f"
-                @mousedown.prevent="form.folder = f; showFolderDrop = false"
-                class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer">{{ f }}</li>
-            </ul>
-          </div>
-
           <!-- 标签 combobox -->
           <div class="relative">
             <input v-model="tagInput" placeholder="添加标签，回车确认" class="input"
@@ -131,18 +119,14 @@ const pwdPreview = ref('');
 const form = ref({
   codename: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '',
-  content: '', folder: '', description: '',
+  content: '', description: '',
 });
 
 // 标签
 const selectedTags = ref<string[]>([]);
 const tagInput = ref('');
-const showFolderDrop = ref(false);
 const showTagDrop = ref(false);
 
-const folderOptions = computed(() =>
-  (props.folders ?? []).filter(f => f && f !== '/' && f.toLowerCase().includes(form.value.folder.toLowerCase()))
-);
 const tagOptions = computed(() =>
   (props.tags ?? []).filter(t => !selectedTags.value.includes(t) && t.toLowerCase().includes(tagInput.value.toLowerCase()))
 );
@@ -167,7 +151,6 @@ watch([() => form.value.codename, () => form.value.charsetMode, () => form.value
   }
 });
 
-function hideFolderDrop() { setTimeout(() => { showFolderDrop.value = false; }, 150); }
 function hideTagDrop() { setTimeout(() => { showTagDrop.value = false; }, 150); }
 
 onMounted(() => {
@@ -184,7 +167,6 @@ function save() {
   emit('save', {
     type: props.type,
     tags: [...selectedTags.value],
-    folder: form.value.folder || '/',
     description: form.value.description,
     ...(props.type === 'password' && pwdMode.value === 'generate' && {
       codename: form.value.codename,

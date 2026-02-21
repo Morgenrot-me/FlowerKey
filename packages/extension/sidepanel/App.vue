@@ -39,12 +39,12 @@
       <template v-if="currentTab !== 'settings'">
       <div class="flex-1 overflow-y-auto">
         <!-- 筛选栏 -->
-        <div class="flex gap-1 px-3 py-2 text-xs flex-wrap">
+        <div v-if="entriesStore.tags.length" class="flex gap-1 px-3 py-2 text-xs flex-wrap">
           <button
-            v-for="f in entriesStore.folders" :key="f"
-            @click="entriesStore.currentFolder = entriesStore.currentFolder === f ? '' : f"
-            :class="['px-2 py-0.5 rounded', entriesStore.currentFolder === f ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
-          >{{ f || '未分类' }}</button>
+            v-for="t in entriesStore.tags" :key="t"
+            @click="toggleTag(t)"
+            :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
+          >{{ t }}</button>
         </div>
 
         <!-- 条目列表 -->
@@ -148,6 +148,12 @@ watch(currentTab, (tab) => {
 
 function onSearch() {
   entriesStore.search(searchQuery.value);
+}
+
+function toggleTag(t: string) {
+  const idx = entriesStore.selectedTags.indexOf(t);
+  if (idx >= 0) entriesStore.selectedTags.splice(idx, 1);
+  else entriesStore.selectedTags.push(t);
 }
 
 async function openAdd(mode?: 'generate' | 'store') {

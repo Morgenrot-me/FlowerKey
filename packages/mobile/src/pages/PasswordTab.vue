@@ -8,6 +8,13 @@
         class="flex-1 px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
       <button @click="openNew" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">+ 新建</button>
     </div>
+    <div v-if="store.tags.length" class="flex gap-1 px-4 py-2 flex-wrap border-b dark:border-gray-700">
+      <button
+        v-for="t in store.tags" :key="t"
+        @click="toggleTag(t)"
+        :class="['px-2 py-0.5 rounded text-xs', store.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300']"
+      >{{ t }}</button>
+    </div>
 
     <div class="flex-1 overflow-y-auto divide-y dark:divide-gray-700">
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
@@ -37,7 +44,7 @@
           <code class="text-sm text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(formPwdPreview) }}</code>
           <span class="text-xs text-blue-400 shrink-0">预览</span>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 px-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"钥匙的名字"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 px-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
         <input v-model="form.description" placeholder="描述（可选）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
         <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）"
@@ -81,6 +88,12 @@ watch(() => form.value.codename, async (codename) => {
 });
 
 onMounted(() => store.load('password'));
+
+function toggleTag(t: string) {
+  const idx = store.selectedTags.indexOf(t);
+  if (idx >= 0) store.selectedTags.splice(idx, 1);
+  else store.selectedTags.push(t);
+}
 
 function openNew() {
   editingId.value = '';

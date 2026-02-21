@@ -10,26 +10,17 @@ import { db, type Entry, type EntryType } from '@flowerkey/core';
 export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
   const currentType = ref<EntryType>('password');
-  const currentFolder = ref('');
-  const currentTag = ref('');
-  const folders = ref<string[]>([]);
+  const selectedTags = ref<string[]>([]);
   const tags = ref<string[]>([]);
 
   const filteredEntries = computed(() => {
-    let list = entries.value;
-    if (currentFolder.value) {
-      list = list.filter(e => e.folder === currentFolder.value);
-    }
-    if (currentTag.value) {
-      list = list.filter(e => e.tags?.includes(currentTag.value));
-    }
-    return list;
+    if (!selectedTags.value.length) return entries.value;
+    return entries.value.filter(e => selectedTags.value.some(t => e.tags?.includes(t)));
   });
 
   async function loadEntries(type?: EntryType) {
     if (type) currentType.value = type;
     entries.value = await db.getEntriesByType(currentType.value);
-    folders.value = await db.getAllFolders();
     tags.value = await db.getAllTags();
   }
 
@@ -54,8 +45,8 @@ export const useEntriesStore = defineStore('entries', () => {
   }
 
   return {
-    entries, currentType, currentFolder, currentTag,
-    folders, tags, filteredEntries,
+    entries, currentType, selectedTags,
+    tags, filteredEntries,
     loadEntries, createEntry, updateEntry, deleteEntry, search,
   };
 });
