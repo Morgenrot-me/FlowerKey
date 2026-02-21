@@ -128,6 +128,35 @@
       </div>
     </div>
 
+    <!-- 安全说明 -->
+    <div class="bg-white rounded-xl px-4 py-3 flex flex-col gap-2">
+      <button @click="showSecurity = !showSecurity" class="w-full text-left text-sm font-medium flex justify-between items-center">
+        <span>安全说明</span>
+        <span class="text-gray-400">{{ showSecurity ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showSecurity" class="flex flex-col gap-2 text-xs text-gray-500 leading-relaxed">
+        <p class="font-medium text-gray-700">设计理念</p>
+        <p>花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
+        <p class="font-medium text-gray-700 pt-1">本地存储了什么</p>
+        <table class="w-full border-collapse">
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
+          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>明文哈希，仅用于验证主密码，无法反推主密码本身</td></tr>
+        </table>
+        <p class="font-medium text-gray-700 pt-1">从未存储</p>
+        <ul class="list-disc list-inside space-y-0.5">
+          <li>主密码本身</li>
+          <li>网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存</li>
+          <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
+        </ul>
+        <p class="font-medium text-gray-700 pt-1">加密算法</p>
+        <p>AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-700">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
+        <p>密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
+        <p class="font-medium text-gray-700 pt-1">网络请求</p>
+        <p>本应用仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
+      </div>
+    </div>
+
     <!-- 版本 + 锁定 -->
     <div class="bg-white rounded-xl divide-y">
       <div class="px-4 py-3 flex items-center justify-between">
@@ -154,6 +183,7 @@ const mainStore = useMainStore();
 const syncStore = useSyncStore();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
+const showSecurity = ref(false);
 
 onMounted(async () => {
   await syncStore.loadConfig();

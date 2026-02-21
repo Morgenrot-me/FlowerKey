@@ -188,7 +188,7 @@
         <p><span class="text-gray-400 dark:text-gray-500">网址/包名/标签</span>　明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</p>
         <p><span class="text-gray-400 dark:text-gray-500">verifyHash</span>　明文哈希，仅用于验证主密码，无法反推主密码本身</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">从未存储</p>
-        <p>主密码本身 · 任何网站的实际密码（按需生成，用完即弃）· 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
+        <p>主密码本身 · 网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存 · 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">加密算法</p>
         <p>AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但<span class="text-gray-700 dark:text-gray-200 font-medium">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
       </div>

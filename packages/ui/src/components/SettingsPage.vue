@@ -164,14 +164,6 @@
       </div>
     </div>
 
-    <!-- 危险操作 -->
-    <div class="border-t pt-3 space-y-2">
-      <p class="font-medium text-gray-700 dark:text-gray-300">危险操作</p>
-      <button @click="confirmClear" class="w-full py-1.5 border border-red-300 text-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/20">
-        清除本地数据
-      </button>
-    </div>
-
     <!-- 安全说明 -->
     <div class="border-t pt-3 space-y-2">
       <button @click="showSecurity = !showSecurity" class="w-full text-left font-medium text-gray-700 dark:text-gray-300 flex justify-between items-center">
@@ -190,7 +182,7 @@
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">从未存储</p>
         <ul class="list-disc list-inside text-[10px] space-y-0.5">
           <li>主密码本身</li>
-          <li>任何网站的实际密码（按需生成，用完即弃）</li>
+          <li>网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存</li>
           <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
@@ -199,6 +191,14 @@
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">网络请求</p>
         <p class="text-[10px]">本插件仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
       </div>
+    </div>
+
+    <!-- 危险操作 -->
+    <div class="border-t pt-3 space-y-2">
+      <p class="font-medium text-gray-700 dark:text-gray-300">危险操作</p>
+      <button @click="confirmClear" class="w-full py-1.5 border border-red-300 text-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/20">
+        清除本地数据
+      </button>
     </div>
   </div>
 </template>

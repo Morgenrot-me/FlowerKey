@@ -26,7 +26,7 @@
                 <code class="text-xs text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(pwdPreview) }}</code>
                 <span class="text-[10px] text-blue-400 shrink-0">预览</span>
               </div>
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"钥匙的名字"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
+              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
               <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
               <div class="flex gap-2">
                 <select v-model="form.charsetMode" class="input flex-[3]">
