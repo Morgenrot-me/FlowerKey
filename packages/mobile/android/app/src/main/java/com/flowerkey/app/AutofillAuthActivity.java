@@ -206,7 +206,11 @@ public class AutofillAuthActivity extends Activity {
 
     // ==================== 保存关联 ====================
 
-    /** 手动输入代号填充后，将当前 appPackage/url 写回该条目，下次自动匹配 */
+    /**
+     * 手动输入代号填充后：
+     * - 找到匹配条目 → 更新 url/appPackage
+     * - 未找到 → 新建条目（codename 加密，url/appPackage 明文）
+     */
     private void saveAssociation(String codename) {
         try {
             SQLiteDatabase db = SQLiteDatabase.openDatabase(
@@ -217,21 +221,42 @@ public class AutofillAuthActivity extends Activity {
             while (c.moveToNext()) {
                 try {
                     if (codename.equals(aesGcmDecrypt(c.getString(1), aesKey))) {
-                        targetId = c.getString(0);
-                        break;
+                        targetId = c.getString(0); break;
                     }
                 } catch (Exception ignored) {}
             }
             c.close();
             if (targetId != null) {
-                if (webDomain != null && !webDomain.isEmpty()) {
+                if (webDomain != null && !webDomain.isEmpty())
                     db.execSQL("UPDATE entries SET url=? WHERE id=?", new Object[]{webDomain, targetId});
-                } else {
+                else
                     db.execSQL("UPDATE entries SET appPackage=? WHERE id=?", new Object[]{packageName, targetId});
-                }
+            } else {
+                // 新建条目
+                String id = java.util.UUID.randomUUID().toString();
+                String encCodename = aesGcmEncrypt(codename, aesKey);
+                long now = System.currentTimeMillis();
+                String url = (webDomain != null && !webDomain.isEmpty()) ? webDomain : null;
+                String pkg = (url == null) ? packageName : null;
+                db.execSQL(
+                    "INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,url,appPackage) VALUES (?,?,?,?,?,?,?,?,?)",
+                    new Object[]{id, "password", "", "[]", now, now, encCodename, url, pkg});
             }
             db.close();
         } catch (Exception ignored) {}
+    }
+
+    private String aesGcmEncrypt(String plaintext, SecretKeySpec key) throws Exception {
+        byte[] iv = new byte[12];
+        new java.security.SecureRandom().nextBytes(iv);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
+        byte[] ct = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+        byte[] result = new byte[1 + 12 + ct.length];
+        result[0] = 0x01;
+        System.arraycopy(iv, 0, result, 1, 12);
+        System.arraycopy(ct, 0, result, 13, ct.length);
+        return android.util.Base64.encodeToString(result, android.util.Base64.NO_WRAP);
     }
 
     // ==================== 查询匹配条目（全量解密过滤） ====================
