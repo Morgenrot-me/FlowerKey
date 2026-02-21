@@ -159,8 +159,10 @@ public class AutofillAuthActivity extends Activity {
         layout.addView(makeButton("生成并填充", COLOR_ACCENT, v -> {
             String codename = etCodename.getText().toString().trim();
             if (codename.isEmpty()) { toast("请输入区分代号"); return; }
-            try { returnPassword(generatePassword(codename)); }
-            catch (Exception e) { toast("生成失败：" + e.getMessage()); }
+            try {
+                saveAssociation(codename);
+                returnPassword(generatePassword(codename));
+            } catch (Exception e) { toast("生成失败：" + e.getMessage()); }
         }));
         layout.addView(makeSpacing(8));
         layout.addView(makeButton("取消", COLOR_SURFACE, v -> { setResult(RESULT_CANCELED); finish(); }));
@@ -200,6 +202,36 @@ public class AutofillAuthActivity extends Activity {
             catch (Exception e) { toast("填充失败：" + e.getMessage()); }
         });
         return row;
+    }
+
+    // ==================== 保存关联 ====================
+
+    /** 手动输入代号填充后，将当前 appPackage/url 写回该条目，下次自动匹配 */
+    private void saveAssociation(String codename) {
+        try {
+            SQLiteDatabase db = SQLiteDatabase.openDatabase(
+                getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READWRITE);
+            SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
+            Cursor c = db.rawQuery("SELECT id, codename FROM entries WHERE type='password'", null);
+            String targetId = null;
+            while (c.moveToNext()) {
+                try {
+                    if (codename.equals(aesGcmDecrypt(c.getString(1), aesKey))) {
+                        targetId = c.getString(0);
+                        break;
+                    }
+                } catch (Exception ignored) {}
+            }
+            c.close();
+            if (targetId != null) {
+                if (webDomain != null && !webDomain.isEmpty()) {
+                    db.execSQL("UPDATE entries SET url=? WHERE id=?", new Object[]{webDomain, targetId});
+                } else {
+                    db.execSQL("UPDATE entries SET appPackage=? WHERE id=?", new Object[]{packageName, targetId});
+                }
+            }
+            db.close();
+        } catch (Exception ignored) {}
     }
 
     // ==================== 查询匹配条目（全量解密过滤） ====================
