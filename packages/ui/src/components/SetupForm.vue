@@ -4,8 +4,9 @@
 -->
 <template>
   <div class="space-y-3">
-    <p class="text-sm text-gray-600 dark:text-gray-400 text-center">首次使用，请设置记忆密码</p>
-    <p class="text-[10px] text-center text-gray-400 dark:text-gray-500">密码永不上传，所有数据仅存于本设备，无任何遥测</p>
+    <p class="text-sm text-gray-600 dark:text-gray-400 text-center font-medium">欢迎使用花钥</p>
+    <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">花钥不保管你的密码，而是帮你<span class="text-gray-700 dark:text-gray-300">生成</span>密码——每次需要时，用"记忆密码 + 区分代号"即时算出，用完即弃，从不存储。只要记忆密码不变，任何设备、任何时候都能还原出相同的密码。</p>
+    <p class="text-[10px] text-orange-600 dark:text-orange-400">⚠️ 记忆密码是一切的根源，请务必牢记，且绝对不可泄露给任何人——任何知道你记忆密码的人都能生成你所有网站的密码。花钥无法帮你找回它。</p>
     <input
       v-model="pwd" type="password" placeholder="记忆密码"
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
