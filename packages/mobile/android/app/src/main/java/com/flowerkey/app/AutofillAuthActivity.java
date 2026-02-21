@@ -184,7 +184,7 @@ public class AutofillAuthActivity extends Activity {
             if (codename.isEmpty()) { toast("请输入区分代号"); return; }
             try {
                 saveAssociation(codename);
-                returnPassword(generatePassword(codename));
+                returnPassword(generatePassword(codename), codename);
             } catch (Exception e) { toast("生成失败：" + e.getMessage()); }
         }));
         layout.addView(makeSpacing(8));
@@ -221,7 +221,7 @@ public class AutofillAuthActivity extends Activity {
         }
 
         row.setOnClickListener(v -> {
-            try { returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename)); }
+            try { returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename), entry.codename); }
             catch (Exception e) { toast("填充失败：" + e.getMessage()); }
         });
         return row;
@@ -372,9 +372,9 @@ public class AutofillAuthActivity extends Activity {
             getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READONLY);
     }
 
-    private void returnPassword(String password) {
+    private void returnPassword(String password, String label) {
         RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        rv.setTextViewText(android.R.id.text1, "花钥");
+        rv.setTextViewText(android.R.id.text1, label);
         Dataset dataset = new Dataset.Builder()
             .setValue(autofillId, AutofillValue.forText(password), rv)
             .build();
