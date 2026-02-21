@@ -96,9 +96,9 @@ export async function createVerifyHash(masterPwd: string, userSalt: string): Pro
 
 /** 验证记忆密码是否正确 */
 export async function verifyMasterPassword(
-  masterPwd: string, userSalt: string, storedHash: string
+  masterPwd: string, verifySalt: string, storedHash: string
 ): Promise<boolean> {
-  const hash = await deriveRawKey(masterPwd, SALT_PREFIX_VERIFY + userSalt);
+  const hash = await deriveRawKey(masterPwd, SALT_PREFIX_VERIFY + verifySalt);
   return hash === storedHash;
 }
 
@@ -136,8 +136,10 @@ function encodePassword(
 
   if (withSymbols) {
     const SYMBOLS = '!@#$%^&*()-_=+[]{}|;:,.<>?';
-    // 找一个不是首位也不是 digitPos 的位置
-    const symPos = digitPos === length - 1 ? length - 2 : length - 1;
+    // 从末尾找第一个不与 0（字母位）和 digitPos 冲突的位置
+    let symPos = length - 1;
+    if (symPos === digitPos) symPos--;
+    if (symPos === 0) symPos = digitPos === 1 ? 2 : 1;
     arr[symPos] = SYMBOLS[mixBytes[3] % SYMBOLS.length];
   }
 

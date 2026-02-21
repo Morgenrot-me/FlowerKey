@@ -18,6 +18,7 @@ export interface Entry {
   description: string;
   createdAt: number;
   updatedAt: number;
+  lastUsedAt?: number;  // 最近使用时间（本地记录，不参与同步）
 
   // 密码条目字段
   codename?: string;

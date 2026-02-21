@@ -9,6 +9,7 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
+  encryptEntry, decryptEntry,
   type Entry, type EntryType, type CharsetMode, type MasterPasswordData,
 } from '@flowerkey/core';
 
@@ -120,7 +121,7 @@ export const useMainStore = defineStore('main', () => {
   /** 方案三：导出所有条目为明文 JSON */
   async function exportData(): Promise<string> {
     const entries = await db.entries.toArray();
-    const decrypted = await Promise.all(entries.map(e => db['decryptEntry'](e)));
+    const decrypted = await Promise.all(entries.map(e => decryptEntry(e, db.getDbKey())));
     return JSON.stringify({ version: 1, exportedAt: Date.now(), entries: decrypted }, null, 2);
   }
 
@@ -131,17 +132,18 @@ export const useMainStore = defineStore('main', () => {
     for (const entry of entries) {
       const exists = await db.getEntry(entry.id);
       if (!exists) {
-        const encrypted = await db['encryptEntry'](entry);
-        await db.entries.put(encrypted);
+        await db.entries.put(await encryptEntry(entry, db.getDbKey()));
         count++;
       }
     }
     return count;
   }
 
+  function getDbKey() { return db.getDbKey(); }
+
   return {
-    isUnlocked, isSetup, masterPwd, userSalt, searchQuery, currentView,
+    isUnlocked, isSetup, userSalt, searchQuery, currentView,
     checkSetup, setup, unlock, lock, genPassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData,
+    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };
 });

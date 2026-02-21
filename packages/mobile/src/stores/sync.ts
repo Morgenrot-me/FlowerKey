@@ -45,7 +45,7 @@ export const useSyncStore = defineStore('sync', () => {
       const backend = syncMode.value === 'icloud'
         ? new ICloudBackend()
         : config.value!;
-      const engine = new SyncEngine(backend, main.masterPwd, main.userSalt, deviceId);
+      const engine = new SyncEngine(backend, main.getDbKey(), deviceId);
       lastResult.value = await engine.sync();
     } catch (e) {
       error.value = (e as Error).message;

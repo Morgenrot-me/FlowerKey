@@ -47,6 +47,11 @@
           <span class="text-sm text-gray-600 dark:text-gray-300 flex-1 truncate">{{ form.appPackage }}</span>
           <button @click="() => { if (confirm('解除与此 App 的关联？')) form.appPackage = '' }" class="text-xs text-red-400 shrink-0">解除</button>
         </div>
+        <div v-if="editingId" class="px-1 flex gap-4 text-xs text-gray-400 dark:text-gray-500">
+          <span v-if="form.createdAt">创建于 {{ fmtDate(form.createdAt) }}</span>
+          <span v-if="form.lastUsedAt">最近使用 {{ fmtDate(form.lastUsedAt) }}</span>
+          <span v-else-if="form.createdAt">从未使用</span>
+        </div>
         <button v-if="editingId" @click="remove" class="w-full py-3 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl text-sm">删除条目</button>
       </div>
     </div>
@@ -58,6 +63,7 @@ import { ref, onMounted, watch } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
+import { updateLastUsed } from '../db-sqlite';
 import type { Entry } from '@flowerkey/core';
 
 const store = useEntriesStore();
@@ -65,9 +71,10 @@ const main = useMainStore();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
-const form = ref({ codename: '', description: '', url: '', appPackage: '' });
+const form = ref({ codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 });
 const formPwdPreview = ref('');
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
+function fmtDate(ts: number) { return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }); }
 
 watch(() => form.value.codename, async (codename) => {
   formPwdPreview.value = codename.trim() ? await main.genPassword(codename, 'alphanumeric', 16) : '';
@@ -77,25 +84,26 @@ onMounted(() => store.load('password'));
 
 function openNew() {
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '', appPackage: '' };
+  form.value = { codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 };
   showForm.value = true;
 }
 
 function openEdit(e: Entry) {
   editingId.value = e.id;
-  form.value = { codename: e.codename || '', description: e.description || '', url: e.url || '', appPackage: e.appPackage || '' };
+  form.value = { codename: e.codename || '', description: e.description || '', url: e.url || '', appPackage: e.appPackage || '', createdAt: e.createdAt || 0, lastUsedAt: e.lastUsedAt || 0 };
   showForm.value = true;
 }
 
 function closeForm() {
   showForm.value = false;
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '', appPackage: '' };
+  form.value = { codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 };
 }
 
 async function generate(e: Entry) {
   const pwd = await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
   await Clipboard.write({ string: pwd });
+  await updateLastUsed(e.id);
   copiedId.value = e.id;
   setTimeout(() => { copiedId.value = ''; }, 1500);
 }

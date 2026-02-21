@@ -144,6 +144,7 @@
         <button @click="showChangePwd = !showChangePwd" class="w-full py-2.5 border dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm text-left">修改主密码</button>
         <div v-if="showChangePwd" class="flex flex-col gap-2">
           <p class="text-xs text-gray-400 dark:text-gray-500">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
+          <input v-model="currentPwd" type="password" placeholder="当前主密码" class="input" />
           <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
           <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
           <button @click="handleChangePwd" :disabled="changingPwd"
@@ -298,18 +299,21 @@ async function handleGenerateRecovery() {
 }
 
 const showChangePwd = ref(false);
-const newPwd = ref(''), newPwdConfirm = ref('');
+const newPwd = ref(''), newPwdConfirm = ref(''), currentPwd = ref('');
 const changingPwd = ref(false), changePwdMsg = ref(''), changePwdError = ref(false);
 
 async function handleChangePwd() {
+  if (!currentPwd.value) {
+    changePwdMsg.value = '请输入当前主密码'; changePwdError.value = true; return;
+  }
   if (!newPwd.value || newPwd.value !== newPwdConfirm.value) {
     changePwdMsg.value = '两次输入不一致'; changePwdError.value = true; return;
   }
   changingPwd.value = true; changePwdMsg.value = '';
   try {
-    await mainStore.changeMasterPwd(newPwd.value);
+    await mainStore.changeMasterPwd(currentPwd.value, newPwd.value);
     changePwdMsg.value = '修改成功'; changePwdError.value = false;
-    newPwd.value = ''; newPwdConfirm.value = ''; showChangePwd.value = false;
+    newPwd.value = ''; newPwdConfirm.value = ''; currentPwd.value = ''; showChangePwd.value = false;
   } catch (e) {
     changePwdMsg.value = (e as Error).message; changePwdError.value = true;
   } finally { changingPwd.value = false; }

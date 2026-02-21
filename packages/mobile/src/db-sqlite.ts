@@ -5,7 +5,7 @@
  */
 
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
-import { encrypt, decrypt } from '@flowerkey/core';
+import { encryptEntry, decryptEntry, ENCRYPTED_FIELDS } from '@flowerkey/core';
 import { v4 as uuidv4 } from 'uuid';
 import type { Entry, ChangeLog, MasterPasswordData } from '@flowerkey/core';
 
@@ -13,12 +13,10 @@ const DB_NAME = 'flowerkey';
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 let db: Awaited<ReturnType<SQLiteConnection['createConnection']>> | null = null;
 
-const ENCRYPTED_FIELDS = ['codename', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
-type EncryptedField = typeof ENCRYPTED_FIELDS[number];
-
 let _dbKey: CryptoKey | null = null;
 
 export function setDbKey(key: CryptoKey) { _dbKey = key; }
+export function getDbKey(): CryptoKey { return _dbKey!; }
 export function clearDbKey() { _dbKey = null; }
 
 export async function initSQLite() {
@@ -41,36 +39,8 @@ export async function initSQLite() {
   `);
   // 旧数据库迁移：补充 appPackage 列（已存在时忽略错误）
   try { await db.execute('ALTER TABLE entries ADD COLUMN appPackage TEXT'); } catch {}
-}
-
-// ==================== 加密/解密 ====================
-
-async function encryptEntry(entry: Entry): Promise<Entry> {
-  if (!_dbKey || entry.encrypted === false) return entry;
-  const result = { ...entry };
-  for (const field of ENCRYPTED_FIELDS) {
-    const val = entry[field as EncryptedField];
-    if (val) {
-      const buf = await encrypt(val, _dbKey);
-      (result as Record<string, unknown>)[field] = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    }
-  }
-  return result;
-}
-
-async function decryptEntry(entry: Entry): Promise<Entry> {
-  if (!_dbKey || entry.encrypted === false) return entry;
-  const result = { ...entry };
-  for (const field of ENCRYPTED_FIELDS) {
-    const val = entry[field as EncryptedField];
-    if (val) {
-      try {
-        const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
-        (result as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, _dbKey);
-      } catch { /* 旧数据保持原样 */ }
-    }
-  }
-  return result;
+  // 迁移：补充 lastUsedAt 列
+  try { await db.execute('ALTER TABLE entries ADD COLUMN lastUsedAt INTEGER'); } catch {}
 }
 
 // ==================== Entry CRUD ====================
@@ -87,7 +57,7 @@ function rowToEntry(row: Record<string, unknown>): Entry {
 export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
   const now = Date.now();
   const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };
-  const stored = await encryptEntry(entry);
+  const stored = await encryptEntry(entry, _dbKey);
   await db!.run(
     `INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -104,7 +74,7 @@ export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'update
 }
 
 export async function updateEntry(id: string, changes: Partial<Entry>): Promise<void> {
-  const encChanges = await encryptEntry({ ...changes, id } as Entry);
+  const encChanges = await encryptEntry({ ...changes, id } as Entry, _dbKey);
   const stored: Partial<Entry> = { ...changes, updatedAt: Date.now() };
   for (const field of ENCRYPTED_FIELDS) {
     if (field in changes) (stored as Record<string, unknown>)[field] = (encChanges as Record<string, unknown>)[field];
@@ -126,12 +96,17 @@ export async function deleteEntry(id: string): Promise<void> {
 export async function getEntry(id: string): Promise<Entry | undefined> {
   const res = await db!.query('SELECT * FROM entries WHERE id=?', [id]);
   if (!res.values?.length) return undefined;
-  return decryptEntry(rowToEntry(res.values[0] as Record<string, unknown>));
+  return decryptEntry(rowToEntry(res.values[0] as Record<string, unknown>), _dbKey);
 }
 
 export async function getEntriesByType(type: Entry['type']): Promise<Entry[]> {
   const res = await db!.query('SELECT * FROM entries WHERE type=? ORDER BY updatedAt DESC', [type]);
-  return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>))));
+  return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
+}
+
+export async function getAllEntries(): Promise<Entry[]> {
+  const res = await db!.query('SELECT * FROM entries ORDER BY updatedAt DESC');
+  return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
 }
 
 export async function getAllFolders(): Promise<string[]> {
@@ -150,11 +125,9 @@ export async function getAllTags(): Promise<string[]> {
 
 export async function reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
   const res = await db!.query('SELECT * FROM entries');
-  _dbKey = oldKey;
-  const decrypted = await Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>))));
-  _dbKey = newKey;
+  const decrypted = await Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), oldKey)));
   for (const entry of decrypted) {
-    const stored = await encryptEntry(entry);
+    const stored = await encryptEntry(entry, newKey);
     await db!.run(
       `UPDATE entries SET codename=?,title=?,description=?,fileName=?,sourceUrl=?,storedPassword=?,content=? WHERE id=?`,
       [stored.codename ?? null, stored.title ?? null, stored.description ?? null,
@@ -204,4 +177,8 @@ export async function getUnsyncedLogs(): Promise<ChangeLog[]> {
 export async function markLogsSynced(ids: number[]): Promise<void> {
   if (!ids.length) return;
   await db!.run(`UPDATE changelog SET synced=1 WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+}
+
+export async function updateLastUsed(id: string): Promise<void> {
+  await db!.run('UPDATE entries SET lastUsedAt=? WHERE id=?', [Date.now(), id]);
 }

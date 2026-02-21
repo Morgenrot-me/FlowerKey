@@ -9,8 +9,40 @@ import { encrypt, decrypt } from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /** 需要加密存储的敏感字段 */
-const ENCRYPTED_FIELDS = ['codename', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
-type EncryptedField = typeof ENCRYPTED_FIELDS[number];
+export const ENCRYPTED_FIELDS = ['codename', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
+export type EncryptedField = typeof ENCRYPTED_FIELDS[number];
+
+/** 加密条目敏感字段，返回存储用对象 */
+export async function encryptEntry(entry: Entry, key: CryptoKey | null): Promise<Entry> {
+  if (!key || entry.encrypted === false) return entry;
+  const result = { ...entry };
+  for (const field of ENCRYPTED_FIELDS) {
+    const val = entry[field as EncryptedField];
+    if (val) {
+      const buf = await encrypt(val, key);
+      (result as unknown as Record<string, unknown>)[field] = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    }
+  }
+  return result;
+}
+
+/** 解密条目敏感字段 */
+export async function decryptEntry(entry: Entry, key: CryptoKey | null): Promise<Entry> {
+  if (!key || entry.encrypted === false) return entry;
+  const result = { ...entry };
+  for (const field of ENCRYPTED_FIELDS) {
+    const val = entry[field as EncryptedField];
+    if (val) {
+      try {
+        const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
+        (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, key);
+      } catch {
+        // 非加密数据（旧数据）保持原样
+      }
+    }
+  }
+  return result;
+}
 
 export class FlowerKeyDB extends Dexie {
   entries!: Table<Entry, string>;
@@ -26,43 +58,16 @@ export class FlowerKeyDB extends Dexie {
     this._dbKey = key;
   }
 
+  /** 获取当前数据库加密密钥 */
+  getDbKey(): CryptoKey { return this._dbKey!; }
+
   /** 清除密钥（锁定时调用） */
   clearDbKey() {
     this._dbKey = null;
   }
 
-  /** 加密条目敏感字段，返回存储用对象 */
-  private async encryptEntry(entry: Entry): Promise<Entry> {
-    if (!this._dbKey || entry.encrypted === false) return entry;
-    const result = { ...entry };
-    for (const field of ENCRYPTED_FIELDS) {
-      const val = entry[field as EncryptedField];
-      if (val) {
-        const buf = await encrypt(val, this._dbKey);
-        // 存为 base64 字符串
-        (result as unknown as Record<string, unknown>)[field] = btoa(String.fromCharCode(...new Uint8Array(buf)));
-      }
-    }
-    return result;
-  }
-
-  /** 解密条目敏感字段 */
-  private async decryptEntry(entry: Entry): Promise<Entry> {
-    if (!this._dbKey || entry.encrypted === false) return entry;
-    const result = { ...entry };
-    for (const field of ENCRYPTED_FIELDS) {
-      const val = entry[field as EncryptedField];
-      if (val) {
-        try {
-          const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
-          (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, this._dbKey);
-        } catch {
-          // 非加密数据（旧数据）保持原样
-        }
-      }
-    }
-    return result;
-  }
+  private encryptEntry(entry: Entry) { return encryptEntry(entry, this._dbKey); }
+  private decryptEntry(entry: Entry) { return decryptEntry(entry, this._dbKey); }
 
   constructor() {
     super('FlowerKeyDB');
@@ -96,10 +101,8 @@ export class FlowerKeyDB extends Dexie {
   /** 修改主密码时批量重加密所有条目（旧 key → 新 key） */
   async reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
     const all = await this.entries.toArray();
-    this._dbKey = oldKey;
-    const decrypted = await Promise.all(all.map(e => this.decryptEntry(e)));
-    this._dbKey = newKey;
-    const reEncrypted = await Promise.all(decrypted.map(e => this.encryptEntry(e)));
+    const decrypted = await Promise.all(all.map(e => decryptEntry(e, oldKey)));
+    const reEncrypted = await Promise.all(decrypted.map(e => encryptEntry(e, newKey)));
     await this.entries.bulkPut(reEncrypted);
   }
 

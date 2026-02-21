@@ -103,6 +103,8 @@ export const useMainStore = defineStore('main', () => {
     return count;
   }
 
-  return { isUnlocked, isSetup, masterPwd, userSalt, checkSetup, setup, unlock, lock, genPassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData };
+  function getDbKey() { return db.getDbKey(); }
+
+  return { isUnlocked, isSetup, userSalt, checkSetup, setup, unlock, lock, genPassword,
+    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey };
 });

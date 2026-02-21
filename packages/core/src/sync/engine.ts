@@ -7,8 +7,8 @@
 import { FlowerKeyWebDAV, type WebDAVConfig } from './webdav.js';
 import type { StorageBackend } from './backend.js';
 import { serializeOpLog, deserializeOpLog, type OpLogEntry } from './changelog.js';
-import { encrypt, decrypt, deriveDatabaseKey } from '../crypto.js';
-import { db } from '../db.js';
+import { encrypt, decrypt } from '../crypto.js';
+import { db, encryptEntry } from '../db.js';
 import type { Entry } from '../models.js';
 
 const LOCK_TIMEOUT_MS = 60_000;
@@ -16,28 +16,22 @@ const OPLOG_COMPACT_THRESHOLD = 20;
 
 export class SyncEngine {
   private dav: StorageBackend;
-  private masterPwd: string;
-  private userSalt: string;
+  private dbKey: CryptoKey;
   private deviceId: string;
   encryptMismatchCount = 0;
 
-  constructor(backend: StorageBackend | WebDAVConfig, masterPwd: string, userSalt: string, deviceId: string) {
+  constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string) {
     this.dav = 'url' in backend ? new FlowerKeyWebDAV(backend) : backend;
-    this.masterPwd = masterPwd;
-    this.userSalt = userSalt;
+    this.dbKey = dbKey;
     this.deviceId = deviceId;
   }
 
-  private async getKey() {
-    return deriveDatabaseKey(this.masterPwd, this.userSalt);
-  }
-
   private async encryptText(text: string): Promise<ArrayBuffer> {
-    return encrypt(text, await this.getKey());
+    return encrypt(text, this.dbKey);
   }
 
   private async decryptBuf(buf: ArrayBuffer): Promise<string> {
-    return decrypt(buf, await this.getKey());
+    return decrypt(buf, this.dbKey);
   }
 
   /** 尝试获取同步锁（60秒过期） */
@@ -164,8 +158,8 @@ export class SyncEngine {
 
     const local = await db.getEntry(op.entryId);
     if (!local || local.updatedAt <= remote.updatedAt) {
-      // 直接写入，绕过 ChangeLog（避免循环同步）
-      await db.entries.put(remote);
+      // 重新加密后写入，绕过 ChangeLog（避免循环同步）
+      await db.entries.put(await encryptEntry(remote, db.getDbKey()));
     }
   }
 

@@ -32,7 +32,7 @@ export const useSyncStore = defineStore('sync', () => {
     error.value = '';
     try {
       const deviceId = await db.getConfig<string>('deviceId') ?? 'unknown';
-      const engine = new SyncEngine(config.value, main.masterPwd, main.userSalt, deviceId);
+      const engine = new SyncEngine(config.value, main.getDbKey(), deviceId);
       lastResult.value = await engine.sync();
     } catch (e) {
       error.value = (e as Error).message;
