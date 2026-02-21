@@ -1,0 +1,46 @@
+package com.flowerkey.app;
+
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.nio.charset.StandardCharsets;
+import java.security.spec.KeySpec;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+
+/**
+ * Capacitor Plugin：Vue 层解锁后同步 dbKey 到 Application 内存
+ * 调用：Capacitor.Plugins.AutofillState.setUnlocked({ masterPwd, userSalt })
+ */
+@CapacitorPlugin(name = "AutofillState")
+public class AutofillStatePlugin extends Plugin {
+
+    private static final int ITERATIONS = 600_000;
+    private static final String SALT_DBENC = "flowerkey_dbenc_";
+
+    @PluginMethod
+    public void setUnlocked(PluginCall call) {
+        String masterPwd = call.getString("masterPwd");
+        String userSalt = call.getString("userSalt");
+        if (masterPwd == null || userSalt == null) { call.reject("missing params"); return; }
+        try {
+            byte[] dbKey = pbkdf2(masterPwd, SALT_DBENC + userSalt);
+            FlowerKeyApp.get().setUnlocked(dbKey, userSalt);
+            call.resolve();
+        } catch (Exception e) { call.reject(e.getMessage()); }
+    }
+
+    @PluginMethod
+    public void setLocked(PluginCall call) {
+        FlowerKeyApp.get().setLocked();
+        call.resolve();
+    }
+
+    private byte[] pbkdf2(String password, String salt) throws Exception {
+        KeySpec spec = new PBEKeySpec(
+            password.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), ITERATIONS, 256);
+        return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+    }
+}
