@@ -45,8 +45,9 @@ public class FlowerKeyAutofillService extends AutofillService {
         List<FillContext> contexts = request.getFillContexts();
         AssistStructure structure = contexts.get(contexts.size() - 1).getStructure();
 
-        AutofillId passwordFieldId = findPasswordField(structure.getWindowNodeAt(0).getRootViewNode());
-        if (passwordFieldId == null) { callback.onSuccess(null); return; }
+        List<AutofillId> passwordFieldIds = findPasswordFields(structure.getWindowNodeAt(0).getRootViewNode());
+        if (passwordFieldIds.isEmpty()) { callback.onSuccess(null); return; }
+        AutofillId primaryId = passwordFieldIds.get(0);
 
         String packageName = structure.getActivityComponent().getPackageName();
         String webDomain = extractWebDomain(structure.getWindowNodeAt(0).getRootViewNode());
@@ -70,11 +71,11 @@ public class FlowerKeyAutofillService extends AutofillService {
                             EntryItem e = entries.get(i);
                             String pwd = e.storedPassword != null ? e.storedPassword
                                 : generatePassword(app.getMasterKey(), e.codename);
-                            Dataset ds = buildInlineDataset(passwordFieldId, pwd, e.codename, specs.get(i));
+                            Dataset ds = buildInlineDataset(passwordFieldIds, pwd, e.codename, specs.get(i));
                             if (ds != null) rb.addDataset(ds);
                         } catch (Exception ignored) {}
                     }
-                    rb.addDataset(buildAuthDataset(passwordFieldId, packageName, webDomain, null, "更多..."));
+                    rb.addDataset(buildAuthDataset(passwordFieldIds, packageName, webDomain, null, "更多..."));
                     callback.onSuccess(rb.build());
                     return;
                 }
@@ -83,7 +84,7 @@ public class FlowerKeyAutofillService extends AutofillService {
 
         // 退回 Authentication 流程
         callback.onSuccess(new FillResponse.Builder()
-            .addDataset(buildAuthDataset(passwordFieldId, packageName, webDomain, null, "🔑 使用花钥填充密码"))
+            .addDataset(buildAuthDataset(passwordFieldIds, packageName, webDomain, null, "🔑 使用花钥填充密码"))
             .build());
     }
 
@@ -92,7 +93,7 @@ public class FlowerKeyAutofillService extends AutofillService {
 
     // ==================== Dataset 构建 ====================
 
-    private Dataset buildInlineDataset(AutofillId fieldId, String password, String label,
+    private Dataset buildInlineDataset(List<AutofillId> fieldIds, String password, String label,
                                         InlinePresentationSpec spec) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null;
         try {
@@ -103,17 +104,20 @@ public class FlowerKeyAutofillService extends AutofillService {
                 .build();
             RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
             rv.setTextViewText(android.R.id.text1, label);
-            return new Dataset.Builder()
-                .setValue(fieldId, AutofillValue.forText(password), rv,
-                    new InlinePresentation(slice, spec, false))
-                .build();
+            Dataset.Builder builder = new Dataset.Builder();
+            for (AutofillId id : fieldIds) {
+                builder.setValue(id, AutofillValue.forText(password), rv,
+                    new InlinePresentation(slice, spec, false));
+            }
+            return builder.build();
         } catch (Exception e) { return null; }
     }
 
-    private Dataset buildAuthDataset(AutofillId fieldId, String packageName, String webDomain,
+    private Dataset buildAuthDataset(List<AutofillId> fieldIds, String packageName, String webDomain,
                                       InlinePresentationSpec spec, String label) {
         Intent intent = new Intent(this, AutofillAuthActivity.class);
-        intent.putExtra(AutofillAuthActivity.EXTRA_AUTOFILL_ID, fieldId);
+        intent.putParcelableArrayListExtra(AutofillAuthActivity.EXTRA_AUTOFILL_IDS,
+            new ArrayList<>(fieldIds));
         intent.putExtra(AutofillAuthActivity.EXTRA_PACKAGE_NAME, packageName);
         if (webDomain != null) intent.putExtra(AutofillAuthActivity.EXTRA_WEB_DOMAIN, webDomain);
         PendingIntent pi = PendingIntent.getActivity(this, packageName.hashCode(), intent,
@@ -132,11 +136,11 @@ public class FlowerKeyAutofillService extends AutofillService {
                         new SliceSpec("androidx.slice", 1))
                     .addText(label, null, Collections.singletonList(android.app.slice.SliceItem.FORMAT_TEXT))
                     .build();
-                builder.setValue(fieldId, null, rv,
+                builder.setValue(fieldIds.get(0), null, rv,
                     new InlinePresentation(slice, spec, false));
             } catch (Exception ignored) {}
         } else {
-            builder.setValue(fieldId, null, rv);
+            builder.setValue(fieldIds.get(0), null, rv);
         }
         return builder.build();
     }
@@ -204,21 +208,39 @@ public class FlowerKeyAutofillService extends AutofillService {
 
     // ==================== AssistStructure 解析 ====================
 
-    private AutofillId findPasswordField(AssistStructure.ViewNode node) {
+    private List<AutofillId> findPasswordFields(AssistStructure.ViewNode node) {
+        List<AutofillId> all = new ArrayList<>();
+        List<AutofillId> newPwd = new ArrayList<>();
+        collectPasswordFields(node, all, newPwd);
+        // 全是新密码框（注册/改密纯新密码）→ 全填；否则只填非新密码框
+        if (!newPwd.isEmpty() && newPwd.size() == all.size()) return all;
+        List<AutofillId> current = new ArrayList<>(all);
+        current.removeAll(newPwd);
+        return current.isEmpty() ? all : current;
+    }
+
+    private void collectPasswordFields(AssistStructure.ViewNode node,
+                                        List<AutofillId> all, List<AutofillId> newPwd) {
         if (node.getAutofillType() != android.view.View.AUTOFILL_TYPE_NONE) {
             String[] hints = node.getAutofillHints();
             if (hints != null) {
+                boolean isPwd = false, isNew = false;
                 for (String h : hints) {
-                    if (h != null && h.toLowerCase().contains("password")) return node.getAutofillId();
+                    if (h == null) continue;
+                    String hl = h.toLowerCase();
+                    if (hl.contains("password")) isPwd = true;
+                    if (hl.contains("new") || hl.equals("new-password")) isNew = true;
+                }
+                if (isPwd) {
+                    all.add(node.getAutofillId());
+                    if (isNew) newPwd.add(node.getAutofillId());
+                    for (int i = 0; i < node.getChildCount(); i++) collectPasswordFields(node.getChildAt(i), all, newPwd);
+                    return;
                 }
             }
-            if ((node.getInputType() & 0x80) != 0) return node.getAutofillId();
+            if ((node.getInputType() & 0x80) != 0) all.add(node.getAutofillId());
         }
-        for (int i = 0; i < node.getChildCount(); i++) {
-            AutofillId found = findPasswordField(node.getChildAt(i));
-            if (found != null) return found;
-        }
-        return null;
+        for (int i = 0; i < node.getChildCount(); i++) collectPasswordFields(node.getChildAt(i), all, newPwd);
     }
 
     private String extractWebDomain(AssistStructure.ViewNode node) {

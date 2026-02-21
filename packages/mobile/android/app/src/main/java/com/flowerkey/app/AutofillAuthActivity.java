@@ -35,7 +35,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class AutofillAuthActivity extends Activity {
 
-    static final String EXTRA_AUTOFILL_ID  = "autofill_id";
+    static final String EXTRA_AUTOFILL_IDS  = "autofill_ids";
     static final String EXTRA_PACKAGE_NAME = "package_name";
     static final String EXTRA_WEB_DOMAIN   = "web_domain";
 
@@ -72,7 +72,7 @@ public class AutofillAuthActivity extends Activity {
         }
     }
 
-    private AutofillId autofillId;
+    private java.util.List<AutofillId> autofillIds;
     private String     packageName;
     private String     webDomain;
 
@@ -84,9 +84,10 @@ public class AutofillAuthActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        autofillId  = getIntent().getParcelableExtra(EXTRA_AUTOFILL_ID);
+        autofillIds = getIntent().getParcelableArrayListExtra(EXTRA_AUTOFILL_IDS);
         packageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
         webDomain   = getIntent().getStringExtra(EXTRA_WEB_DOMAIN);
+        if (autofillIds == null || autofillIds.isEmpty()) { finish(); return; }
         initColors();
 
         ScrollView scroll = new ScrollView(this);
@@ -397,11 +398,12 @@ public class AutofillAuthActivity extends Activity {
     private void returnPassword(String password, String label) {
         RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
         rv.setTextViewText(android.R.id.text1, label);
-        Dataset dataset = new Dataset.Builder()
-            .setValue(autofillId, AutofillValue.forText(password), rv)
-            .build();
+        Dataset.Builder builder = new Dataset.Builder();
+        for (AutofillId id : autofillIds) {
+            builder.setValue(id, AutofillValue.forText(password), rv);
+        }
         Intent reply = new Intent();
-        reply.putExtra(android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT, dataset);
+        reply.putExtra(android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT, builder.build());
         setResult(RESULT_OK, reply);
         finish();
     }
