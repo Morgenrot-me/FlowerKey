@@ -154,7 +154,30 @@ public class AutofillAuthActivity extends Activity {
 
         EditText etCodename = makeEditText("区分代号", false);
         layout.addView(etCodename);
+
+        TextView tvPreview = new TextView(this);
+        tvPreview.setTextColor(COLOR_ACCENT);
+        tvPreview.setTextSize(13);
+        tvPreview.setTypeface(android.graphics.Typeface.MONOSPACE);
+        tvPreview.setPadding(dp(4), dp(4), dp(4), 0);
+        tvPreview.setVisibility(android.view.View.GONE);
+        layout.addView(tvPreview);
         layout.addView(makeSpacing(8));
+
+        etCodename.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
+            public void onTextChanged(CharSequence s, int st, int b, int c) {}
+            public void afterTextChanged(android.text.Editable s) {
+                String code = s.toString().trim();
+                if (code.isEmpty()) { tvPreview.setVisibility(android.view.View.GONE); return; }
+                try {
+                    String pwd = generatePassword(code);
+                    String masked = pwd.length() <= 10 ? pwd : pwd.substring(0, 5) + "•••••" + pwd.substring(pwd.length() - 5);
+                    tvPreview.setText("预览：" + masked);
+                    tvPreview.setVisibility(android.view.View.VISIBLE);
+                } catch (Exception ignored) { tvPreview.setVisibility(android.view.View.GONE); }
+            }
+        });
 
         layout.addView(makeButton("生成并填充", COLOR_ACCENT, v -> {
             String codename = etCodename.getText().toString().trim();

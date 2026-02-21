@@ -22,6 +22,10 @@
             </div>
             <template v-if="pwdMode === 'generate'">
               <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
+              <div v-if="pwdPreview" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg -mt-1">
+                <code class="text-xs text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(pwdPreview) }}</code>
+                <span class="text-[10px] text-blue-400 shrink-0">预览</span>
+              </div>
               <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"钥匙的名字"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
               <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
               <div class="flex gap-2">
@@ -104,8 +108,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import type { Entry, EntryType } from '@flowerkey/core';
+import { useMainStore } from '../stores/main';
 
 const props = defineProps<{
   entry?: Entry;
@@ -119,8 +124,10 @@ const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]
 
 const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用', note: '笔记' }[props.type] ?? ''));
 
+const mainStore = useMainStore();
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
 const showPwd = ref(false);
+const pwdPreview = ref('');
 const form = ref({
   codename: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '',
@@ -151,6 +158,15 @@ function addTagValue(t: string) {
   showTagDrop.value = false;
 }
 function removeTag(t: string) { selectedTags.value = selectedTags.value.filter(x => x !== t); }
+function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
+watch([() => form.value.codename, () => form.value.charsetMode, () => form.value.passwordLength], async ([codename]) => {
+  if (pwdMode.value === 'generate' && codename.trim()) {
+    pwdPreview.value = await mainStore.genPassword(codename, form.value.charsetMode, form.value.passwordLength);
+  } else {
+    pwdPreview.value = '';
+  }
+});
+
 function hideFolderDrop() { setTimeout(() => { showFolderDrop.value = false; }, 150); }
 function hideTagDrop() { setTimeout(() => { showTagDrop.value = false; }, 150); }
 

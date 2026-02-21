@@ -69,12 +69,8 @@
             <option :value="32">32位</option>
           </select>
         </div>
-        <button @click="generate" :disabled="!codename.trim()"
-          class="w-full py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50">
-          生成密码
-        </button>
         <div v-if="generatedPwd" class="p-2 bg-gray-50 dark:bg-gray-800 rounded flex items-center justify-between">
-          <code class="text-sm break-all">{{ generatedPwd }}</code>
+          <code class="text-sm break-all">{{ generatedPwd.length <= 10 ? generatedPwd : generatedPwd.slice(0,5) + '•••••' + generatedPwd.slice(-5) }}</code>
           <button @click="copyPwd" class="ml-2 text-xs text-blue-500 hover:underline shrink-0">
             {{ copied ? '已复制' : '复制' }}
           </button>
@@ -117,6 +113,14 @@ const charsetMode = ref<CharsetMode>('alphanumeric');
 const pwdLength = ref(16);
 const generatedPwd = ref('');
 const copied = ref(false);
+
+watch([codename, charsetMode, pwdLength], async ([c]) => {
+  if (mainStore.isUnlocked && (c as string).trim()) {
+    generatedPwd.value = await mainStore.genPassword(c as string, charsetMode.value, pwdLength.value);
+  } else {
+    generatedPwd.value = '';
+  }
+});
 
 onMounted(async () => {
   await mainStore.checkSetup();

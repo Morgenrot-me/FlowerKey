@@ -288,6 +288,12 @@ async function confirmBookmarkEncrypt() {
 
 const recoveryCode = ref('');
 async function handleGenerateRecovery() {
+  const { getMasterData } = await import('../db-sqlite');
+  const data = await getMasterData();
+  if (data?.encryptedMasterPwd) {
+    const ok = confirm('已存在恢复码，重新生成后旧恢复码将立即失效且无法恢复。确认继续？');
+    if (!ok) return;
+  }
   recoveryCode.value = await mainStore.generateRecovery();
 }
 

@@ -33,6 +33,10 @@
       <div class="flex-1 px-4 py-4 flex flex-col gap-3">
         <input v-model="form.codename" placeholder="区分代号（必填，如 github）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
+        <div v-if="formPwdPreview" class="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-xl -mt-1">
+          <code class="text-sm text-blue-700 flex-1 break-all">{{ maskPwd(formPwdPreview) }}</code>
+          <span class="text-xs text-blue-400 shrink-0">预览</span>
+        </div>
         <p class="text-xs text-gray-400 px-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"钥匙的名字"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
         <input v-model="form.description" placeholder="描述（可选）"
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
@@ -44,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
@@ -54,6 +58,12 @@ const main = useMainStore();
 const copiedId = ref('');
 const showForm = ref(false);
 const form = ref({ codename: '', description: '', url: '' });
+const formPwdPreview = ref('');
+function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
+
+watch(() => form.value.codename, async (codename) => {
+  formPwdPreview.value = codename.trim() ? await main.genPassword(codename, 'alphanumeric', 16) : '';
+});
 
 onMounted(() => store.load('password'));
 
