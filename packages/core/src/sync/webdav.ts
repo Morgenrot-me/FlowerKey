@@ -32,15 +32,11 @@ export class FlowerKeyWebDAV implements StorageBackend {
   /** 确保基础目录存在 */
   async ensureDir(): Promise<void> {
     try {
-      await this.client.createDirectory(this.base, { recursive: true });
-    } catch {
-      // 目录已存在时忽略
-    }
+      await this.client.createDirectory(this.base);
+    } catch { /* 目录已存在时忽略 */ }
     try {
-      await this.client.createDirectory(this.path('oplog'), { recursive: true });
-    } catch {
-      // 忽略
-    }
+      await this.client.createDirectory(this.path('oplog'));
+    } catch { /* 忽略 */ }
   }
 
   /** 读取文件内容（返回 ArrayBuffer，不存在返回 null） */
