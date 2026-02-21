@@ -194,7 +194,8 @@
           <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
-        <p class="text-[10px]">PBKDF2（600,000 次迭代，SHA-256）+ AES-256-GCM，基于浏览器原生 Web Crypto API，零外部依赖。</p>
+        <p class="text-[10px]">AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-600 dark:text-gray-300">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
+        <p class="text-[10px] pt-0.5">密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">网络请求</p>
         <p class="text-[10px]">本插件仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
       </div>
