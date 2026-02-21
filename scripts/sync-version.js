@@ -19,3 +19,14 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 manifest.version = version;
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`manifest.json: ${version}`);
+
+// 同步 Android build.gradle versionName
+// versionCode 用版本号各段相加（如 0.3.0 → 3）保持递增
+const buildGradlePath = 'packages/mobile/android/app/build.gradle';
+let gradle = readFileSync(buildGradlePath, 'utf8');
+const parts = version.split('.').map(Number);
+const versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2];
+gradle = gradle.replace(/versionCode \d+/, `versionCode ${versionCode}`);
+gradle = gradle.replace(/versionName "[^"]*"/, `versionName "${version}"`);
+writeFileSync(buildGradlePath, gradle);
+console.log(`android build.gradle: ${version} (code: ${versionCode})`);
