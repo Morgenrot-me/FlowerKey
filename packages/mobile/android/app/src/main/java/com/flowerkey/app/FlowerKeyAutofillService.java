@@ -64,7 +64,7 @@ public class FlowerKeyAutofillService extends AutofillService {
                 List<EntryItem> entries = queryMatchingEntries(app, packageName, webDomain);
                 if (!entries.isEmpty()) {
                     FillResponse.Builder rb = new FillResponse.Builder();
-                    int max = Math.min(entries.size(), specs.size() - 1);
+                    int max = Math.min(entries.size(), specs.size());
                     for (int i = 0; i < max; i++) {
                         try {
                             EntryItem e = entries.get(i);
@@ -74,9 +74,7 @@ public class FlowerKeyAutofillService extends AutofillService {
                             if (ds != null) rb.addDataset(ds);
                         } catch (Exception ignored) {}
                     }
-                    // 兜底"更多"走 Authentication
-                    InlinePresentationSpec moreSpec = specs.size() > max ? specs.get(max) : null;
-                    rb.addDataset(buildAuthDataset(passwordFieldId, packageName, webDomain, moreSpec, "更多..."));
+                    rb.addDataset(buildAuthDataset(passwordFieldId, packageName, webDomain, null, "更多..."));
                     callback.onSuccess(rb.build());
                     return;
                 }
@@ -118,8 +116,6 @@ public class FlowerKeyAutofillService extends AutofillService {
         intent.putExtra(AutofillAuthActivity.EXTRA_AUTOFILL_ID, fieldId);
         intent.putExtra(AutofillAuthActivity.EXTRA_PACKAGE_NAME, packageName);
         if (webDomain != null) intent.putExtra(AutofillAuthActivity.EXTRA_WEB_DOMAIN, webDomain);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
         PendingIntent pi = PendingIntent.getActivity(this, packageName.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 

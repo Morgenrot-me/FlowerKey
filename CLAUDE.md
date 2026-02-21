@@ -84,6 +84,20 @@ pnpm build               # 构建所有包
 pnpm version:sync        # 同步版本号（改根 package.json 后运行）
 ```
 
+## Android APK 构建
+
+```bash
+# 1. 构建前端
+pnpm --filter @flowerkey/mobile build
+
+# 2. 同步到 Android 原生项目
+cd packages/mobile && npx cap sync android
+
+# 3. 构建 APK（必须用 PowerShell，bash 下 gradlew 无法运行）
+powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assembleDebug"
+# APK 输出：packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## 版本管理
 
 统一在根 `package.json` 的 `version` 字段维护，运行 `pnpm version:sync` 同步到所有子包。
