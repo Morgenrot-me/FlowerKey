@@ -11,6 +11,20 @@
       ⚠️ 卸载应用或换设备将永久丢失所有数据，请配置同步或定期导出备份。
     </div>
 
+    <!-- 自动填充（Android） -->
+    <div v-if="isAndroid" class="bg-white rounded-xl divide-y">
+      <div class="px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium">自动填充服务</p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ autofillEnabled ? '已启用，点击密码框可自动填充' : '未启用，点击开启' }}</p>
+        </div>
+        <button @click="openAutofillSettings"
+          :class="['px-3 py-1.5 rounded-lg text-sm', autofillEnabled ? 'bg-green-100 text-green-700' : 'bg-blue-500 text-white']">
+          {{ autofillEnabled ? '已启用' : '去开启' }}
+        </button>
+      </div>
+    </div>
+
     <!-- 同步配置 -->
     <div class="bg-white rounded-xl divide-y">
       <!-- 同步方式选择 -->
@@ -175,6 +189,12 @@ import { ref, onMounted } from 'vue';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
 import { db, type WebDAVConfig } from '@flowerkey/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const AutofillState = registerPlugin<{
+  checkEnabled(): Promise<{ enabled: boolean }>;
+  openSettings(): Promise<void>;
+}>('AutofillState');
 
 defineEmits<{ lock: [] }>();
 
@@ -183,11 +203,26 @@ const syncStore = useSyncStore();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
 const showICloudGuide = ref(false);
+const isAndroid = Capacitor.getPlatform() === 'android';
+const autofillEnabled = ref(false);
+
+async function openAutofillSettings() {
+  await AutofillState.openSettings().catch(() => {});
+  // 返回后重新检测状态
+  setTimeout(async () => {
+    const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
+    autofillEnabled.value = r.enabled;
+  }, 500);
+}
 
 onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  if (isAndroid) {
+    const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
+    autofillEnabled.value = r.enabled;
+  }
 });
 
 const configSaved = ref(false);

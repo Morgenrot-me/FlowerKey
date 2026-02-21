@@ -14,6 +14,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 const AutofillState = registerPlugin<{
   setUnlocked(opts: { masterPwd: string; userSalt: string }): Promise<void>;
   setLocked(): Promise<void>;
+  checkEnabled(): Promise<{ enabled: boolean }>;
+  openSettings(): Promise<void>;
 }>('AutofillState');
 
 function syncAutofillState(pwd: string, salt: string) {

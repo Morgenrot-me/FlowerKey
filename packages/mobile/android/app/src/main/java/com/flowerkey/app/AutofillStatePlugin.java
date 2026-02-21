@@ -1,5 +1,10 @@
 package com.flowerkey.app;
 
+import android.content.Intent;
+import android.provider.Settings;
+import android.view.autofill.AutofillManager;
+
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -35,6 +40,25 @@ public class AutofillStatePlugin extends Plugin {
     @PluginMethod
     public void setLocked(PluginCall call) {
         FlowerKeyApp.get().setLocked();
+        call.resolve();
+    }
+
+    /** 检测系统自动填充服务是否已设置为花钥 */
+    @PluginMethod
+    public void checkEnabled(PluginCall call) {
+        AutofillManager afm = getContext().getSystemService(AutofillManager.class);
+        boolean enabled = afm != null && afm.hasEnabledAutofillServices();
+        JSObject ret = new JSObject();
+        ret.put("enabled", enabled);
+        call.resolve(ret);
+    }
+
+    /** 跳转系统自动填充设置页 */
+    @PluginMethod
+    public void openSettings(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE);
+        intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+        getActivity().startActivity(intent);
         call.resolve();
     }
 
