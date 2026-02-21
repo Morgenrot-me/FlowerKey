@@ -43,13 +43,34 @@ public class AutofillAuthActivity extends Activity {
     private static final String SALT_VERIFY = "flowerkey_verify_";
     private static final String SALT_DBENC  = "flowerkey_dbenc_";
 
-    // 配色
-    private static final int COLOR_BG       = 0xFF1E1E2E;
-    private static final int COLOR_SURFACE  = 0xFF2A2A3E;
-    private static final int COLOR_ACCENT   = 0xFF7C6AF7;
-    private static final int COLOR_TEXT     = 0xFFE0E0F0;
-    private static final int COLOR_HINT     = 0xFF888899;
-    private static final int COLOR_DIVIDER  = 0xFF3A3A50;
+    // 配色（运行时根据系统深浅色初始化）
+    private int COLOR_BG;
+    private int COLOR_SURFACE;
+    private int COLOR_ACCENT;
+    private int COLOR_TEXT;
+    private int COLOR_HINT;
+    private int COLOR_DIVIDER;
+
+    private void initColors() {
+        boolean dark = (getResources().getConfiguration().uiMode
+            & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+            == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        if (dark) {
+            COLOR_BG      = 0xFF1E1E2E;
+            COLOR_SURFACE = 0xFF2A2A3E;
+            COLOR_ACCENT  = 0xFF7C6AF7;
+            COLOR_TEXT    = 0xFFE0E0F0;
+            COLOR_HINT    = 0xFF888899;
+            COLOR_DIVIDER = 0xFF3A3A50;
+        } else {
+            COLOR_BG      = 0xFFF5F5F7;
+            COLOR_SURFACE = 0xFFFFFFFF;
+            COLOR_ACCENT  = 0xFF5B4CF5;
+            COLOR_TEXT    = 0xFF1A1A2E;
+            COLOR_HINT    = 0xFF888899;
+            COLOR_DIVIDER = 0xFFDDDDE8;
+        }
+    }
 
     private AutofillId autofillId;
     private String     packageName;
@@ -66,6 +87,7 @@ public class AutofillAuthActivity extends Activity {
         autofillId  = getIntent().getParcelableExtra(EXTRA_AUTOFILL_ID);
         packageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
         webDomain   = getIntent().getStringExtra(EXTRA_WEB_DOMAIN);
+        initColors();
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(COLOR_BG);

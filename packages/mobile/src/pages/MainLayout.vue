@@ -12,10 +12,10 @@
     </div>
 
     <!-- 底部 Tab -->
-    <nav class="flex border-t bg-white pb-safe">
+    <nav class="flex border-t bg-white dark:bg-gray-900 dark:border-gray-700 pb-safe">
       <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
         :class="['flex-1 py-3 flex flex-col items-center gap-0.5 text-xs',
-          tab === t.key ? 'text-blue-500' : 'text-gray-400']">
+          tab === t.key ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500']">
         <span class="text-xl">{{ t.icon }}</span>
         <span>{{ t.label }}</span>
       </button>
