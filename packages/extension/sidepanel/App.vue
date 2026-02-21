@@ -86,7 +86,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
-import { db, deriveDatabaseKey, type Entry, type EntryType } from '@flowerkey/core';
+import { db, type Entry, type EntryType } from '@flowerkey/core';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
@@ -116,14 +116,14 @@ onMounted(async () => {
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   if (!mainStore.isUnlocked) {
+    // 先查询解锁状态，再让 background 恢复 dbKey（masterPwd 不离开 background 内存）
     const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
-    if (state?.isUnlocked && state.masterPwd) {
-      // background 内存仍持有 masterPwd，直接恢复 sidepanel 状态
-      // 先赋值再设 isUnlocked，避免 watch 用空 masterPwd 触发 setUnlocked
-      mainStore.masterPwd = state.masterPwd;
-      mainStore.userSalt = state.userSalt;
-      db.setDbKey(await deriveDatabaseKey(state.masterPwd, state.userSalt));
-      mainStore.isUnlocked = true;
+    if (state?.isUnlocked) {
+      const restored = await chrome.runtime.sendMessage({ type: 'restoreDbKey' });
+      if (restored?.ok) {
+        mainStore.userSalt = restored.userSalt;
+        mainStore.isUnlocked = true;
+      }
     }
   }
   if (mainStore.isUnlocked) await entriesStore.loadEntries();

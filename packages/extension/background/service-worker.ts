@@ -60,11 +60,23 @@ chrome.runtime.onConnect.addListener((port) => {
 
 // ==================== 消息处理 ====================
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === 'getUnlockState') {
-    sendResponse({ isUnlocked: _isUnlocked, userSalt: _userSalt, masterPwd: _masterPwd });
+    sendResponse({ isUnlocked: _isUnlocked, userSalt: _userSalt });
     return;
+  }
+
+  // sidepanel 重开时恢复 dbKey，masterPwd 不离开 background 内存
+  if (msg.type === 'restoreDbKey') {
+    if (!_isUnlocked) { sendResponse({ ok: false }); return; }
+    (async () => {
+      try {
+        db.setDbKey(await deriveDatabaseKey(_masterPwd, _userSalt));
+        sendResponse({ ok: true, userSalt: _userSalt });
+      } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
+    })();
+    return true;
   }
 
   // sidepanel 解锁后同步内存状态（masterPwd 由 sidepanel 传入，仅此一次）
@@ -102,6 +114,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'generatePasswordDirect') {
+    // 仅允许扩展内部页面调用（popup/sidepanel），content script 有 sender.tab
+    if (sender.tab) { sendResponse({ error: '不允许' }); return; }
     (async () => {
       try {
         let verified = false;
