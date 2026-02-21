@@ -65,7 +65,7 @@ public class AutofillAuthActivity extends Activity {
         } else {
             COLOR_BG      = 0xFFF5F5F7;
             COLOR_SURFACE = 0xFFFFFFFF;
-            COLOR_ACCENT  = 0xFF5B4CF5;
+            COLOR_ACCENT  = 0xFF3B9EFF;
             COLOR_TEXT    = 0xFF1A1A2E;
             COLOR_HINT    = 0xFF888899;
             COLOR_DIVIDER = 0xFFDDDDE8;
@@ -448,7 +448,7 @@ public class AutofillAuthActivity extends Activity {
     private Button makeButton(String text, int bgColor, android.view.View.OnClickListener listener) {
         Button btn = new Button(this);
         btn.setText(text);
-        btn.setTextColor(COLOR_TEXT);
+        btn.setTextColor(bgColor == COLOR_ACCENT ? Color.WHITE : COLOR_TEXT);
         btn.setTextSize(14);
         btn.setAllCaps(false);
         GradientDrawable bg = new GradientDrawable();
