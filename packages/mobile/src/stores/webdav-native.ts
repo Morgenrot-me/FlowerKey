@@ -1,11 +1,14 @@
-/**
- * 花钥移动端 - 原生 WebDAV 后端
- * 使用 CapacitorHttp 原生 API 发送请求，绕过 WebView CORS 限制和 Authorization 头限制
- */
+import { registerPlugin } from '@capacitor/core';
+import type { StorageBackend, WebDAVConfig } from '@flowerkey/core';
 
-import { CapacitorHttp } from '@capacitor/core';
-import type { StorageBackend } from '@flowerkey/core';
-import type { WebDAVConfig } from '@flowerkey/core';
+const WebDAV = registerPlugin<{
+  request(options: {
+    method: string; url: string;
+    headers?: Record<string, string>;
+    body?: string;
+    responseType?: 'text' | 'base64';
+  }): Promise<{ status: number; data: string }>;
+}>('WebDAV');
 
 export class NativeWebDAVBackend implements StorageBackend {
   private base: string;
@@ -14,97 +17,79 @@ export class NativeWebDAVBackend implements StorageBackend {
 
   constructor(config: WebDAVConfig) {
     this.serverUrl = config.url.replace(/\/$/, '');
-    this.base = (config.basePath || '/FlowerKey').replace(/\/$/, '');
-    // Basic 认证头
+    const raw = (config.basePath || '/FlowerKey').replace(/\/$/, '');
+    this.base = raw.startsWith('/') ? raw : '/' + raw;
     this.authHeader = 'Basic ' + btoa(`${config.username}:${config.password}`);
   }
 
-  private url(name: string) {
+  private buildUrl(name: string) {
     return `${this.serverUrl}${this.base}/${name}`;
   }
 
-  private get headers() {
+  private get auth() {
     return { Authorization: this.authHeader };
+  }
+
+  private async req(method: string, url: string, opts: {
+    headers?: Record<string, string>;
+    body?: string;
+    responseType?: 'text' | 'base64';
+  } = {}) {
+    return WebDAV.request({ method, url, ...opts });
   }
 
   async ensureDir(): Promise<void> {
     for (const path of [this.base, `${this.base}/oplog`]) {
-      try {
-        await CapacitorHttp.request({
-          method: 'MKCOL',
-          url: `${this.serverUrl}${path}`,
-          headers: this.headers,
-        });
-      } catch { /* 目录已存在时忽略 */ }
+      const url = `${this.serverUrl}${path}`;
+      const res = await this.req('MKCOL', url, { headers: this.auth });
+      if (res.status >= 400 && res.status !== 405) {
+        throw new Error(`创建目录失败：${path} HTTP ${res.status}`);
+      }
     }
   }
 
   async read(name: string): Promise<ArrayBuffer | null> {
-    try {
-      const res = await CapacitorHttp.request({
-        method: 'GET',
-        url: this.url(name),
-        headers: this.headers,
-        responseType: 'arraybuffer',
-      });
-      if (res.status === 404) return null;
-      if (res.status >= 400) throw new Error(`HTTP ${res.status}`);
-      // CapacitorHttp arraybuffer 返回 base64 string
-      const data = res.data as string;
-      const binary = atob(data);
-      const buf = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
-      return buf.buffer as ArrayBuffer;
-    } catch (e: unknown) {
-      if ((e as { status?: number }).status === 404) return null;
-      throw e;
-    }
+    const res = await this.req('GET', this.buildUrl(name), {
+      headers: this.auth, responseType: 'base64',
+    });
+    if (res.status === 404 || res.status === 410) return null;
+    if (res.status >= 400) throw new Error(`GET ${name} 失败：HTTP ${res.status}`);
+    const binary = atob(res.data);
+    const buf = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+    return buf.buffer as ArrayBuffer;
   }
 
   async write(name: string, data: ArrayBuffer | string): Promise<void> {
-    let b64: string;
-    if (typeof data === 'string') {
-      b64 = btoa(unescape(encodeURIComponent(data)));
-    } else {
-      b64 = btoa(String.fromCharCode(...new Uint8Array(data)));
-    }
-    const res = await CapacitorHttp.request({
-      method: 'PUT',
-      url: this.url(name),
-      headers: { ...this.headers, 'Content-Type': 'application/octet-stream' },
-      data: b64,
+    const b64 = typeof data === 'string'
+      ? btoa(unescape(encodeURIComponent(data)))
+      : btoa(String.fromCharCode(...new Uint8Array(data)));
+    const doput = () => this.req('PUT', this.buildUrl(name), {
+      headers: { ...this.auth, 'Content-Type': 'application/octet-stream' },
+      body: b64,
     });
-    if (res.status >= 400) throw new Error(`HTTP ${res.status}`);
+    let res = await doput();
+    if (res.status === 409 || res.status === 410) {
+      await this.ensureDir();
+      res = await doput();
+    }
+    if (res.status >= 400) throw new Error(`PUT ${name} 失败：HTTP ${res.status}`);
   }
 
   async listOplog(): Promise<string[]> {
-    try {
-      const res = await CapacitorHttp.request({
-        method: 'PROPFIND',
-        url: `${this.serverUrl}${this.base}/oplog/`,
-        headers: { ...this.headers, Depth: '1', 'Content-Type': 'application/xml' },
-        data: '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><resourcetype/><getlastmodified/></prop></propfind>',
-      });
-      if (res.status >= 400) return [];
-      // 解析 XML 提取文件名
-      const xml = res.data as string;
-      const matches = [...xml.matchAll(/<[^:]*:?href[^>]*>([^<]+)<\/[^:]*:?href>/gi)];
-      return matches
-        .map(m => decodeURIComponent(m[1].split('/').pop() || ''))
-        .filter(name => name && name.includes('_') && name.endsWith('.enc'))
-        .sort();
-    } catch {
-      return [];
-    }
+    const res = await this.req('PROPFIND', `${this.serverUrl}${this.base}/oplog/`, {
+      headers: { ...this.auth, Depth: '1', 'Content-Type': 'application/xml' },
+      body: '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><resourcetype/></prop></propfind>',
+    });
+    if (res.status >= 400) return [];
+    const matches = [...res.data.matchAll(/<[^:]*:?href[^>]*>([^<]+)<\/[^:]*:?href>/gi)];
+    return matches
+      .map(m => decodeURIComponent(m[1].split('/').pop() || ''))
+      .filter(n => n && n.includes('_') && n.endsWith('.enc'))
+      .sort();
   }
 
   async remove(name: string): Promise<void> {
-    try {
-      await CapacitorHttp.request({
-        method: 'DELETE',
-        url: this.url(name),
-        headers: this.headers,
-      });
-    } catch { /* 忽略不存在的文件 */ }
+    await this.req('DELETE', this.buildUrl(name), { headers: this.auth }).catch(() => {});
   }
 }
