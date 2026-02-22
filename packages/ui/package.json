@@ -4,7 +4,6 @@
   "description": "花钥共享UI组件库",
   "type": "module",
   "scripts": {
-    "build": "vite build",
     "dev": "vite"
   },
   "dependencies": {
