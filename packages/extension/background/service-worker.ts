@@ -22,6 +22,22 @@ function updateIcon(isDark: boolean) {
   });
 }
 
+async function detectTheme() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs.find(t => t.id && t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about'));
+    if (!tab?.id) return;
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+    });
+    updateIcon(res?.result ?? false);
+  } catch { /* 无可用 tab，忽略 */ }
+}
+
+chrome.runtime.onInstalled.addListener(detectTheme);
+chrome.runtime.onStartup.addListener(detectTheme);
+
 // ==================== 内存状态（不持久化） ====================
 let _masterPwd = '';
 let _userSalt = '';
