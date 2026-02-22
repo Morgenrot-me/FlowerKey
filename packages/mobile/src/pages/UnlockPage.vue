@@ -3,7 +3,7 @@
 -->
 <template>
   <div class="flex-1 flex flex-col justify-center px-8 gap-4">
-    <h1 class="text-2xl font-bold text-center text-blue-600 dark:text-blue-400">🔑 花钥</h1>
+    <h1 class="text-2xl font-bold text-center text-blue-600 dark:text-blue-400 flex items-center justify-center gap-2"><img src="../assets/key.png" class="w-8 h-8 object-contain" /> 花钥</h1>
     <p class="text-xs text-center text-gray-400 dark:text-gray-500">主密码不存储，数据库密钥仅存于内存，锁定后立即清除</p>
     <input v-model="pwd" type="password" placeholder="输入记忆密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500"
