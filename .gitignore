@@ -17,3 +17,6 @@ packages/mobile/ios/
 FlowerPassword/
 flower-password-chrome/
 flower-password-android/
+
+# 打包产物
+release/
