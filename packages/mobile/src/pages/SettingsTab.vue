@@ -185,16 +185,17 @@
         <span class="text-gray-400 dark:text-gray-500">{{ showSecurity ? '▲' : '▼' }}</span>
       </button>
       <div v-if="showSecurity" class="px-4 pb-4 flex flex-col gap-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-        <p class="text-gray-600 dark:text-gray-300 font-medium">设计理念</p>
-        <p>花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
+        <p class="text-gray-600 dark:text-gray-300 font-medium">与主流密码管理器的本质区别</p>
+        <p>主流密码管理器的逻辑：生成随机密码 → 加密存储 → 云端备份。加密密码库始终存在于某处，一旦被盗，你的一切都暴露了。</p>
+        <p>花钥的逻辑：记忆密码 + 区分代号 → 算法推算 → 唯一强密码。<span class="text-gray-700 dark:text-gray-200">密码按需生成，用完即弃。没有密码库，就没有密码库被盗。数据全丢了，密码依然可以重新生成。</span></p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">本地存储了什么</p>
-        <p><span class="text-gray-400 dark:text-gray-500">区分代号/标题/描述</span>　加密存储，解锁后才可读取</p>
+        <p><span class="text-gray-400 dark:text-gray-500">区分代号/标题/描述</span>　AES-256-GCM 加密，解锁后才可读取</p>
         <p><span class="text-gray-400 dark:text-gray-500">网址/包名/标签</span>　明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</p>
         <p><span class="text-gray-400 dark:text-gray-500">verifyHash</span>　明文哈希，仅用于验证主密码，无法反推主密码本身</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">从未存储</p>
-        <p>主密码本身 · 网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存 · 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
-        <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">加密算法</p>
-        <p>AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但<span class="text-gray-700 dark:text-gray-200 font-medium">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
+        <p>主密码本身 · 网站实际密码（按需生成，用完即弃）· 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
+        <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">同步安全</p>
+        <p>同步时只上传加密密文，坚果云、iCloud 等服务商无法读取任何内容。你的主密码永远不会离开设备。</p>
       </div>
     </div>
 
