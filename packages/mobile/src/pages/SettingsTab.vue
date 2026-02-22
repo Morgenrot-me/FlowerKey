@@ -86,6 +86,10 @@
           class="w-full py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">
           {{ syncStore.syncing ? '同步中...' : '立即同步' }}
         </button>
+        <button @click="handleFullSync" :disabled="syncStore.syncing || !syncStore.hasBackend()"
+          class="w-full py-2.5 border border-gray-300 dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm disabled:opacity-50">
+          全量同步（重新上传所有数据）
+        </button>
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 dark:text-gray-400 text-center">
           上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
@@ -249,6 +253,11 @@ onMounted(async () => {
     autofillEnabled.value = r.enabled;
   }
 });
+
+async function handleFullSync() {
+  if (!confirm('将重新上传所有本地数据到远端，确认继续？')) return;
+  await syncStore.fullSync();
+}
 
 const configSaved = ref(false);
 async function saveConfig() {

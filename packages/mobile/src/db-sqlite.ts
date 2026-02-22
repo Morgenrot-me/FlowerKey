@@ -220,6 +220,19 @@ export async function markLogsSynced(ids: number[]): Promise<void> {
   await db!.run(`UPDATE changelog SET synced=1 WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
 }
 
+/** 全量同步：为所有条目重新插入 changelog（标记为未同步） */
+export async function markAllUnsynced(deviceId: string): Promise<void> {
+  const res = await db!.query('SELECT id FROM entries');
+  const entries = (res.values ?? []) as { id: string }[];
+  await db!.run('DELETE FROM changelog WHERE synced=1');
+  for (const e of entries) {
+    await db!.run(
+      'INSERT INTO changelog (entryId,entryType,operation,timestamp,synced,deviceId) VALUES (?,?,?,?,?,?)',
+      [e.id, 'entry', 'upsert', Date.now(), 0, deviceId]
+    );
+  }
+}
+
 export async function updateLastUsed(id: string): Promise<void> {
   await db!.run('UPDATE entries SET lastUsedAt=? WHERE id=?', [Date.now(), id]);
 }

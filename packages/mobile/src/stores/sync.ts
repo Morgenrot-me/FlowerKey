@@ -67,8 +67,27 @@ export const useSyncStore = defineStore('sync', () => {
     }
   }
 
+  async function fullSync() {
+    const main = useMainStore();
+    if (!main.isUnlocked) { error.value = '请先解锁'; return; }
+    if (syncMode.value === 'webdav' && !config.value) { error.value = '请先配置 WebDAV'; return; }
+    syncing.value = true;
+    error.value = '';
+    try {
+      const deviceId = await sqliteDb.getConfig<string>('deviceId') ?? 'unknown';
+      await sqliteDb.markAllUnsynced(deviceId);
+      const backend = syncMode.value === 'icloud' ? new ICloudBackend() : new NativeWebDAVBackend(config.value!);
+      const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);
+      lastResult.value = await engine.sync();
+    } catch (e) {
+      error.value = (e as Error).message || '未知错误';
+    } finally {
+      syncing.value = false;
+    }
+  }
+
   // iCloud 模式下视为"已配置"
   const hasBackend = () => syncMode.value === 'icloud' || !!config.value;
 
-  return { config, syncMode, syncing, lastResult, error, loadConfig, saveConfig, setSyncMode, sync, hasBackend };
+  return { config, syncMode, syncing, lastResult, error, loadConfig, saveConfig, setSyncMode, sync, fullSync, hasBackend };
 });
