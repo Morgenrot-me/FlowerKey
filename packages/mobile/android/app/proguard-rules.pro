@@ -19,3 +19,6 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# errorprone annotations referenced by tink but not included at runtime
+-dontwarn com.google.errorprone.annotations.**
