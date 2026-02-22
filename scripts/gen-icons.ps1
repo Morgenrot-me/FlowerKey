@@ -22,23 +22,6 @@ Resize $orig 16  16  "$base\packages\extension\icons\icon16.png"
 Resize $orig 48  48  "$base\packages\extension\icons\icon48.png"
 Resize $orig 128 128 "$base\packages\extension\icons\icon128.png"
 
-# 移动端 Android mipmap
-$mipmap = @{
-    "mipmap-mdpi"    = 48
-    "mipmap-hdpi"    = 72
-    "mipmap-xhdpi"   = 96
-    "mipmap-xxhdpi"  = 144
-    "mipmap-xxxhdpi" = 192
-}
-foreach ($m in $mipmap.GetEnumerator()) {
-    $s = $m.Value
-    $d = "$base\packages\mobile\android\app\src\main\res\$($m.Key)"
-    Resize $orig $s $s "$d\ic_launcher.png"
-    Resize $orig $s $s "$d\ic_launcher_round.png"
-    $sf = [int]($s * 1.5)
-    Resize $orig $sf $sf "$d\ic_launcher_foreground.png"
-}
-
 # 桌面端 Tauri
 Resize $orig 32  32  "$base\packages\desktop\src-tauri\icons\32x32.png"
 Resize $orig 64  64  "$base\packages\desktop\src-tauri\icons\64x64.png"
