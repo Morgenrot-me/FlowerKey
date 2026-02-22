@@ -30,9 +30,9 @@
       <div v-if="!store.filtered.length" class="p-8 text-center flex flex-col gap-3">
         <p class="text-sm text-gray-400 dark:text-gray-500">{{ store.entries?.length ? '无匹配结果' : '暂无密码条目，点击右上角新建' }}</p>
         <div v-if="!store.entries?.length" class="mt-1 flex flex-col gap-0.5 text-xs text-gray-200 dark:text-gray-700 select-none leading-relaxed">
-          <p>密码按需生成，用完即弃</p>
-          <p>没有密码库，就没有密码库被盗</p>
-          <p>数据全丢了，密码依然可以重新生成</p>
+          <p>花钥不存储任何密码</p>
+          <p>基于确定性算法，相同输入始终生成相同密码</p>
+          <p>即使数据丢失，密码亦可完整还原</p>
         </div>
       </div>
     </div>
