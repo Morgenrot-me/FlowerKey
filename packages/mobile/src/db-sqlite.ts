@@ -49,7 +49,7 @@ function rowToEntry(row: Record<string, unknown>): Entry {
   return {
     ...row,
     tags: row.tags ? JSON.parse(row.tags as string) : [],
-    encrypted: row.encrypted === null ? undefined : Boolean(row.encrypted),
+    encrypted: row.encrypted === 0 ? false : undefined,
     passwordLength: row.passwordLength ? Number(row.passwordLength) : undefined,
   } as unknown as Entry;
 }
