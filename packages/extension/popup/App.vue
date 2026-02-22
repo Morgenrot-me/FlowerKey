@@ -5,7 +5,7 @@
 <template>
   <div class="w-80 bg-white dark:bg-gray-900 dark:text-gray-100">
     <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between">
-      <h1 class="text-sm font-bold">🔑 花钥</h1>
+      <h1 class="text-sm font-bold flex items-center gap-1"><img src="@ui/assets/key.png" class="w-4 h-4 object-contain" /> 花钥</h1>
       <div class="flex gap-3 text-xs text-gray-400">
         <button @click="mode = mode === 'bookmark' ? 'password' : 'bookmark'" class="hover:text-gray-600 dark:hover:text-gray-200">
           {{ mode === 'bookmark' ? '密码生成' : '收藏页面' }}

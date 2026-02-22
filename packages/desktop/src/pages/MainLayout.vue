@@ -8,7 +8,10 @@
       <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
         :class="['w-12 h-12 flex flex-col items-center justify-center gap-0.5 rounded-xl text-xs transition-colors',
           tab === t.key ? 'bg-blue-50 text-blue-500' : 'text-gray-400 hover:bg-gray-50']">
-        <span class="text-xl leading-none">{{ t.icon }}</span>
+        <span class="text-xl leading-none">
+            <img v-if="!t.icon" src="../assets/key.png" class="w-6 h-6 object-contain" />
+            <template v-else>{{ t.icon }}</template>
+          </span>
         <span class="text-[10px]">{{ t.label }}</span>
       </button>
     </nav>
@@ -33,7 +36,7 @@ import SettingsTab from './SettingsTab.vue';
 defineEmits<{ lock: [] }>();
 const tab = ref('password');
 const tabs = [
-  { key: 'password', icon: '🔑', label: '密码' },
+  { key: 'password', icon: null, label: '密码' },
   { key: 'bookmark', icon: '🔖', label: '书签' },
   { key: 'note', icon: '📝', label: '笔记' },
   { key: 'settings', icon: '⚙️', label: '设置' },

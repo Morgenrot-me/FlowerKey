@@ -16,7 +16,10 @@
           :class="['flex flex-col items-center gap-0.5 py-2 mx-1 rounded-lg text-[11px]',
             currentTab === tab.key ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
         >
-          <span class="text-lg leading-none">{{ tab.icon }}</span>
+          <span class="text-lg leading-none">
+            <img v-if="!tab.icon" src="@ui/assets/key.png" class="w-5 h-5 object-contain" />
+            <template v-else>{{ tab.icon }}</template>
+          </span>
           <span>{{ tab.label }}</span>
         </button>
         <button @click="mainStore.lock()" class="mt-auto mx-1 py-2 text-[10px] text-gray-300 hover:text-gray-500 dark:hover:text-gray-400">锁定</button>
@@ -26,7 +29,7 @@
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- 顶栏（窄屏时含导航，宽屏时只有搜索） -->
         <header class="flex items-center gap-2 px-3 py-2 border-b dark:border-gray-700 shrink-0">
-          <h1 v-if="!isWide" class="text-sm font-bold">🔑</h1>
+          <h1 v-if="!isWide" class="text-sm font-bold"><img src="@ui/assets/key.png" class="w-4 h-4 object-contain" /></h1>
           <input
             v-model="searchQuery" placeholder="搜索..."
             class="flex-1 px-2 py-1 border rounded text-xs dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
@@ -43,7 +46,10 @@
             :class="['flex-1 py-2 flex flex-col items-center gap-0.5 text-[11px] transition-colors',
               currentTab === tab.key ? 'text-blue-600 border-b-2 border-blue-500 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
           >
-            <span class="text-base leading-none">{{ tab.icon }}</span>
+            <span class="text-base leading-none">
+              <img v-if="!tab.icon" src="@ui/assets/key.png" class="w-4 h-4 object-contain" />
+              <template v-else>{{ tab.icon }}</template>
+            </span>
             <span>{{ tab.label }}</span>
           </button>
         </nav>
@@ -121,7 +127,7 @@ onMounted(() => window.addEventListener('resize', onResize));
 onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const tabs = [
-  { key: 'password', icon: '🔑', label: '密码' },
+  { key: 'password', icon: null, label: '密码' },
   { key: 'bookmark', icon: '🔖', label: '书签' },
   { key: 'note', icon: '📝', label: '笔记' },
   { key: 'settings', icon: '⚙️', label: '设置' },

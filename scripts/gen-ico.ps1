@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$src = "$PSScriptRoot\..\蓝钥匙.png"
+$src = "$PSScriptRoot\..\透明蓝钥匙.png"
 $dst = "$PSScriptRoot\..\packages\desktop\src-tauri\icons\icon.ico"
 $orig = [System.Drawing.Image]::FromFile((Resolve-Path $src))
 $sizes = @(16, 32, 48, 64, 128, 256)
