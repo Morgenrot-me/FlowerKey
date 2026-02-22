@@ -14,12 +14,16 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useMainStore } from './stores/main';
+import { useEntriesStore } from './stores/entries';
 import SetupPage from './pages/SetupPage.vue';
 import UnlockPage from './pages/UnlockPage.vue';
 import ForceResetPage from './pages/ForceResetPage.vue';
 import MainLayout from './pages/MainLayout.vue';
 
 const main = useMainStore();
+const entries = useEntriesStore();
 onMounted(() => main.checkSetup());
-function onUnlocked() { /* isUnlocked 已由 store 更新 */ }
+async function onUnlocked() {
+  await entries.load('password');
+}
 </script>
