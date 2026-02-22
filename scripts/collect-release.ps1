@@ -9,7 +9,7 @@ if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Path $out | Out-Null
 
 # Android APK（arm64 release）
-$apk = "$base\packages\mobile\android\app\build\outputs\apk\release\app-arm64-v8a-release-unsigned.apk"
+$apk = "$base\packages\mobile\android\app\build\outputs\apk\release\app-arm64-v8a-release.apk"
 if (Test-Path $apk) {
     Copy-Item $apk "$out\花钥-android-arm64.apk"
     Write-Host "OK: Android APK"
