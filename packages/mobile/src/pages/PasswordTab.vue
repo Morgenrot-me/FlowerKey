@@ -29,12 +29,7 @@
       </div>
       <div v-if="!store.filtered.length" class="p-8 text-center flex flex-col gap-3">
         <p class="text-sm text-gray-400 dark:text-gray-500">{{ store.entries?.length ? '无匹配结果' : '暂无密码条目，点击右上角新建' }}</p>
-        <div v-if="!store.entries?.length" class="flex flex-col gap-1 text-xs text-gray-200 dark:text-gray-700 leading-relaxed select-none">
-          <p>没有密码库</p>
-          <p>就没有密码库被盗</p>
-          <p class="mt-1">数据全丢了</p>
-          <p>密码依然可以重新生成</p>
-        </div>
+        <p v-if="!store.entries?.length" class="text-xs text-gray-200 dark:text-gray-700 select-none">密码按需生成，用完即弃</p>
       </div>
     </div>
 
