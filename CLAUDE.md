@@ -99,9 +99,28 @@ pnpm --filter @flowerkey/mobile build
 cd packages/mobile && npx cap sync android
 
 # 3. 构建 APK（必须用 PowerShell，bash 下 gradlew 无法运行）
-powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assembleDebug"
-# APK 输出：packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assembleRelease"
+# APK 输出：packages/mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
 ```
+
+Release 构建说明：
+- 启用 R8 混淆（`minifyEnabled true`）
+- ABI split：仅打包 arm64-v8a + armeabi-v7a，包体约 7MB
+- 使用 debug keystore 签名（可直接安装，自用）
+
+## 产物收集
+
+构建完成后运行以下脚本，将各端产物复制到根目录 `release/` 文件夹：
+
+```powershell
+powershell -File scripts/collect-release.ps1
+```
+
+收集内容：
+- `花钥-android-arm64.apk`：Android arm64 release APK
+- `花钥-desktop-setup.exe`：Windows 桌面端安装包（取 bundle/nsis/ 最新版本）
+
+`release/` 已加入 `.gitignore`，不纳入版本控制。
 
 ## 版本管理
 
