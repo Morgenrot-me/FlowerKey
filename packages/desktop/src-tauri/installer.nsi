@@ -30,8 +30,8 @@ ${StrLoc}
 
 !define MANUFACTURER "FlowerKey"
 !define PRODUCTNAME "花钥"
-!define VERSION "0.3.0"
-!define VERSIONWITHBUILD "0.3.0.0"
+!define VERSION "{{version}}"
+!define VERSIONWITHBUILD "{{version_with_build}}"
 !define HOMEPAGE ""
 !define INSTALLMODE "currentUser"
 !define LICENSE ""
@@ -39,12 +39,12 @@ ${StrLoc}
 !define SIDEBARIMAGE ""
 !define HEADERIMAGE ""
 !define MAINBINARYNAME "flowerkey-desktop"
-!define MAINBINARYSRCPATH "E:\All Code\没想好名字\packages\desktop\src-tauri\target\release\flowerkey-desktop.exe"
+!define MAINBINARYSRCPATH "{{main_binary_path}}"
 !define BUNDLEID "com.flowerkey.app"
 !define COPYRIGHT "Copyright © 2025 FlowerKey"
 !define OUTFILE "nsis-output.exe"
 !define ARCH "x64"
-!define ADDITIONALPLUGINSPATH "C:\Users\Morgenrot\AppData\Local\tauri\NSIS\Plugins\x86-unicode\additional"
+!define ADDITIONALPLUGINSPATH "{{additional_plugins_path}}"
 !define ALLOWDOWNGRADES "true"
 !define DISPLAYLANGUAGESELECTOR "false"
 !define INSTALLWEBVIEW2MODE "downloadBootstrapper"
@@ -56,7 +56,7 @@ ${StrLoc}
 !define MANUKEY "Software\${MANUFACTURER}"
 !define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
 !define UNINSTALLERSIGNCOMMAND ""
-!define ESTIMATEDSIZE "10275"
+!define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER ""
 
 Var PassiveMode
@@ -450,7 +450,7 @@ FunctionEnd
 ;Languages
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_RESERVEFILE_LANGDLL
-  !include "E:\All Code\没想好名字\packages\desktop\src-tauri\target\release\nsis\x64\SimpChinese.nsh"
+  !include "SimpChinese.nsh"
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
