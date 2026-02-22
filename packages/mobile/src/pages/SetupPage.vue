@@ -3,7 +3,7 @@
 -->
 <template>
   <div class="flex-1 flex flex-col justify-center px-8 gap-4">
-    <h1 class="text-2xl font-bold text-center text-blue-600 dark:text-blue-400 flex items-center justify-center gap-2"><img src="../assets/key.png" class="w-8 h-8 object-contain" /> 花钥</h1>
+    <h1 class="text-2xl font-bold text-center text-blue-600 dark:text-blue-400 flex items-center justify-center gap-2"><img src="../assets/key.png" class="w-10 h-10 object-contain" /> 花钥</h1>
     <p class="text-sm text-gray-600 dark:text-gray-300 text-center font-medium">欢迎使用花钥</p>
     <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">花钥不保管你的密码，而是帮你<span class="text-gray-700 dark:text-gray-300 font-medium">生成</span>密码——每次需要时，用"记忆密码 + 区分代号"即时算出，用完即弃，从不存储。只要记忆密码不变，任何设备、任何时候都能还原出相同的密码。</p>
     <p class="text-xs text-orange-500 dark:text-orange-400">⚠️ 记忆密码是一切的根源，请务必牢记，且绝对不可泄露给任何人——任何知道你记忆密码的人都能生成你所有网站的密码。花钥无法帮你找回它。</p>
