@@ -9,6 +9,19 @@ import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey } from '@
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
+// ==================== 图标深浅色适配 ====================
+
+function updateIcon(isDark: boolean) {
+  const suffix = isDark ? 'dark' : 'light';
+  chrome.action.setIcon({
+    path: {
+      16: `icons/icon16_${suffix}.png`,
+      48: `icons/icon48_${suffix}.png`,
+      128: `icons/icon128_${suffix}.png`,
+    },
+  });
+}
+
 // ==================== 内存状态（不持久化） ====================
 let _masterPwd = '';
 let _userSalt = '';
@@ -61,6 +74,12 @@ chrome.runtime.onConnect.addListener((port) => {
 // ==================== 消息处理 ====================
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+
+  if (msg.type === 'themeChanged') {
+    updateIcon(msg.dark);
+    sendResponse();
+    return;
+  }
 
   if (msg.type === 'getUnlockState') {
     sendResponse({ isUnlocked: _isUnlocked, userSalt: _userSalt });

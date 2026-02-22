@@ -546,6 +546,13 @@ document.addEventListener('focusout', (e) => {
   }, 150);
 }, true);
 
+// ==================== 上报系统主题 ====================
+function reportTheme() {
+  chrome.runtime.sendMessage({ type: 'themeChanged', dark: window.matchMedia('(prefers-color-scheme: dark)').matches }).catch(() => {});
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reportTheme);
+reportTheme();
+
 // ==================== 接收消息 ====================
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'fillPassword') {
