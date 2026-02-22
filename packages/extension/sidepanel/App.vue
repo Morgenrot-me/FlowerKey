@@ -3,87 +3,99 @@
   完整管理界面：密码/书签/文件引用的增删改查
 -->
 <template>
-  <div class="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-gray-100">
-    <SetupForm v-if="!mainStore.isSetup" @done="() => {}" class="p-4" />
-    <UnlockForm v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" @unlocked="() => {}" class="p-4" />
+  <div class="h-screen flex bg-white dark:bg-gray-900 dark:text-gray-100">
+    <SetupForm v-if="!mainStore.isSetup" @done="() => {}" class="p-4 flex-1" />
+    <UnlockForm v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" @unlocked="() => {}" class="p-4 flex-1" />
 
     <template v-else>
-      <!-- 顶栏 -->
-      <header class="flex items-center gap-2 px-3 py-2 border-b dark:border-gray-700">
-        <h1 class="text-sm font-bold">🔑 花钥</h1>
-        <input
-          v-model="searchQuery" placeholder="搜索..."
-          class="flex-1 px-2 py-1 border rounded text-xs dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
-          @input="onSearch"
-        />
-        <button @click="mainStore.lock()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">锁定</button>
-      </header>
-
-      <!-- 导航标签 -->
-      <nav class="flex border-b dark:border-gray-700">
+      <!-- 宽屏侧边栏导航 -->
+      <nav v-if="isWide" class="flex flex-col w-16 border-r dark:border-gray-700 py-3 gap-1 shrink-0">
         <button
           v-for="tab in tabs" :key="tab.key"
           @click="currentTab = tab.key"
-          :class="['flex-1 py-2 flex flex-col items-center gap-0.5 text-[11px] transition-colors',
-            currentTab === tab.key ? 'text-blue-600 border-b-2 border-blue-500 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
+          :class="['flex flex-col items-center gap-0.5 py-2 mx-1 rounded-lg text-[11px]',
+            currentTab === tab.key ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
         >
-          <span class="text-base leading-none">{{ tab.icon }}</span>
+          <span class="text-lg leading-none">{{ tab.icon }}</span>
           <span>{{ tab.label }}</span>
         </button>
+        <button @click="mainStore.lock()" class="mt-auto mx-1 py-2 text-[10px] text-gray-300 hover:text-gray-500 dark:hover:text-gray-400">锁定</button>
       </nav>
 
-      <!-- 设置页 -->
-      <SettingsPage v-if="currentTab === 'settings'" class="flex-1 overflow-y-auto" />
+      <!-- 主内容列 -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 顶栏（窄屏时含导航，宽屏时只有搜索） -->
+        <header class="flex items-center gap-2 px-3 py-2 border-b dark:border-gray-700 shrink-0">
+          <h1 v-if="!isWide" class="text-sm font-bold">🔑</h1>
+          <input
+            v-model="searchQuery" placeholder="搜索..."
+            class="flex-1 px-2 py-1 border rounded text-xs dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+            @input="onSearch"
+          />
+          <button v-if="!isWide" @click="mainStore.lock()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">锁定</button>
+        </header>
 
-      <!-- 内容区 -->
-      <template v-if="currentTab !== 'settings'">
-      <div class="flex-1 overflow-y-auto">
-        <!-- 筛选栏 -->
-        <div v-if="entriesStore.tags.length" class="flex gap-1 px-3 py-2 text-xs flex-wrap">
+        <!-- 窄屏顶部 Tab -->
+        <nav v-if="!isWide" class="flex border-b dark:border-gray-700 shrink-0">
           <button
-            v-for="t in entriesStore.tags" :key="t"
-            @click="toggleTag(t)"
-            :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
-          >{{ t }}</button>
-        </div>
+            v-for="tab in tabs" :key="tab.key"
+            @click="currentTab = tab.key"
+            :class="['flex-1 py-2 flex flex-col items-center gap-0.5 text-[11px] transition-colors',
+              currentTab === tab.key ? 'text-blue-600 border-b-2 border-blue-500 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
+          >
+            <span class="text-base leading-none">{{ tab.icon }}</span>
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
 
-        <!-- 条目列表 -->
-        <EntryList
-          :entries="entriesStore.filteredEntries"
-          @edit="editEntry"
-          @delete="deleteEntry"
-          @generate="generateForEntry"
-        />
+        <!-- 设置页 -->
+        <SettingsPage v-if="currentTab === 'settings'" class="flex-1 overflow-y-auto" />
+
+        <!-- 内容区 -->
+        <template v-if="currentTab !== 'settings'">
+          <div class="flex-1 overflow-y-auto">
+            <div v-if="entriesStore.tags.length" class="flex gap-1 px-3 py-2 text-xs flex-wrap">
+              <button
+                v-for="t in entriesStore.tags" :key="t"
+                @click="toggleTag(t)"
+                :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
+              >{{ t }}</button>
+            </div>
+            <EntryList
+              :entries="entriesStore.filteredEntries"
+              @edit="editEntry"
+              @delete="deleteEntry"
+              @generate="generateForEntry"
+            />
+          </div>
+
+          <footer class="border-t px-3 py-2 dark:border-gray-700 shrink-0">
+            <div v-if="currentTab === 'password'" class="flex gap-2">
+              <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
+              <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
+            </div>
+            <button v-else @click="openAdd()" class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 新建</button>
+          </footer>
+
+          <EntryForm
+            v-if="showAddForm"
+            :entry="editingEntry"
+            :type="entriesStore.currentType"
+            :initialMode="addMode"
+            :initialUrl="editingEntry ? undefined : currentTabUrl"
+            :folders="entriesStore.folders"
+            :tags="entriesStore.tags"
+            @save="onSave"
+            @cancel="closeForm"
+          />
+        </template>
       </div>
-
-      <!-- 底部操作栏 -->
-      <footer class="border-t px-3 py-2 dark:border-gray-700">
-        <div v-if="currentTab === 'password'" class="flex gap-2">
-          <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
-          <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
-        </div>
-        <button v-else @click="openAdd()" class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 新建</button>
-      </footer>
-
-      <!-- 新建/编辑弹窗 -->
-      <EntryForm
-        v-if="showAddForm"
-        :entry="editingEntry"
-        :type="entriesStore.currentType"
-        :initialMode="addMode"
-        :initialUrl="editingEntry ? undefined : currentTabUrl"
-        :folders="entriesStore.folders"
-        :tags="entriesStore.tags"
-        @save="onSave"
-        @cancel="closeForm"
-      />
-      </template>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
@@ -103,6 +115,10 @@ const addMode = ref<'generate' | 'store' | undefined>();
 const currentTabUrl = ref('');
 const currentTab = ref('password');
 const bookmarkEncrypt = ref(true);
+const isWide = ref(window.innerWidth >= 360);
+const onResize = () => { isWide.value = window.innerWidth >= 360; };
+onMounted(() => window.addEventListener('resize', onResize));
+onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const tabs = [
   { key: 'password', icon: '🔑', label: '密码' },
