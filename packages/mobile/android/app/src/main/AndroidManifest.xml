@@ -18,37 +18,11 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
-
-        <!-- 蓝色图标（默认启用） -->
-        <activity-alias
-            android:name=".IconBlue"
-            android:targetActivity=".MainActivity"
-            android:label="@string/title_activity_main"
-            android:icon="@mipmap/ic_launcher"
-            android:roundIcon="@mipmap/ic_launcher_round"
-            android:exported="true"
-            android:enabled="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <!-- 金色图标（默认禁用） -->
-        <activity-alias
-            android:name=".IconGold"
-            android:targetActivity=".MainActivity"
-            android:label="@string/title_activity_main"
-            android:icon="@mipmap/ic_launcher_gold"
-            android:roundIcon="@mipmap/ic_launcher_round_gold"
-            android:exported="true"
-            android:enabled="false">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
 
         <activity
             android:name=".AutofillAuthActivity"

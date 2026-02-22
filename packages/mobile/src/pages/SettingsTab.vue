@@ -25,23 +25,6 @@
       </div>
     </div>
 
-    <!-- 应用图标（Android） -->
-    <div v-if="isAndroid" class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
-      <div class="px-4 py-3">
-        <p class="text-sm font-medium dark:text-gray-100 mb-2">应用图标</p>
-        <div class="flex gap-2">
-          <button @click="setIcon('blue')"
-            :class="['flex-1 py-2 rounded-xl text-sm border', currentIcon === 'blue' ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100' : 'border-gray-300 dark:border-gray-600 dark:text-gray-300']">
-            🔵 蓝色钥匙
-          </button>
-          <button @click="setIcon('gold')"
-            :class="['flex-1 py-2 rounded-xl text-sm border', currentIcon === 'gold' ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100' : 'border-gray-300 dark:border-gray-600 dark:text-gray-300']">
-            🟡 金色钥匙
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- 同步配置 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
       <!-- 同步方式选择 -->
@@ -241,18 +224,6 @@ const AutofillState = registerPlugin<{
   openSettings(): Promise<void>;
 }>('AutofillState');
 
-const AppIcon = registerPlugin<{
-  setIcon(opts: { icon: string }): Promise<{ icon: string }>;
-  getIcon(): Promise<{ icon: string }>;
-}>('AppIcon');
-
-const currentIcon = ref<'blue' | 'gold'>('blue');
-
-async function setIcon(icon: 'blue' | 'gold') {
-  await AppIcon.setIcon({ icon }).catch(() => {});
-  currentIcon.value = icon;
-}
-
 defineEmits<{ lock: [] }>();
 
 const mainStore = useMainStore();
@@ -280,8 +251,6 @@ onMounted(async () => {
   if (isAndroid) {
     const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
     autofillEnabled.value = r.enabled;
-    const ic = await AppIcon.getIcon().catch(() => ({ icon: 'blue' }));
-    currentIcon.value = ic.icon as 'blue' | 'gold';
   }
 });
 

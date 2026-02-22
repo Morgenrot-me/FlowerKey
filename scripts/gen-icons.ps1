@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$src = "$PSScriptRoot\..\蓝色钥匙.png"
+$src = "$PSScriptRoot\..\蓝钥匙.png"
 $orig = [System.Drawing.Image]::FromFile((Resolve-Path $src))
 $base = "$PSScriptRoot\.."
 
