@@ -70,7 +70,7 @@ public class FlowerKeyAutofillService extends AutofillService {
                         try {
                             EntryItem e = entries.get(i);
                             String pwd = e.storedPassword != null ? e.storedPassword
-                                : generatePassword(app.getMasterKey(), e.codename);
+                                : generatePassword(app.getMasterKey(), e.codename, e.passwordLength, e.charsetMode);
                             Dataset ds = buildInlineDataset(passwordFieldIds, pwd, e.codename, specs.get(i));
                             if (ds != null) rb.addDataset(ds);
                         } catch (Exception ignored) {}
@@ -148,20 +148,23 @@ public class FlowerKeyAutofillService extends AutofillService {
     // ==================== 查询匹配条目 ====================
 
     static class EntryItem {
-        String codename, storedPassword;
+        String codename, storedPassword, charsetMode;
+        int passwordLength = 16;
     }
 
     private List<EntryItem> queryMatchingEntries(FlowerKeyApp app, String packageName, String webDomain) {
         List<EntryItem> result = new ArrayList<>();
+        SQLiteDatabase db = null;
+        Cursor c = null;
         try {
-            SQLiteDatabase db = SQLiteDatabase.openDatabase(
+            db = SQLiteDatabase.openDatabase(
                 getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READONLY);
             SecretKeySpec aesKey = new SecretKeySpec(app.getDbKey(), "AES");
-            // url 明文存储，可直接 SQL LIKE 匹配
-            Cursor c = (webDomain != null && !webDomain.isEmpty())
-                ? db.rawQuery("SELECT codename,storedPassword FROM entries WHERE type='password' AND url LIKE ?",
+            // url 明文存储，可直接 SQL LIKE 匹配；passwordLength/charsetMode 明文字段
+            c = (webDomain != null && !webDomain.isEmpty())
+                ? db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode FROM entries WHERE type='password' AND url LIKE ?",
                     new String[]{"%" + webDomain + "%"})
-                : db.rawQuery("SELECT codename,storedPassword FROM entries WHERE type='password' AND appPackage=?",
+                : db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode FROM entries WHERE type='password' AND appPackage=?",
                     new String[]{packageName});
             while (c.moveToNext()) {
                 try {
@@ -169,11 +172,16 @@ public class FlowerKeyAutofillService extends AutofillService {
                     item.codename = aesGcmDecrypt(c.getString(0), aesKey);
                     String sp = c.getString(1);
                     item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
+                    item.passwordLength = c.isNull(2) ? 16 : c.getInt(2);
+                    item.charsetMode    = c.isNull(3) ? "alphanumeric" : c.getString(3);
                     result.add(item);
                 } catch (Exception ignored) {}
             }
-            c.close(); db.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) try { c.close(); } catch (Exception ignored) {}
+            if (db != null) try { db.close(); } catch (Exception ignored) {}
+        }
         return result;
     }
 
@@ -190,19 +198,32 @@ public class FlowerKeyAutofillService extends AutofillService {
         return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
     }
 
-    private String generatePassword(byte[] masterKey, String codename) throws Exception {
+    private static final String CHARSET_ALPHANUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String CHARSET_SYMBOLS  = CHARSET_ALPHANUM + "!@#$%^&*()-_=+[]{}|;:,.<>?";
+    private static final String LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String DIGITS  = "0123456789";
+    private static final String SYMBOLS = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+
+    private String generatePassword(byte[] masterKey, String codename, int length, String charsetMode) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
         byte[] raw = mac.doFinal(codename.getBytes(StandardCharsets.UTF_8));
         mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
         byte[] mix = mac.doFinal((codename + "_mix").getBytes(StandardCharsets.UTF_8));
-        final String AN = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        final String L  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        final String D  = "0123456789";
-        char[] arr = new char[16];
-        for (int i = 0; i < 16; i++) arr[i] = AN.charAt((raw[i % raw.length] & 0xFF) % AN.length());
-        arr[0] = L.charAt((mix[0] & 0xFF) % L.length());
-        arr[1 + ((mix[1] & 0xFF) % 15)] = D.charAt((mix[2] & 0xFF) % D.length());
+        boolean withSymbols = "with_symbols".equals(charsetMode);
+        String charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
+        char[] arr = new char[length];
+        for (int i = 0; i < length; i++)
+            arr[i] = charset.charAt((raw[i % raw.length] & 0xFF) % charset.length());
+        arr[0] = LETTERS.charAt((mix[0] & 0xFF) % LETTERS.length());
+        int digitPos = 1 + ((mix[1] & 0xFF) % (length - 1));
+        arr[digitPos] = DIGITS.charAt((mix[2] & 0xFF) % DIGITS.length());
+        if (withSymbols) {
+            int symPos = length - 1;
+            if (symPos == digitPos) symPos--;
+            if (symPos == 0) symPos = (digitPos == 1) ? 2 : 1;
+            arr[symPos] = SYMBOLS.charAt((mix[3] & 0xFF) % SYMBOLS.length());
+        }
         return new String(arr);
     }
 

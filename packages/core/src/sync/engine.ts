@@ -183,7 +183,7 @@ export class SyncEngine {
     }
 
     const local = await this.local.getEntry(op.entryId);
-    if (!local || local.updatedAt <= remote.updatedAt) {
+    if (!local || local.updatedAt < remote.updatedAt) {
       await this.local.putEntry(remote);
     }
   }

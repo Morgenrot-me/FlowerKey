@@ -202,6 +202,7 @@ export async function encrypt(plaintext: string, key: CryptoKey): Promise<ArrayB
 /** AES-256-GCM 解密 */
 export async function decrypt(data: ArrayBuffer, key: CryptoKey): Promise<string> {
   const bytes = new Uint8Array(data);
+  if (bytes.byteLength < 13) throw new Error('加密数据格式错误');
   if (bytes[0] !== ENCRYPT_VERSION) throw new Error('不支持的加密版本');
   const iv = bytes.slice(1, 13);
   const ciphertext = bytes.slice(13);

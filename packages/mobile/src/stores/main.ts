@@ -41,8 +41,8 @@ export const useMainStore = defineStore('main', () => {
     return isSetup.value;
   }
 
-  async function setup(pwd: string) {
-    const s = 'FlowerKey';
+  async function setup(pwd: string, salt?: string) {
+    const s = salt?.trim() || 'FlowerKey';
     const verifySalt = generateSalt();
     const hash = await createVerifyHash(pwd, verifySalt);
     await sqliteDb.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
@@ -132,9 +132,12 @@ export const useMainStore = defineStore('main', () => {
   }
 
   async function importData(json: string): Promise<number> {
-    const { entries } = JSON.parse(json) as { entries: Entry[] };
+    let parsed: { entries: Entry[] };
+    try { parsed = JSON.parse(json); } catch { throw new Error('导入文件格式错误'); }
+    if (!Array.isArray(parsed?.entries)) throw new Error('导入文件缺少 entries 字段');
     let count = 0;
-    for (const entry of entries) {
+    for (const entry of parsed.entries) {
+      if (!entry?.id) continue;
       const exists = await sqliteDb.getEntry(entry.id);
       if (!exists) { await sqliteDb.createEntry(entry); count++; }
     }

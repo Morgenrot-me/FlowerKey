@@ -26,7 +26,7 @@ const main = useMainStore();
 const newPwd = ref(''), newPwdConfirm = ref(''), err = ref(''), loading = ref(false);
 
 async function submit() {
-  if (!newPwd.value) { err.value = '请输入新主密码'; return; }
+  if (newPwd.value.length < 4) { err.value = '主密码至少4位'; return; }
   if (newPwd.value !== newPwdConfirm.value) { err.value = '两次输入不一致'; return; }
   loading.value = true; err.value = '';
   try {
