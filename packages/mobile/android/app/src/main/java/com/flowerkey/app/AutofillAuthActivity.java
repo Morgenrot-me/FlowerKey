@@ -246,8 +246,10 @@ public class AutofillAuthActivity extends Activity {
         }
 
         row.setOnClickListener(v -> {
-            try { returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename), entry.codename); }
-            catch (Exception e) { toast("填充失败：" + e.getMessage()); }
+            try {
+                updateLastUsed(entry.id);
+                returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename), entry.codename);
+            } catch (Exception e) { toast("填充失败：" + e.getMessage()); }
         });
         return row;
     }
@@ -333,7 +335,7 @@ public class AutofillAuthActivity extends Activity {
     // ==================== 查询匹配条目（全量解密过滤） ====================
 
     private static class EntryItem {
-        String codename, description, storedPassword;
+        String id, codename, description, storedPassword;
     }
 
     /**
@@ -348,20 +350,21 @@ public class AutofillAuthActivity extends Activity {
             Cursor c;
             if (webDomain != null && !webDomain.isEmpty()) {
                 c = db.rawQuery(
-                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND url LIKE ?",
+                    "SELECT id, codename, description, storedPassword FROM entries WHERE type='password' AND url LIKE ?",
                     new String[]{"%" + webDomain + "%"});
             } else {
                 c = db.rawQuery(
-                    "SELECT codename, description, storedPassword FROM entries WHERE type='password' AND appPackage=?",
+                    "SELECT id, codename, description, storedPassword FROM entries WHERE type='password' AND appPackage=?",
                     new String[]{packageName});
             }
             while (c.moveToNext()) {
                 try {
                     EntryItem item = new EntryItem();
-                    item.codename    = aesGcmDecrypt(c.getString(0), aesKey);
-                    String desc = c.getString(1);
+                    item.id          = c.getString(0);
+                    item.codename    = aesGcmDecrypt(c.getString(1), aesKey);
+                    String desc = c.getString(2);
                     item.description = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
-                    String sp = c.getString(2);
+                    String sp = c.getString(3);
                     item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
                     result.add(item);
                 } catch (Exception ignored) {}
@@ -418,6 +421,18 @@ public class AutofillAuthActivity extends Activity {
     private SQLiteDatabase openDb() {
         return SQLiteDatabase.openDatabase(
             getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READONLY);
+    }
+
+    private void updateLastUsed(String id) {
+        if (id == null) return;
+        try {
+            SQLiteDatabase db = SQLiteDatabase.openDatabase(
+                getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READWRITE);
+            android.content.ContentValues cv = new android.content.ContentValues();
+            cv.put("lastUsedAt", System.currentTimeMillis());
+            db.update("entries", cv, "id=?", new String[]{id});
+            db.close();
+        } catch (Exception ignored) {}
     }
 
     private void returnPassword(String password, String label) {

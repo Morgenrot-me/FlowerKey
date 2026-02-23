@@ -7,9 +7,10 @@
     <div class="flex-1 flex flex-col items-center justify-center gap-10 w-full max-w-sm">
 
       <div class="flex flex-col items-center gap-2">
-        <div class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-3xl select-none">🔑</div>
-        <h1 class="text-2xl font-bold dark:text-gray-100">花钥</h1>
-        <p class="text-gray-400 dark:text-gray-500 text-sm">密码不存储，只生成</p>
+        <h1 class="text-2xl font-bold text-center text-blue-600 dark:text-blue-400 flex items-center justify-center gap-2">
+          <img src="../assets/key.png" class="w-10 h-10 object-contain" /> 花钥
+        </h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300 text-center font-medium">欢迎使用花钥</p>
       </div>
 
       <div class="flex flex-col gap-5 w-full">

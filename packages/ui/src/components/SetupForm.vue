@@ -23,11 +23,11 @@
     </button>
     <div v-if="showSalt" class="space-y-1.5">
       <input
-        v-model="salt" placeholder="密码生成盐（默认 FlowerKey）"
+        v-model="salt" placeholder="邮箱 / 手机号 / 任意可记忆标识"
         class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
       />
       <p class="text-[10px] text-orange-600 dark:text-orange-400">
-        ⚠️ 此盐参与所有密码的生成计算，设置后不可更改。多设备使用时必须在所有设备上填写相同的值，否则生成的密码将不一致。建议保持默认值。
+        ⚠️ 任何你能稳定记住的字符串均可，如 you@example.com、13800138000、myusername。它与记忆密码共同参与密码生成，使你的密码独一无二。设置后不可更改，多设备使用时必须填写完全相同的值。
       </p>
     </div>
 

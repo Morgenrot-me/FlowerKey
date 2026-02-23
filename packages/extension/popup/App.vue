@@ -16,7 +16,8 @@
 
     <div class="p-4">
       <!-- 未设置 -->
-      <SetupForm v-if="!mainStore.isSetup" @done="onSetupDone" />
+      <OnboardingForm v-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" />
+      <SetupForm v-else-if="!mainStore.isSetup" @done="onSetupDone" />
 
       <!-- 锁定（密码模式或加密书签模式才需要解锁） -->
       <UnlockForm v-else-if="!mainStore.isUnlocked && (mode === 'password' || bookmarkEncrypt)" @unlocked="onUnlocked" />
@@ -87,12 +88,14 @@ import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import { useSyncStore } from '../../ui/src/stores/sync';
 import { db, deriveDatabaseKey, type CharsetMode } from '@flowerkey/core';
+import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
 const syncStore = useSyncStore();
+const showSetup = ref(false);
 
 const mode = ref<'bookmark' | 'password'>('bookmark');
 

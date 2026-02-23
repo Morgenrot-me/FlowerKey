@@ -9,15 +9,28 @@ export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
   const currentType = ref<EntryType>('password');
   const searchQuery = ref('');
+  const selectedTags = ref<string[]>([]);
+
+  const tags = computed(() => {
+    const set = new Set<string>();
+    entries.value.forEach(e => e.tags?.forEach(t => set.add(t)));
+    return [...set];
+  });
 
   const filtered = computed(() => {
-    if (!searchQuery.value) return entries.value;
-    const q = searchQuery.value.toLowerCase();
-    return entries.value.filter(e =>
-      e.codename?.toLowerCase().includes(q) ||
-      e.title?.toLowerCase().includes(q) ||
-      e.description?.toLowerCase().includes(q)
-    );
+    let list = entries.value;
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase();
+      list = list.filter(e =>
+        e.codename?.toLowerCase().includes(q) ||
+        e.title?.toLowerCase().includes(q) ||
+        e.description?.toLowerCase().includes(q)
+      );
+    }
+    if (selectedTags.value.length) {
+      list = list.filter(e => selectedTags.value.every(t => e.tags?.includes(t)));
+    }
+    return list;
   });
 
   async function load(type: EntryType = 'password') {
@@ -40,5 +53,5 @@ export const useEntriesStore = defineStore('entries', () => {
     await load(currentType.value);
   }
 
-  return { entries, filtered, currentType, searchQuery, load, create, update, remove };
+  return { entries, filtered, tags, selectedTags, currentType, searchQuery, load, create, update, remove };
 });

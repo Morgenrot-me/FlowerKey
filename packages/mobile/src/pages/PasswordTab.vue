@@ -16,6 +16,13 @@
       >{{ t }}</button>
     </div>
 
+    <!-- 自动填充提示 Banner（Android，未启用且未关闭时显示） -->
+    <div v-if="showAutofillBanner" class="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
+      <p class="flex-1 text-xs text-blue-700 dark:text-blue-300">启用自动填充，在任何 App 中一键填充密码</p>
+      <button @click="openAutofill" class="text-xs text-blue-500 font-medium shrink-0">去开启</button>
+      <button @click="dismissBanner" class="text-gray-400 text-xs ml-1">✕</button>
+    </div>
+
     <div class="flex-1 overflow-y-auto divide-y dark:divide-gray-700">
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
@@ -45,17 +52,68 @@
         <button @click="save" class="text-blue-500 font-medium">保存</button>
       </div>
       <div class="flex-1 px-4 py-4 flex flex-col gap-3 overflow-y-auto">
-        <input v-model="form.codename" placeholder="区分代号（必填，如 github）"
-          class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
-        <div v-if="formPwdPreview" class="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl -mt-1">
-          <code class="text-sm text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(formPwdPreview) }}</code>
-          <span class="text-xs text-blue-400 shrink-0">预览</span>
+        <!-- 模式切换 -->
+        <div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm">
+          <button @click="pwdMode = 'generate'" :class="['flex-1 py-2 rounded-lg transition-colors', pwdMode === 'generate' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm font-medium' : 'text-gray-500 dark:text-gray-400']">生成模式</button>
+          <button @click="pwdMode = 'store'" :class="['flex-1 py-2 rounded-lg transition-colors', pwdMode === 'store' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm font-medium' : 'text-gray-500 dark:text-gray-400']">存储模式</button>
         </div>
-        <p class="text-xs text-gray-400 dark:text-gray-500 px-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
-        <input v-model="form.description" placeholder="描述（可选）"
-          class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
-        <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）"
-          class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
+
+        <!-- 生成模式 -->
+        <template v-if="pwdMode === 'generate'">
+          <input v-model="form.codename" placeholder="区分代号（必填，如 github）" class="input" />
+          <div v-if="formPwdPreview" @click="copyPreview" class="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl -mt-1 cursor-pointer active:opacity-70">
+            <code class="text-sm text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(formPwdPreview) }}</code>
+            <span class="text-xs text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
+          </div>
+          <p class="text-xs text-gray-400 dark:text-gray-500 px-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
+          <!-- 高级选项 -->
+          <button @click="showAdvanced = !showAdvanced" class="text-xs text-blue-500 text-left px-1">
+            {{ showAdvanced ? '▲ 收起高级选项' : '▼ 高级选项' }}
+          </button>
+          <div v-if="showAdvanced" class="flex gap-2">
+            <select v-model="form.charsetMode" class="input" style="flex: 3">
+              <option value="alphanumeric">字母+数字</option>
+              <option value="with_symbols">含特殊字符</option>
+            </select>
+            <select v-model.number="form.passwordLength" class="input" style="flex: 2">
+              <option :value="8">8位</option>
+              <option :value="16">16位</option>
+              <option :value="24">24位</option>
+              <option :value="32">32位</option>
+            </select>
+          </div>
+        </template>
+
+        <!-- 存储模式 -->
+        <template v-else>
+          <input v-model="form.codename" placeholder="名称（如 github）" class="input" />
+          <div class="relative">
+            <input v-model="form.storedPassword" :type="showPwd ? 'text' : 'password'" placeholder="密码（加密存储）" class="input pr-16" autocomplete="new-password" />
+            <button type="button" @click="showPwd = !showPwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{{ showPwd ? '隐藏' : '显示' }}</button>
+          </div>
+        </template>
+
+        <!-- 标签 -->
+        <div class="relative">
+          <input v-model="tagInput" placeholder="添加标签，回车确认" @keydown.enter.prevent="addTag"
+            @focus="showTagDrop = true" @blur="hideTagDrop" class="input" />
+          <ul v-if="showTagDrop && tagOptions.length"
+            class="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl shadow-lg max-h-32 overflow-y-auto text-sm">
+            <li v-for="t in tagOptions" :key="t"
+              @mousedown.prevent="addTagValue(t)"
+              class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-200">{{ t }}</li>
+          </ul>
+          <div v-if="form.tags.length" class="flex flex-wrap gap-1 mt-2">
+            <span v-for="t in form.tags" :key="t"
+              class="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs">
+              {{ t }}<button @click="removeTag(t)" class="leading-none">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <input v-model="form.description" placeholder="描述（可选）" class="input" />
+
+        <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）" class="input" />
         <div v-if="form.appPackage" class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-600 rounded-xl">
           <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">关联 App</span>
           <span class="text-sm text-gray-600 dark:text-gray-300 flex-1 truncate">{{ form.appPackage }}</span>
@@ -73,28 +131,89 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { updateLastUsed } from '../db-sqlite';
 import type { Entry } from '@flowerkey/core';
+
+const AutofillState = registerPlugin<{
+  checkEnabled(): Promise<{ enabled: boolean }>;
+  openSettings(): Promise<void>;
+}>('AutofillState');
 
 const store = useEntriesStore();
 const main = useMainStore();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
-const form = ref({ codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 });
+const pwdMode = ref<'generate' | 'store'>('generate');
+const showPwd = ref(false);
+const showAdvanced = ref(false);
+const showTagDrop = ref(false);
+const tagInput = ref('');
+const form = ref({
+  codename: '', description: '', url: '', appPackage: '',
+  createdAt: 0, lastUsedAt: 0,
+  charsetMode: 'alphanumeric' as 'alphanumeric' | 'with_symbols',
+  passwordLength: 16,
+  storedPassword: '',
+  tags: [] as string[],
+});
 const formPwdPreview = ref('');
+const previewCopied = ref(false);
+
+async function copyPreview() {
+  if (!formPwdPreview.value) return;
+  await Clipboard.write({ string: formPwdPreview.value });
+  if (editingId.value) await updateLastUsed(editingId.value);
+  previewCopied.value = true;
+  setTimeout(() => { previewCopied.value = false; }, 1500);
+}
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
 function fmtDate(ts: number) { return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }); }
 
-watch(() => form.value.codename, async (codename) => {
-  formPwdPreview.value = codename.trim() ? await main.genPassword(codename, 'alphanumeric', 16) : '';
-});
+const tagOptions = computed(() =>
+  store.tags.filter(t => !form.value.tags.includes(t) && t.toLowerCase().includes(tagInput.value.toLowerCase()))
+);
+function addTagValue(t: string) { if (!form.value.tags.includes(t)) form.value.tags.push(t); tagInput.value = ''; showTagDrop.value = false; }
+function hideTagDrop() { setTimeout(() => { showTagDrop.value = false; }, 150); }
 
-onMounted(() => store.load('password'));
+// 自动填充 Banner
+const BANNER_DISMISSED_KEY = 'autofill_banner_dismissed';
+const showAutofillBanner = ref(false);
+
+async function openAutofill() {
+  await AutofillState.openSettings().catch(() => {});
+  setTimeout(async () => {
+    const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
+    if (r.enabled) showAutofillBanner.value = false;
+  }, 500);
+}
+
+function dismissBanner() {
+  showAutofillBanner.value = false;
+  localStorage.setItem(BANNER_DISMISSED_KEY, '1');
+}
+
+watch([() => form.value.codename, () => form.value.charsetMode, () => form.value.passwordLength], async ([codename]) => {
+  if (pwdMode.value === 'generate' && (codename as string).trim()) {
+    formPwdPreview.value = await main.genPassword(codename as string, form.value.charsetMode, form.value.passwordLength);
+  } else {
+    formPwdPreview.value = '';
+  }
+});
+watch(pwdMode, () => { formPwdPreview.value = ''; });
+
+onMounted(async () => {
+  store.load('password');
+  if (Capacitor.getPlatform() === 'android' && !localStorage.getItem(BANNER_DISMISSED_KEY)) {
+    const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
+    showAutofillBanner.value = !r.enabled;
+  }
+});
 
 function toggleTag(t: string) {
   const idx = store.selectedTags.indexOf(t);
@@ -102,26 +221,58 @@ function toggleTag(t: string) {
   else store.selectedTags.push(t);
 }
 
+function addTag() {
+  const v = tagInput.value.trim();
+  if (v && !form.value.tags.includes(v)) form.value.tags.push(v);
+  tagInput.value = '';
+}
+function removeTag(t: string) { form.value.tags = form.value.tags.filter(x => x !== t); }
+
+const emptyForm = () => ({
+  codename: '', description: '', url: '', appPackage: '',
+  createdAt: 0, lastUsedAt: 0,
+  charsetMode: 'alphanumeric' as 'alphanumeric' | 'with_symbols',
+  passwordLength: 16, storedPassword: '', tags: [] as string[],
+});
+
 function openNew() {
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 };
+  pwdMode.value = 'generate';
+  showPwd.value = false;
+  showAdvanced.value = false;
+  tagInput.value = '';
+  form.value = emptyForm();
   showForm.value = true;
 }
 
 function openEdit(e: Entry) {
   editingId.value = e.id;
-  form.value = { codename: e.codename || '', description: e.description || '', url: e.url || '', appPackage: e.appPackage || '', createdAt: e.createdAt || 0, lastUsedAt: e.lastUsedAt || 0 };
+  pwdMode.value = e.storedPassword ? 'store' : 'generate';
+  showPwd.value = false;
+  tagInput.value = '';
+  form.value = {
+    codename: e.codename || '', description: e.description || '', url: e.url || '',
+    appPackage: e.appPackage || '', createdAt: e.createdAt || 0, lastUsedAt: e.lastUsedAt || 0,
+    charsetMode: (e.charsetMode as 'alphanumeric' | 'with_symbols') || 'alphanumeric',
+    passwordLength: e.passwordLength || 16,
+    storedPassword: e.storedPassword || '',
+    tags: [...(e.tags || [])],
+  };
   showForm.value = true;
 }
 
 function closeForm() {
   showForm.value = false;
   editingId.value = '';
-  form.value = { codename: '', description: '', url: '', appPackage: '', createdAt: 0, lastUsedAt: 0 };
+  pwdMode.value = 'generate';
+  showPwd.value = false;
+  showAdvanced.value = false;
+  tagInput.value = '';
+  form.value = emptyForm();
 }
 
 async function generate(e: Entry) {
-  const pwd = await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
+  const pwd = e.storedPassword || await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
   await Clipboard.write({ string: pwd });
   await updateLastUsed(e.id);
   copiedId.value = e.id;
@@ -130,11 +281,25 @@ async function generate(e: Entry) {
 
 async function save() {
   if (!form.value.codename.trim()) return;
-  const data = { codename: form.value.codename.trim(), description: form.value.description, url: form.value.url || undefined, appPackage: form.value.appPackage || undefined };
+  const data: Partial<Entry> = {
+    codename: form.value.codename.trim(),
+    description: form.value.description,
+    url: form.value.url || undefined,
+    appPackage: form.value.appPackage || undefined,
+    tags: form.value.tags,
+    folder: '',
+  };
+  if (pwdMode.value === 'generate') {
+    data.charsetMode = form.value.charsetMode;
+    data.passwordLength = form.value.passwordLength;
+    data.storedPassword = undefined;
+  } else {
+    data.storedPassword = form.value.storedPassword || undefined;
+  }
   if (editingId.value) {
     await store.update(editingId.value, data);
   } else {
-    await store.create({ type: 'password', ...data, tags: [], folder: '' });
+    await store.create({ type: 'password', ...data, tags: data.tags ?? [], folder: '' });
   }
   closeForm();
 }
@@ -145,3 +310,7 @@ async function remove() {
   closeForm();
 }
 </script>
+
+<style scoped>
+.input { @apply w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500; }
+</style>

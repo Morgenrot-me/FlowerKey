@@ -4,7 +4,8 @@
 -->
 <template>
   <div class="h-screen flex bg-white dark:bg-gray-900 dark:text-gray-100">
-    <SetupForm v-if="!mainStore.isSetup" @done="() => {}" class="p-4 flex-1" />
+    <OnboardingForm v-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" class="p-4 flex-1" />
+    <SetupForm v-else-if="!mainStore.isSetup" @done="() => {}" class="p-4 flex-1" />
     <UnlockForm v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" @unlocked="() => {}" class="p-4 flex-1" />
 
     <template v-else>
@@ -105,6 +106,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
+import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
@@ -113,6 +115,7 @@ import SettingsPage from '../../ui/src/components/SettingsPage.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
+const showSetup = ref(false);
 
 const searchQuery = ref('');
 const showAddForm = ref(false);

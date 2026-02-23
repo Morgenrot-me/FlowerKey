@@ -22,9 +22,9 @@
             </div>
             <template v-if="pwdMode === 'generate'">
               <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
-              <div v-if="pwdPreview" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg -mt-1">
+              <div v-if="pwdPreview" @click="copyPreview" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg -mt-1 cursor-pointer active:opacity-70">
                 <code class="text-xs text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(pwdPreview) }}</code>
-                <span class="text-[10px] text-blue-400 shrink-0">预览</span>
+                <span class="text-[10px] text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
               </div>
               <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
               <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
@@ -116,6 +116,14 @@ const mainStore = useMainStore();
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
 const showPwd = ref(false);
 const pwdPreview = ref('');
+const previewCopied = ref(false);
+
+function copyPreview() {
+  if (!pwdPreview.value) return;
+  navigator.clipboard.writeText(pwdPreview.value);
+  previewCopied.value = true;
+  setTimeout(() => { previewCopied.value = false; }, 1500);
+}
 const form = ref({
   codename: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '',

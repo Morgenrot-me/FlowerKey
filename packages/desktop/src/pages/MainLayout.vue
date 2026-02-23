@@ -36,7 +36,7 @@ import SettingsTab from './SettingsTab.vue';
 defineEmits<{ lock: [] }>();
 const tab = ref('password');
 const tabs = [
-  { key: 'password', icon: null, label: '密码' },
+  { key: 'password', icon: '🔑', label: '密码' },
   { key: 'bookmark', icon: '🔖', label: '书签' },
   { key: 'note', icon: '📝', label: '笔记' },
   { key: 'settings', icon: '⚙️', label: '设置' },

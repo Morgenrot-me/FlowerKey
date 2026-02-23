@@ -11,6 +11,8 @@
       ⚠️ 卸载应用或换设备将永久丢失所有数据，请配置同步或定期导出备份。
     </div>
 
+    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">同步</p>
+
     <!-- 自动填充（Android） -->
     <div v-if="isAndroid" class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
       <div class="px-4 py-3 flex items-center justify-between">
@@ -26,7 +28,15 @@
     </div>
 
     <!-- 同步配置 -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
+    <div class="bg-white dark:bg-gray-800 rounded-xl">
+      <button @click="showSyncConfig = !showSyncConfig" class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium dark:text-gray-100">
+        <span>同步配置</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 dark:text-gray-500">{{ syncStatusText }}</span>
+          <span class="text-gray-400 dark:text-gray-500">{{ showSyncConfig ? '▲' : '▼' }}</span>
+        </div>
+      </button>
+      <div v-if="showSyncConfig" class="border-t dark:border-gray-700 divide-y dark:divide-gray-700">
       <!-- 同步方式选择 -->
       <div class="px-4 py-3">
         <p class="text-sm font-medium dark:text-gray-100 mb-2">同步方式</p>
@@ -98,7 +108,10 @@
         </p>
         <p v-if="syncStore.error" class="text-xs text-red-500 text-center">{{ syncStore.error }}</p>
       </div>
+      </div>
     </div>
+
+    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">安全</p>
 
     <!-- 书签设置 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
@@ -143,22 +156,6 @@
         </div>
       </div>
 
-      <!-- 修改主密码 -->
-      <div class="px-4 py-3 flex flex-col gap-2">
-        <button @click="showChangePwd = !showChangePwd" class="w-full py-2.5 border dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm text-left">修改主密码</button>
-        <div v-if="showChangePwd" class="flex flex-col gap-2">
-          <p class="text-xs text-gray-400 dark:text-gray-500">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
-          <input v-model="currentPwd" type="password" placeholder="当前主密码" class="input" />
-          <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
-          <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
-          <button @click="handleChangePwd" :disabled="changingPwd"
-            class="w-full py-2.5 bg-orange-500 text-white rounded-xl text-sm disabled:opacity-50">
-            {{ changingPwd ? '处理中...' : '确认修改' }}
-          </button>
-          <p v-if="changePwdMsg" :class="changePwdError ? 'text-red-500' : 'text-green-600 dark:text-green-400'" class="text-xs text-center">{{ changePwdMsg }}</p>
-        </div>
-      </div>
-
       <!-- 导出/导入 -->
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium dark:text-gray-100">备份</p>
@@ -177,6 +174,27 @@
         <p v-if="importBookmarkMsg" class="text-xs text-green-600 dark:text-green-400 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
+
+    <!-- 修改主密码 -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl">
+      <button @click="showChangePwd = !showChangePwd" class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium dark:text-gray-100">
+        <span>修改主密码</span>
+        <span class="text-gray-400 dark:text-gray-500">{{ showChangePwd ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showChangePwd" class="px-4 pb-4 flex flex-col gap-2">
+        <p class="text-xs text-gray-400 dark:text-gray-500">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
+        <input v-model="currentPwd" type="password" placeholder="当前主密码" class="input" />
+        <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
+        <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
+        <button @click="handleChangePwd" :disabled="changingPwd"
+          class="w-full py-2.5 bg-orange-500 text-white rounded-xl text-sm disabled:opacity-50">
+          {{ changingPwd ? '处理中...' : '确认修改' }}
+        </button>
+        <p v-if="changePwdMsg" :class="changePwdError ? 'text-red-500' : 'text-green-600 dark:text-green-400'" class="text-xs text-center">{{ changePwdMsg }}</p>
+      </div>
+    </div>
+
+    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">关于</p>
 
     <!-- 安全说明 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl">
@@ -200,18 +218,17 @@
     </div>
 
     <!-- 版本 + 锁定 -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
+    <div class="bg-white dark:bg-gray-800 rounded-xl">
       <div class="px-4 py-3 flex items-center justify-between">
-        <span class="text-sm dark:text-gray-100">版本</span>
-        <span class="text-sm text-gray-400 dark:text-gray-500">{{ appVersion }}</span>
+        <span class="text-sm text-gray-400 dark:text-gray-500">版本 {{ appVersion }}</span>
+        <button @click="$emit('lock')" class="text-sm text-red-500 dark:text-red-400">锁定</button>
       </div>
     </div>
-    <button @click="$emit('lock')" class="w-full py-3 border border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 rounded-xl text-sm">锁定</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { version } from '../../package.json';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
@@ -233,6 +250,8 @@ const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: 
 const showDavGuide = ref(false);
 const showICloudGuide = ref(false);
 const showSecurity = ref(false);
+const showSyncConfig = ref(false);
+const syncStatusText = computed(() => syncStore.hasBackend() ? (syncStore.syncMode === 'webdav' ? 'WebDAV' : 'iCloud') : '未配置');
 const isAndroid = Capacitor.getPlatform() === 'android';
 const autofillEnabled = ref(false);
 
@@ -248,6 +267,7 @@ async function openAutofillSettings() {
 onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
+  showSyncConfig.value = !syncStore.hasBackend();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   if (isAndroid) {
     const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
