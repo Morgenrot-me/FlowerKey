@@ -43,6 +43,13 @@ public class AutofillAuthActivity extends Activity {
     private static final String SALT_VERIFY = "flowerkey_verify_";
     private static final String SALT_DBENC  = "flowerkey_dbenc_";
 
+    // 密码生成字符集（与 core/crypto.ts 保持一致）
+    private static final String CHARSET_ALPHANUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final String CHARSET_SYMBOLS  = CHARSET_ALPHANUM + "!@#$%^&*()-_=+[]{}|;:,.<>?";
+    private static final String LETTERS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String DIGITS   = "0123456789";
+    private static final String SYMBOLS  = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+
     // 配色（运行时根据系统深浅色初始化）
     private int COLOR_BG;
     private int COLOR_SURFACE;
@@ -80,6 +87,12 @@ public class AutofillAuthActivity extends Activity {
     private EditText     etMaster;
     private byte[]       dbKey;
     private String       userSalt;
+
+    @Override
+    protected void onDestroy() {
+        if (dbKey != null) { java.util.Arrays.fill(dbKey, (byte) 0); dbKey = null; }
+        super.onDestroy();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -196,7 +209,7 @@ public class AutofillAuthActivity extends Activity {
                 String code = s.toString().trim();
                 if (code.isEmpty()) { tvPreview.setVisibility(android.view.View.GONE); return; }
                 try {
-                    String pwd = generatePassword(code);
+                    String pwd = generatePassword(code, 16, "alphanumeric");
                     String masked = pwd.length() <= 10 ? pwd : pwd.substring(0, 5) + "•••••" + pwd.substring(pwd.length() - 5);
                     tvPreview.setText("预览：" + masked);
                     tvPreview.setVisibility(android.view.View.VISIBLE);
@@ -209,7 +222,7 @@ public class AutofillAuthActivity extends Activity {
             if (codename.isEmpty()) { toast("请输入区分代号"); return; }
             try {
                 saveAssociation(codename);
-                returnPassword(generatePassword(codename), codename);
+                returnPassword(generatePassword(codename, 16, "alphanumeric"), codename);
             } catch (Exception e) { toast("生成失败：" + e.getMessage()); }
         }));
         layout.addView(makeSpacing(8));
@@ -248,7 +261,7 @@ public class AutofillAuthActivity extends Activity {
         row.setOnClickListener(v -> {
             try {
                 updateLastUsed(entry.id);
-                returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename), entry.codename);
+                returnPassword(entry.storedPassword != null ? entry.storedPassword : generatePassword(entry.codename, entry.passwordLength, entry.charsetMode), entry.codename);
             } catch (Exception e) { toast("填充失败：" + e.getMessage()); }
         });
         return row;
@@ -335,7 +348,8 @@ public class AutofillAuthActivity extends Activity {
     // ==================== 查询匹配条目（全量解密过滤） ====================
 
     private static class EntryItem {
-        String id, codename, description, storedPassword;
+        String id, codename, description, storedPassword, charsetMode;
+        int passwordLength = 16;
     }
 
     /**
@@ -350,22 +364,24 @@ public class AutofillAuthActivity extends Activity {
             Cursor c;
             if (webDomain != null && !webDomain.isEmpty()) {
                 c = db.rawQuery(
-                    "SELECT id, codename, description, storedPassword FROM entries WHERE type='password' AND url LIKE ?",
+                    "SELECT id, codename, description, storedPassword, passwordLength, charsetMode FROM entries WHERE type='password' AND url LIKE ?",
                     new String[]{"%" + webDomain + "%"});
             } else {
                 c = db.rawQuery(
-                    "SELECT id, codename, description, storedPassword FROM entries WHERE type='password' AND appPackage=?",
+                    "SELECT id, codename, description, storedPassword, passwordLength, charsetMode FROM entries WHERE type='password' AND appPackage=?",
                     new String[]{packageName});
             }
             while (c.moveToNext()) {
                 try {
                     EntryItem item = new EntryItem();
-                    item.id          = c.getString(0);
-                    item.codename    = aesGcmDecrypt(c.getString(1), aesKey);
+                    item.id             = c.getString(0);
+                    item.codename       = aesGcmDecrypt(c.getString(1), aesKey);
                     String desc = c.getString(2);
-                    item.description = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
+                    item.description    = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
                     String sp = c.getString(3);
                     item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
+                    item.passwordLength = c.isNull(4) ? 16 : c.getInt(4);
+                    item.charsetMode    = c.isNull(5) ? "alphanumeric" : c.getString(5);
                     result.add(item);
                 } catch (Exception ignored) {}
             }
@@ -376,20 +392,31 @@ public class AutofillAuthActivity extends Activity {
 
     // ==================== 密码生成 ====================
 
-    private String generatePassword(String codename) throws Exception {
+    /** 与 core/crypto.ts encodePassword 完全一致 */
+    private String generatePassword(String codename, int length, String charsetMode) throws Exception {
         byte[] masterKey = FlowerKeyApp.get().getMasterKey();
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
         byte[] raw = mac.doFinal(codename.getBytes(StandardCharsets.UTF_8));
         mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
         byte[] mix = mac.doFinal((codename + "_mix").getBytes(StandardCharsets.UTF_8));
-        final String AN = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        final String L  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        final String D  = "0123456789";
-        char[] arr = new char[16];
-        for (int i = 0; i < 16; i++) arr[i] = AN.charAt((raw[i % raw.length] & 0xFF) % AN.length());
-        arr[0] = L.charAt((mix[0] & 0xFF) % L.length());
-        arr[1 + ((mix[1] & 0xFF) % 15)] = D.charAt((mix[2] & 0xFF) % D.length());
+
+        boolean withSymbols = "with_symbols".equals(charsetMode);
+        String charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
+
+        char[] arr = new char[length];
+        for (int i = 0; i < length; i++)
+            arr[i] = charset.charAt((raw[i % raw.length] & 0xFF) % charset.length());
+        arr[0] = LETTERS.charAt((mix[0] & 0xFF) % LETTERS.length());
+        int digitPos = 1 + ((mix[1] & 0xFF) % (length - 1));
+        arr[digitPos] = DIGITS.charAt((mix[2] & 0xFF) % DIGITS.length());
+
+        if (withSymbols) {
+            int symPos = length - 1;
+            if (symPos == digitPos) symPos--;
+            if (symPos == 0) symPos = (digitPos == 1) ? 2 : 1;
+            arr[symPos] = SYMBOLS.charAt((mix[3] & 0xFF) % SYMBOLS.length());
+        }
         return new String(arr);
     }
 
@@ -425,14 +452,17 @@ public class AutofillAuthActivity extends Activity {
 
     private void updateLastUsed(String id) {
         if (id == null) return;
+        SQLiteDatabase db = null;
         try {
-            SQLiteDatabase db = SQLiteDatabase.openDatabase(
+            db = SQLiteDatabase.openDatabase(
                 getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READWRITE);
             android.content.ContentValues cv = new android.content.ContentValues();
             cv.put("lastUsedAt", System.currentTimeMillis());
             db.update("entries", cv, "id=?", new String[]{id});
-            db.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        } finally {
+            if (db != null) db.close();
+        }
     }
 
     private void returnPassword(String password, String label) {

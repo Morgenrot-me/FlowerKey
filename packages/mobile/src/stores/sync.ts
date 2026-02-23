@@ -71,6 +71,7 @@ export const useSyncStore = defineStore('sync', () => {
     const main = useMainStore();
     if (!main.isUnlocked) { error.value = '请先解锁'; return; }
     if (syncMode.value === 'webdav' && !config.value) { error.value = '请先配置 WebDAV'; return; }
+    if (syncing.value) return;
     syncing.value = true;
     error.value = '';
     try {

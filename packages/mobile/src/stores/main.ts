@@ -69,7 +69,8 @@ export const useMainStore = defineStore('main', () => {
   }
 
   function lock() {
-    masterPwd.value = ''; isUnlocked.value = false; sqliteDb.clearDbKey();
+    masterPwd.value = ''; isUnlocked.value = false; needsPasswordReset.value = false;
+    sqliteDb.clearDbKey();
     clearAutofillState();
   }
 

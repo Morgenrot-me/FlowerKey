@@ -140,15 +140,22 @@ export async function getAllTags(): Promise<string[]> {
 }
 
 export async function reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
-  const res = await db!.query('SELECT * FROM entries');
-  const decrypted = await Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), oldKey)));
-  for (const entry of decrypted) {
-    const stored = await encryptEntry(entry, newKey);
-    await db!.run(
-      `UPDATE entries SET codename=?,title=?,description=?,fileName=?,sourceUrl=?,storedPassword=?,content=? WHERE id=?`,
-      [stored.codename ?? null, stored.title ?? null, stored.description ?? null,
-       stored.fileName ?? null, stored.sourceUrl ?? null, stored.storedPassword ?? null, stored.content ?? null, stored.id]
-    );
+  await db!.run('BEGIN TRANSACTION');
+  try {
+    const res = await db!.query('SELECT * FROM entries');
+    const decrypted = await Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), oldKey)));
+    for (const entry of decrypted) {
+      const stored = await encryptEntry(entry, newKey);
+      await db!.run(
+        `UPDATE entries SET codename=?,title=?,description=?,fileName=?,sourceUrl=?,storedPassword=?,content=? WHERE id=?`,
+        [stored.codename ?? null, stored.title ?? null, stored.description ?? null,
+         stored.fileName ?? null, stored.sourceUrl ?? null, stored.storedPassword ?? null, stored.content ?? null, stored.id]
+      );
+    }
+    await db!.run('COMMIT');
+  } catch (e) {
+    await db!.run('ROLLBACK');
+    throw e;
   }
 }
 

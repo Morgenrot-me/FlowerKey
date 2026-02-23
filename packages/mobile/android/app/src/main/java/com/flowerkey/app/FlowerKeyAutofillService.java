@@ -121,7 +121,7 @@ public class FlowerKeyAutofillService extends AutofillService {
         intent.putExtra(AutofillAuthActivity.EXTRA_PACKAGE_NAME, packageName);
         if (webDomain != null) intent.putExtra(AutofillAuthActivity.EXTRA_WEB_DOMAIN, webDomain);
         PendingIntent pi = PendingIntent.getActivity(this, packageName.hashCode(), intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
         rv.setTextViewText(android.R.id.text1, label);

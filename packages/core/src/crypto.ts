@@ -161,6 +161,7 @@ export async function generatePassword(
   mode: CharsetMode = 'alphanumeric',
   length = 16
 ): Promise<string> {
+  if (length < 8) throw new Error('密码长度不能小于8');
   const masterKeyBits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',

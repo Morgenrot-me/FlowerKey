@@ -35,9 +35,14 @@ export async function decryptEntry(entry: Entry, key: CryptoKey | null): Promise
     if (val) {
       try {
         const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
-        (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, key);
-      } catch {
-        // 非加密数据（旧数据）保持原样
+        try {
+          (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, key);
+        } catch {
+          throw new Error(`字段 ${field} 解密失败，可能密钥错误或数据损坏`);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('解密失败')) throw e;
+        // atob 失败：非 base64 = 旧明文数据，保持原样
       }
     }
   }

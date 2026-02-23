@@ -95,8 +95,9 @@
 
         <!-- 标签 -->
         <div class="relative">
-          <input v-model="tagInput" placeholder="添加标签，回车确认" @keydown.enter.prevent="addTag"
-            @focus="showTagDrop = true" @blur="hideTagDrop" class="input" />
+          <input v-model="tagInput" placeholder="添加标签" @keyup.enter.prevent="addTag"
+            @focus="showTagDrop = true" @blur="hideTagDrop" class="input pr-12" />
+          <button @mousedown.prevent="addTag" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-500 text-white rounded-full text-lg leading-none flex items-center justify-center">+</button>
           <ul v-if="showTagDrop && tagOptions.length"
             class="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl shadow-lg max-h-32 overflow-y-auto text-sm">
             <li v-for="t in tagOptions" :key="t"
@@ -113,11 +114,15 @@
 
         <input v-model="form.description" placeholder="描述（可选）" class="input" />
 
-        <input v-model="form.url" placeholder="网站地址（可选，用于自动填充，如 github.com）" class="input" />
+        <input v-model="form.url" placeholder="网站地址（可用于自动填充，如github.com）" class="input" />
         <div v-if="form.appPackage" class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-600 rounded-xl">
           <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">关联 App</span>
           <span class="text-sm text-gray-600 dark:text-gray-300 flex-1 truncate">{{ form.appPackage }}</span>
-          <button @click="() => { if (confirm('解除与此 App 的关联？')) form.appPackage = '' }" class="text-xs text-red-400 shrink-0">解除</button>
+          <template v-if="confirmUnlink">
+            <button @click="confirmUnlink = false" class="text-xs text-gray-400 shrink-0">取消</button>
+            <button @click="form.appPackage = ''; confirmUnlink = false" class="text-xs text-red-500 font-medium shrink-0">确认解除</button>
+          </template>
+          <button v-else @click="confirmUnlink = true" class="text-xs text-red-400 shrink-0">解除</button>
         </div>
         <div v-if="editingId" class="px-1 flex gap-4 text-xs text-gray-400 dark:text-gray-500">
           <span v-if="form.createdAt">创建于 {{ fmtDate(form.createdAt) }}</span>
@@ -151,6 +156,7 @@ const showForm = ref(false);
 const editingId = ref('');
 const pwdMode = ref<'generate' | 'store'>('generate');
 const showPwd = ref(false);
+const confirmUnlink = ref(false);
 const showAdvanced = ref(false);
 const showTagDrop = ref(false);
 const tagInput = ref('');
@@ -170,7 +176,10 @@ async function copyPreview() {
   await Clipboard.write({ string: formPwdPreview.value });
   if (editingId.value) await updateLastUsed(editingId.value);
   previewCopied.value = true;
-  setTimeout(() => { previewCopied.value = false; }, 1500);
+  setTimeout(async () => {
+    await Clipboard.write({ string: '' });
+    previewCopied.value = false;
+  }, 30000);
 }
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
 function fmtDate(ts: number) { return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }); }

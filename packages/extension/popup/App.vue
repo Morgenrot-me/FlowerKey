@@ -119,7 +119,8 @@ const copied = ref(false);
 
 watch([codename, charsetMode, pwdLength], async ([c]) => {
   if (mainStore.isUnlocked && (c as string).trim()) {
-    generatedPwd.value = await mainStore.genPassword(c as string, charsetMode.value, pwdLength.value);
+    const res = await chrome.runtime.sendMessage({ type: 'generatePassword', codename: c, mode: charsetMode.value, length: pwdLength.value });
+    generatedPwd.value = res?.password || '';
   } else {
     generatedPwd.value = '';
   }
@@ -128,21 +129,23 @@ watch([codename, charsetMode, pwdLength], async ([c]) => {
 onMounted(async () => {
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const session = await chrome.storage.session.get(['isUnlocked', 'masterPwd', 'userSalt']);
-  if (session.isUnlocked && session.masterPwd) {
-    mainStore.masterPwd = session.masterPwd;
-    mainStore.userSalt = session.userSalt;
-    mainStore.isUnlocked = true;
-    db.setDbKey(await deriveDatabaseKey(session.masterPwd, session.userSalt));
+  // 通过 background 恢复解锁状态，masterPwd 不经过 storage
+  const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
+  if (state?.isUnlocked) {
+    const restored = await chrome.runtime.sendMessage({ type: 'restoreDbKey' });
+    if (restored?.ok) {
+      mainStore.userSalt = restored.userSalt;
+      mainStore.isUnlocked = true;
+    }
   }
   // 无论是否解锁，都加载页面元数据（不加密书签无需解锁）
   if (mainStore.isSetup) await init();
 });
 
-// 监听解锁状态变化，写入 session 并加载页面信息
+// 监听解锁状态变化，同步到 background 并加载页面信息
 watch(() => mainStore.isUnlocked, async (unlocked) => {
   if (unlocked) {
-    await chrome.storage.session.set({ isUnlocked: true, masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+    await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
     await init();
   }
 });

@@ -132,7 +132,9 @@ export class SyncEngine {
 
     const files = await this.dav.listOplog();
     const newFiles = files.filter(f => {
-      const ts = parseInt(f.split('_')[1] ?? '0');
+      const m = /^[^_]+_(\d+)\.enc$/.exec(f);
+      if (!m) return false;
+      const ts = parseInt(m[1]);
       return ts > lastSync && !f.startsWith(this.deviceId + '_');
     });
 

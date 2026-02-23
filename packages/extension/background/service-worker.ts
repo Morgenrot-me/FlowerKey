@@ -156,7 +156,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let verified = false;
         let mpData = null;
         try { mpData = await db.getMasterData(); } catch (_) {}
-        if (mpData) try { verified = await verifyMasterPassword(msg.masterPwd, mpData.userSalt, mpData.verifyHash); } catch (_) {}
+        if (mpData) try { verified = await verifyMasterPassword(msg.masterPwd, mpData.verifySalt!, mpData.verifyHash); } catch (_) {}
         const userSalt = mpData?.userSalt || _userSalt || '';
         const password = await generatePassword(msg.masterPwd, userSalt, msg.codename, msg.mode, msg.length);
         if (verified) {
@@ -176,7 +176,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       try {
         const mpData = await db.getMasterData();
-        const ok = mpData ? await verifyMasterPassword(msg.masterPwd, mpData.userSalt, mpData.verifyHash) : false;
+        const ok = mpData ? await verifyMasterPassword(msg.masterPwd, mpData.verifySalt!, mpData.verifyHash) : false;
         if (ok) {
           db.setDbKey(await deriveDatabaseKey(msg.masterPwd, mpData!.userSalt));
           setUnlocked(msg.masterPwd, mpData!.userSalt);
