@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.4.2-blue?style=flat-square" alt="version" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="license" />
+  <img src="https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/crypto-AES--256--GCM-purple?style=flat-square" alt="crypto" />
   <img src="https://img.shields.io/badge/PBKDF2-600k%20iterations-orange?style=flat-square" alt="PBKDF2" />
 </p>
@@ -211,4 +211,4 @@ scripts/
 
 ## 📄 许可证
 
-MIT License © 2025 FlowerKey
+GPL-3.0 License © 2025 FlowerKey
