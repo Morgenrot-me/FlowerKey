@@ -8,6 +8,7 @@
     <p class="text-xs text-center text-gray-500 dark:text-gray-400">你通过恢复码解锁，请立即设置新主密码。所有数据将用新密码重新加密。</p>
     <input v-model="newPwd" type="password" placeholder="新主密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-orange-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
+    <PasswordStrength :password="newPwd" />
     <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-orange-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
     <p v-if="err" class="text-red-500 dark:text-red-400 text-sm text-center">{{ err }}</p>
@@ -21,6 +22,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useMainStore } from '../stores/main';
+import PasswordStrength from '../../../ui/src/components/PasswordStrength.vue';
 
 const main = useMainStore();
 const newPwd = ref(''), newPwdConfirm = ref(''), err = ref(''), loading = ref(false);

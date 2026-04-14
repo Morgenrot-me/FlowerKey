@@ -12,9 +12,26 @@ Vue 3 共享 UI 组件库，供浏览器插件、桌面端、移动端复用。
 |------|------|
 | `UnlockForm.vue` | 解锁表单：输入记忆密码解锁，验证后写入 session |
 | `SetupForm.vue` | 初始化设置：首次使用时设置记忆密码和用户盐 |
+| `OnboardingForm.vue` | 引导表单：插件端紧凑版欢迎页，介绍花钥核心理念 |
 | `EntryList.vue` | 条目列表：展示密码/书签/文件引用，支持搜索、文件夹/标签筛选 |
 | `EntryForm.vue` | 条目编辑表单：新建/编辑 Entry，支持三种类型 |
 | `SettingsPage.vue` | 设置页：WebDAV 配置、修改记忆密码、导出/导入数据 |
+| `PasswordStrength.vue` | 密码强度指示条：实时评估密码强度（弱/一般/较强/强） |
+| `ConfirmDialog.vue` | 确认对话框：替代原生 confirm()，支持深色模式 |
+| `Toast.vue` | Toast 提示：轻量级操作反馈，自动消失 |
+
+### icons/
+
+| 文件 | 作用 |
+|------|------|
+| `AppIcon.vue` | 统一 SVG 图标组件，替代 emoji，确保跨平台一致性 |
+
+### composables/
+
+| 文件 | 作用 |
+|------|------|
+| `useConfirm.ts` | 确认对话框可组合函数，替代原生 confirm() |
+| `useToast.ts` | Toast 提示可组合函数，提供操作反馈 |
 
 ### stores/
 
@@ -28,9 +45,10 @@ Vue 3 共享 UI 组件库，供浏览器插件、桌面端、移动端复用。
 
 | 文件 | 作用 |
 |------|------|
-| `style.css` | 全局样式，基于 Tailwind CSS |
+| `style.css` | 全局样式，含 `.input` 组件类和 Tailwind CSS 基础层 |
 
 ## 技术说明
 
 - 使用 Pinia 管理状态，stores 与 `@flowerkey/core` 的 db/crypto 直接交互
 - 组件不依赖任何扩展 API，可在任意宿主环境使用
+- `.input` 类在全局 CSS 的 `@layer components` 中定义，各端共享统一输入框样式

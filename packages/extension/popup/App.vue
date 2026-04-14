@@ -83,11 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
 import { useSyncStore } from '../../ui/src/stores/sync';
-import { db, deriveDatabaseKey, type CharsetMode } from '@flowerkey/core';
+import { db, type CharsetMode } from '@flowerkey/core';
 import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
 import UnlockForm from '../../ui/src/components/UnlockForm.vue';
@@ -211,7 +211,3 @@ async function openSidePanel() {
   window.close();
 }
 </script>
-
-<style scoped>
-.input { @apply w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400; }
-</style>

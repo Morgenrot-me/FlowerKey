@@ -4,13 +4,13 @@
  */
 
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
   encryptEntry, decryptEntry,
-  type Entry, type EntryType, type CharsetMode, type MasterPasswordData,
+  type Entry, type CharsetMode,
 } from '@flowerkey/core';
 
 export const useMainStore = defineStore('main', () => {
@@ -18,8 +18,6 @@ export const useMainStore = defineStore('main', () => {
   const isSetup = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
-  const searchQuery = ref('');
-  const currentView = ref<'passwords' | 'bookmarks' | 'files' | 'settings'>('passwords');
 
   /** 检查是否已初始化（有主密码数据） */
   async function checkSetup() {
@@ -142,7 +140,7 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt, searchQuery, currentView,
+    isUnlocked, isSetup, userSalt,
     checkSetup, setup, unlock, lock, genPassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };

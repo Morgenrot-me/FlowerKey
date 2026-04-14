@@ -4,3 +4,18 @@
 
 * { -webkit-tap-highlight-color: transparent; }
 body { overscroll-behavior: none; }
+
+@layer components {
+  /* 移动端输入框（较大触控区域） */
+  .input {
+    @apply w-full px-3 py-3 border rounded-xl text-sm outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500 transition-colors;
+  }
+}
+
+/* 页面覆盖层滑入/滑出动画 */
+.slide-up-enter-active, .slide-up-leave-active {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-up-enter-from, .slide-up-leave-to {
+  transform: translateY(100%);
+}

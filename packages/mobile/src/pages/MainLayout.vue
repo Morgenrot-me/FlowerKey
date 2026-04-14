@@ -8,7 +8,7 @@
       <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
         :class="['flex flex-col items-center gap-1 py-3 mx-2 rounded-xl text-xs',
           tab === t.key ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/30' : 'text-gray-400 dark:text-gray-500']">
-        <span class="text-2xl">{{ t.icon }}</span>
+        <AppIcon :name="t.icon" :size="24" />
         <span>{{ t.label }}</span>
       </button>
     </nav>
@@ -27,7 +27,7 @@
         <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
           :class="['flex-1 py-3 flex flex-col items-center gap-0.5 text-xs',
             tab === t.key ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500']">
-          <span class="text-xl">{{ t.icon }}</span>
+          <AppIcon :name="t.icon" :size="20" />
           <span>{{ t.label }}</span>
         </button>
       </nav>
@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 import PasswordTab from './PasswordTab.vue';
 import BookmarkTab from './BookmarkTab.vue';
 import NoteTab from './NoteTab.vue';
@@ -45,9 +46,9 @@ import SettingsTab from './SettingsTab.vue';
 defineEmits<{ lock: [] }>();
 const tab = ref('password');
 const tabs = [
-  { key: 'password', icon: '🔑', label: '密码' },
-  { key: 'bookmark', icon: '🔖', label: '书签' },
-  { key: 'note', icon: '📝', label: '笔记' },
-  { key: 'settings', icon: '⚙️', label: '设置' },
+  { key: 'password', icon: 'password' as const, label: '密码' },
+  { key: 'bookmark', icon: 'bookmark' as const, label: '书签' },
+  { key: 'note', icon: 'note' as const, label: '笔记' },
+  { key: 'settings', icon: 'settings' as const, label: '设置' },
 ];
 </script>

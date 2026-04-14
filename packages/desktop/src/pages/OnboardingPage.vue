@@ -13,21 +13,21 @@
       </div>
       <div class="flex flex-col gap-5 w-full">
         <div class="flex gap-3 items-start">
-          <span class="text-xl shrink-0 mt-0.5">🧠</span>
+          <AppIcon name="brain" :size="24" class="shrink-0 mt-0.5 text-blue-500" />
           <div>
             <p class="text-sm font-medium">一个密码，管理所有账号</p>
             <p class="text-xs text-gray-500 mt-1 leading-relaxed">记忆密码 + 区分代号，通过算法推算出每个账号的唯一强密码。相同的输入在任何设备都得到相同结果——数据全丢了，密码依然可以重新生成。</p>
           </div>
         </div>
         <div class="flex gap-3 items-start">
-          <span class="text-xl shrink-0 mt-0.5">🛡️</span>
+          <AppIcon name="shield" :size="24" class="shrink-0 mt-0.5 text-green-500" />
           <div>
             <p class="text-sm font-medium">没有密码库，就没有密码库被盗</p>
             <p class="text-xs text-gray-500 mt-1 leading-relaxed">花钥从不存储你的密码。主流密码管理器的加密密码库是攻击者的目标，花钥没有这个目标——密码只在你需要时生成，用完即弃。</p>
           </div>
         </div>
         <div class="flex gap-3 items-start">
-          <span class="text-xl shrink-0 mt-0.5">🔒</span>
+          <AppIcon name="lock" :size="24" class="shrink-0 mt-0.5 text-orange-500" />
           <div>
             <p class="text-sm font-medium">军用级加密，完全离线</p>
             <p class="text-xs text-gray-500 mt-1 leading-relaxed">区分代号等信息经 AES-256-GCM 加密存储于本地。记忆密码只短暂存在于内存，从不落盘、从不上传任何服务器。</p>
@@ -42,5 +42,6 @@
 </template>
 
 <script setup lang="ts">
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 defineEmits<{ done: [] }>();
 </script>

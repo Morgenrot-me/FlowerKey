@@ -1,5 +1,5 @@
 <!--
-  花钥移动端 - 书签 Tab
+  花钥桌面端 - 书签 Tab
 -->
 <template>
   <div class="h-full flex flex-col">
@@ -15,7 +15,7 @@
           <div class="font-medium truncate">{{ e.title || '未命名' }}</div>
           <div class="text-xs text-blue-400 truncate">{{ e.url }}</div>
         </div>
-        <button @click="confirmDelete(e.id)" class="text-red-400 text-sm px-2">删除</button>
+        <button @click="handleDelete(e.id)" class="text-red-400 text-sm px-2">删除</button>
       </div>
       <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无书签</div>
     </div>
@@ -31,21 +31,26 @@
         <input v-model="form.url" placeholder="URL" type="url" class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
       </div>
     </div>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :danger="confirmOpts.danger" @confirm="onConfirm" @cancel="onCancel" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useEntriesStore } from '../stores/entries';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 
 const store = useEntriesStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const showForm = ref(false);
 const form = ref({ title: '', url: '' });
 
 onMounted(() => store.load('bookmark'));
 
-function confirmDelete(id: string) {
-  if (confirm('确定删除此书签？')) store.remove(id);
+async function handleDelete(id: string) {
+  if (await ask('确定删除此书签？', { title: '删除确认', danger: true })) store.remove(id);
 }
 
 async function save() {

@@ -21,7 +21,8 @@
     </div>
 
     <!-- 新建/编辑表单 -->
-    <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col" style="padding-top: env(safe-area-inset-top)">
+    <Transition name="slide-up">
+      <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
       <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
         <button @click="showForm = false" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑笔记' : '新建笔记' }}</span>
@@ -34,6 +35,7 @@
           class="flex-1 w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 resize-none min-h-[200px] dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 

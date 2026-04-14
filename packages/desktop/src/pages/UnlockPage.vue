@@ -1,5 +1,5 @@
 <!--
-  花钥移动端 - 解锁页
+  花钥桌面端 - 解锁页
 -->
 <template>
   <div class="flex-1 flex flex-col justify-center px-8 gap-4">

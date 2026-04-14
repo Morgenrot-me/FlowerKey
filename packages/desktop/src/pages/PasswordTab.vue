@@ -94,6 +94,8 @@
         <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
       </div>
     </div>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :danger="confirmOpts.danger" @confirm="onConfirm" @cancel="onCancel" />
   </div>
 </template>
 
@@ -101,10 +103,13 @@
 import { ref, watch, onMounted } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import type { Entry } from '@flowerkey/core';
 
 const store = useEntriesStore();
 const main = useMainStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
@@ -224,11 +229,7 @@ async function save() {
 }
 
 async function remove(id: string) {
-  if (!confirm('确认删除此条目？')) return;
+  if (!await ask('确认删除此条目？', { title: '删除确认', danger: true })) return;
   await store.remove(id);
 }
 </script>
-
-<style scoped>
-.input { @apply w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400; }
-</style>

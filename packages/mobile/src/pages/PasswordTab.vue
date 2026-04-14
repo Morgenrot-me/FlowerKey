@@ -45,7 +45,8 @@
     </div>
 
     <!-- 新建/编辑表单 -->
-    <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col" style="padding-top: env(safe-area-inset-top)">
+    <Transition name="slide-up">
+      <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
       <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
         <button @click="closeForm" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑密码条目' : '新建密码条目' }}</span>
@@ -132,6 +133,11 @@
         <button v-if="editingId" @click="remove" class="w-full py-3 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl text-sm">删除条目</button>
       </div>
     </div>
+    </Transition>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :confirm-text="confirmOpts.confirmText" :cancel-text="confirmOpts.cancelText" :danger="confirmOpts.danger"
+      @confirm="onConfirm" @cancel="onCancel" />
+    <Toast :visible="toast.visible.value" :message="toast.message.value" :type="toast.type.value" />
   </div>
 </template>
 
@@ -142,6 +148,10 @@ import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { updateLastUsed } from '../db-sqlite';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import { useToast } from '../../../ui/src/composables/useToast';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
+import Toast from '../../../ui/src/components/Toast.vue';
 import type { Entry } from '@flowerkey/core';
 
 const AutofillState = registerPlugin<{
@@ -151,6 +161,8 @@ const AutofillState = registerPlugin<{
 
 const store = useEntriesStore();
 const main = useMainStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
+const toast = useToast();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
@@ -285,6 +297,7 @@ async function generate(e: Entry) {
   await Clipboard.write({ string: pwd });
   await updateLastUsed(e.id);
   copiedId.value = e.id;
+  toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);
 }
 
@@ -314,12 +327,8 @@ async function save() {
 }
 
 async function remove() {
-  if (!confirm('确认删除此条目？')) return;
+  if (!await ask('确认删除此条目？', { title: '删除确认', danger: true })) return;
   await store.remove(editingId.value);
   closeForm();
 }
 </script>
-
-<style scoped>
-.input { @apply w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500; }
-</style>

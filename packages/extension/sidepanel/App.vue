@@ -18,8 +18,7 @@
             currentTab === tab.key ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
         >
           <span class="text-lg leading-none">
-            <img v-if="!tab.icon" src="@ui/assets/key.png" class="w-5 h-5 object-contain" />
-            <template v-else>{{ tab.icon }}</template>
+            <AppIcon :name="tab.icon" :size="20" />
           </span>
           <span>{{ tab.label }}</span>
         </button>
@@ -112,6 +111,7 @@ import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
 import EntryForm from '../../ui/src/components/EntryForm.vue';
 import SettingsPage from '../../ui/src/components/SettingsPage.vue';
+import AppIcon from '../../ui/src/icons/AppIcon.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
@@ -130,10 +130,10 @@ onMounted(() => window.addEventListener('resize', onResize));
 onUnmounted(() => window.removeEventListener('resize', onResize));
 
 const tabs = [
-  { key: 'password', icon: null, label: '密码' },
-  { key: 'bookmark', icon: '🔖', label: '书签' },
-  { key: 'note', icon: '📝', label: '笔记' },
-  { key: 'settings', icon: '⚙️', label: '设置' },
+  { key: 'password', icon: 'password' as const, label: '密码' },
+  { key: 'bookmark', icon: 'bookmark' as const, label: '书签' },
+  { key: 'note', icon: 'note' as const, label: '笔记' },
+  { key: 'settings', icon: 'settings' as const, label: '设置' },
 ];
 
 onMounted(async () => {

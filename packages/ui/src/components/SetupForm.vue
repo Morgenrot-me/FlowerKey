@@ -11,6 +11,7 @@
       v-model="pwd" type="password" placeholder="记忆密码"
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
     />
+    <PasswordStrength :password="pwd" />
     <input
       v-model="confirmPwd" type="password" placeholder="确认密码"
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
@@ -22,13 +23,16 @@
       {{ showSalt ? '▲ 收起高级选项' : '▼ 高级选项（可选）' }}
     </button>
     <div v-if="showSalt" class="space-y-1.5">
+      <p class="text-[10px] text-gray-600 dark:text-gray-300 font-medium">个人标识（可选）</p>
+      <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">个人标识与记忆密码共同生成你的密码，使其独一无二。即使有人知道你的记忆密码，没有你的个人标识也无法生成你的密码。推荐填写你已有的信息，如邮箱或手机号，不需要记新东西。<br/>• 同一设备设置后不再索要<br/>• 换设备时必须填写完全相同的值<br/>• 可留空，但设置后不可更改</p>
       <input
-        v-model="salt" placeholder="邮箱 / 手机号 / 任意可记忆标识"
+        v-model="salt" placeholder="邮箱或手机号（留空也可以）"
         class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
       />
-      <p class="text-[10px] text-orange-600 dark:text-orange-400">
-        ⚠️ 任何你能稳定记住的字符串均可，如 you@example.com、13800138000、myusername。它与记忆密码共同参与密码生成，使你的密码独一无二。设置后不可更改，多设备使用时必须填写完全相同的值。
-      </p>
+      <input v-if="salt"
+        v-model="salt2" placeholder="确认个人标识"
+        class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+      />
     </div>
 
     <p v-if="error" class="text-xs text-red-500">{{ error }}</p>
@@ -44,6 +48,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useMainStore } from '../stores/main';
+import PasswordStrength from './PasswordStrength.vue';
 
 const emit = defineEmits<{ done: [] }>();
 const mainStore = useMainStore();
@@ -51,7 +56,8 @@ const mainStore = useMainStore();
 const pwd = ref('');
 const confirmPwd = ref('');
 const salt = ref('');
-const showSalt = ref(false);
+const salt2 = ref('');
+const showSalt = ref(true);
 const error = ref('');
 const loading = ref(false);
 
@@ -59,6 +65,7 @@ async function submit() {
   error.value = '';
   if (pwd.value.length < 4) { error.value = '密码至少4位'; return; }
   if (pwd.value !== confirmPwd.value) { error.value = '两次密码不一致'; return; }
+  if (salt.value && salt.value !== salt2.value) { error.value = '两次记忆标识不一致'; return; }
   loading.value = true;
   try {
     await mainStore.setup(pwd.value, salt.value || undefined);

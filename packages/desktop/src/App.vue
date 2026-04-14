@@ -6,7 +6,7 @@
     <Transition name="fade" mode="out-in">
       <OnboardingPage v-if="!main.isSetup && !showSetup" key="onboarding" @done="showSetup = true" />
       <SetupPage v-else-if="!main.isSetup" key="setup" @done="main.checkSetup()" />
-      <UnlockPage v-else-if="!main.isUnlocked" key="unlock" @unlocked="() => {}" />
+      <UnlockPage v-else-if="!main.isUnlocked" key="unlock" @unlocked="onUnlocked" />
       <MainLayout v-else key="main" @lock="main.lock()" />
     </Transition>
   </div>
@@ -15,14 +15,18 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useMainStore } from './stores/main';
+import { useEntriesStore } from './stores/entries';
 import OnboardingPage from './pages/OnboardingPage.vue';
 import SetupPage from './pages/SetupPage.vue';
 import UnlockPage from './pages/UnlockPage.vue';
 import MainLayout from './pages/MainLayout.vue';
 
 const main = useMainStore();
+const entries = useEntriesStore();
 const showSetup = ref(false);
 onMounted(() => main.checkSetup());
+
+async function onUnlocked() { await entries.load('password'); }
 </script>
 
 <style>

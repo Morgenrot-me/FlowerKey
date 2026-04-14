@@ -1,5 +1,5 @@
 /**
- * 花钥移动端 - 条目状态管理
+ * 花钥桌面端 - 条目状态管理
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';

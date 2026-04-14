@@ -8,7 +8,7 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  encryptEntry, decryptEntry,
+  decryptEntry,
   type Entry, type CharsetMode,
 } from '@flowerkey/core';
 
@@ -17,8 +17,6 @@ export const useMainStore = defineStore('main', () => {
   const isSetup = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
-  const searchQuery = ref('');
-  const currentView = ref<'passwords' | 'bookmarks' | 'files' | 'settings'>('passwords');
 
   async function checkSetup() {
     const data = await db.getMasterData();
@@ -125,7 +123,7 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt, searchQuery, currentView,
+    isUnlocked, isSetup, userSalt,
     checkSetup, setup, unlock, lock, genPassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };

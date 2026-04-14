@@ -200,6 +200,9 @@
         清除本地数据
       </button>
     </div>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :confirm-text="confirmOpts.confirmText" :cancel-text="confirmOpts.cancelText" :danger="confirmOpts.danger"
+      @confirm="onConfirm" @cancel="onCancel" />
   </div>
 </template>
 
@@ -209,9 +212,12 @@ import { useSyncStore } from '../stores/sync';
 import { useMainStore } from '../stores/main';
 import type { WebDAVConfig } from '@flowerkey/core';
 import { db } from '@flowerkey/core';
+import { useConfirm } from '../composables/useConfirm';
+import ConfirmDialog from './ConfirmDialog.vue';
 
 const syncStore = useSyncStore();
 const mainStore = useMainStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 
@@ -272,7 +278,7 @@ async function confirmBookmarkEncrypt() {
 const recoveryCode = ref('');
 const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
-  if (hasRecovery.value && !confirm('生成新恢复码后，旧恢复码将立即失效，确认继续？')) return;
+  if (hasRecovery.value && !await ask('生成新恢复码后，旧恢复码将立即失效，确认继续？', { title: '重新生成恢复码', danger: true })) return;
   recoveryCode.value = await mainStore.generateRecovery();
   hasRecovery.value = true;
 }
@@ -338,14 +344,10 @@ async function handleImportBookmarks(e: Event) {
   importBookmarkMsg.value = `已导入 ${count} 条书签（跳过重复 ${items.length - count} 条）`;
 }
 
-function confirmClear() {
-  if (confirm('确定要清除所有本地数据吗？此操作不可恢复。')) {
+async function confirmClear() {
+  if (await ask('确定要清除所有本地数据吗？此操作不可恢复。', { title: '清除数据', danger: true })) {
     indexedDB.deleteDatabase('FlowerKeyDB');
     location.reload();
   }
 }
 </script>
-
-<style scoped>
-.input { @apply w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100; }
-</style>

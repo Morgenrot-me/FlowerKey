@@ -20,32 +20,39 @@
       <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400 dark:text-gray-500">暂无书签</div>
     </div>
 
-    <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col" style="padding-top: env(safe-area-inset-top)">
-      <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
-        <button @click="showForm = false" class="text-blue-500">取消</button>
-        <span class="flex-1 text-center font-medium dark:text-gray-100">新建书签</span>
-        <button @click="save" class="text-blue-500 font-medium">保存</button>
+    <Transition name="slide-up">
+      <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
+        <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
+          <button @click="showForm = false" class="text-blue-500">取消</button>
+          <span class="flex-1 text-center font-medium dark:text-gray-100">新建书签</span>
+          <button @click="save" class="text-blue-500 font-medium">保存</button>
+        </div>
+        <div class="flex-1 px-4 py-4 flex flex-col gap-3">
+          <input v-model="form.title" placeholder="标题" class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
+          <input v-model="form.url" placeholder="URL" type="url" class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
+        </div>
       </div>
-      <div class="flex-1 px-4 py-4 flex flex-col gap-3">
-        <input v-model="form.title" placeholder="标题" class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
-        <input v-model="form.url" placeholder="URL" type="url" class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
-      </div>
-    </div>
+    </Transition>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :danger="confirmOpts.danger" @confirm="onConfirm" @cancel="onCancel" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useEntriesStore } from '../stores/entries';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 
 const store = useEntriesStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const showForm = ref(false);
 const form = ref({ title: '', url: '' });
 
 onMounted(() => store.load('bookmark'));
 
-function confirmDelete(id: string) {
-  if (confirm('确定删除此书签？')) store.remove(id);
+async function confirmDelete(id: string) {
+  if (await ask('确定删除此书签？', { title: '删除确认', danger: true })) store.remove(id);
 }
 
 async function save() {

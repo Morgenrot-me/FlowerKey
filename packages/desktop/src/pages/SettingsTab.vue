@@ -16,11 +16,11 @@
       <!-- WebDAV 配置表单 -->
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium">WebDAV 同步</p>
+        <input v-model="form.url" placeholder="服务器地址" class="input" />
         <input v-model="form.username" placeholder="用户名" class="input" />
         <input v-model="form.password" type="password" placeholder="密码" class="input" />
         <input v-model="form.basePath" placeholder="同步目录（默认 /FlowerKey）" class="input" />
         <button @click="saveConfig" class="w-full py-2.5 bg-gray-800 text-white rounded-xl text-sm">保存配置</button>
-        <p v-if="configSaved" class="text-xs text-green-600 text-center">配置已保存</p>
         <!-- 坚果云教程 -->
         <button @click="showDavGuide = !showDavGuide" class="text-left text-xs text-blue-500">
           {{ showDavGuide ? '▲ 收起' : '▼ 如何配置坚果云？' }}
@@ -119,12 +119,10 @@
             <input type="file" accept=".json" class="hidden" @change="handleImport" />
           </label>
         </div>
-        <p v-if="importMsg" class="text-xs text-green-600 text-center">{{ importMsg }}</p>
         <label class="w-full py-2.5 border rounded-xl text-sm text-center cursor-pointer">
           导入浏览器书签（HTML）
           <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
         </label>
-        <p v-if="importBookmarkMsg" class="text-xs text-green-600 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
 
@@ -165,6 +163,10 @@
       </div>
     </div>
     <button @click="$emit('lock')" class="w-full py-3 border border-red-300 text-red-500 rounded-xl text-sm">锁定</button>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :confirm-text="confirmOpts.confirmText" :cancel-text="confirmOpts.cancelText" :danger="confirmOpts.danger"
+      @confirm="onConfirm" @cancel="onCancel" />
+    <Toast :visible="toast.visible.value" :message="toast.message.value" :type="toast.type.value" />
   </div>
 </template>
 
@@ -173,6 +175,10 @@ import { ref, onMounted } from 'vue';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
 import { db, type WebDAVConfig } from '@flowerkey/core';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import { useToast } from '../../../ui/src/composables/useToast';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
+import Toast from '../../../ui/src/components/Toast.vue';
 
 defineEmits<{ lock: [] }>();
 
@@ -181,6 +187,8 @@ const version = __APP_VERSION__;
 
 const mainStore = useMainStore();
 const syncStore = useSyncStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
+const toast = useToast();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
 const showSecurity = ref(false);
@@ -191,12 +199,10 @@ onMounted(async () => {
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
 });
 
-const configSaved = ref(false);
 async function saveConfig() {
   if (!form.value.url || !form.value.username) return;
   await syncStore.saveConfig({ ...form.value });
-  configSaved.value = true;
-  setTimeout(() => { configSaved.value = false; }, 2000);
+  toast.show('配置已保存', 'success');
 }
 
 // 书签加密
@@ -230,6 +236,10 @@ async function confirmBookmarkEncrypt() {
 
 const recoveryCode = ref('');
 async function handleGenerateRecovery() {
+  const data = await db.getMasterData();
+  if (data?.encryptedMasterPwd) {
+    if (!await ask('已存在恢复码，重新生成后旧恢复码将立即失效且无法恢复。确认继续？', { title: '重新生成恢复码', danger: true })) return;
+  }
   recoveryCode.value = await mainStore.generateRecovery();
 }
 
@@ -251,8 +261,6 @@ async function handleChangePwd() {
   } finally { changingPwd.value = false; }
 }
 
-const importMsg = ref('');
-
 function handleExport() {
   mainStore.exportData().then(json => {
     const a = document.createElement('a');
@@ -266,10 +274,9 @@ async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
   const count = await mainStore.importData(await file.text());
-  importMsg.value = `已导入 ${count} 条新条目`;
+  toast.show(`已导入 ${count} 条新条目`, 'success');
 }
 
-const importBookmarkMsg = ref('');
 async function handleImportBookmarks(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -283,10 +290,6 @@ async function handleImportBookmarks(e: Event) {
   })).filter(i => i.url.startsWith('http'));
   const encrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   const count = await db.importBookmarks(items, encrypt);
-  importBookmarkMsg.value = `已导入 ${count} 条书签（跳过重复 ${items.length - count} 条）`;
+  toast.show(`已导入 ${count} 条书签（跳过重复 ${items.length - count} 条）`, 'success');
 }
 </script>
-
-<style scoped>
-.input { @apply w-full px-4 py-3 border rounded-xl text-sm outline-none focus:border-blue-400; }
-</style>
