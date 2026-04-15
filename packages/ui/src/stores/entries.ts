@@ -7,6 +7,10 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
 
+function sortEntriesByRecent(entries: Entry[]) {
+  return [...entries].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+}
+
 export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
   const currentType = ref<EntryType>('password');
@@ -39,14 +43,19 @@ export const useEntriesStore = defineStore('entries', () => {
     await loadEntries();
   }
 
+  async function touchLastUsed(id: string) {
+    await db.touchLastUsed(id);
+    await loadEntries();
+  }
+
   async function search(query: string) {
     if (!query.trim()) return loadEntries();
-    entries.value = await db.searchEntries(query);
+    entries.value = sortEntriesByRecent(await db.searchEntries(query));
   }
 
   return {
     entries, currentType, selectedTags,
     tags, filteredEntries,
-    loadEntries, createEntry, updateEntry, deleteEntry, search,
+    loadEntries, createEntry, updateEntry, deleteEntry, touchLastUsed, search,
   };
 });

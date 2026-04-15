@@ -27,7 +27,8 @@
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
           <div class="font-medium truncate dark:text-gray-100">{{ e.codename }}</div>
-          <div class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ e.description }}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ buildMeta(e) }}</div>
+          <div v-if="e.description" class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{{ e.description }}</div>
         </div>
         <button @click="generate(e)" :class="['px-3 py-1.5 rounded-lg text-sm font-medium',
           copiedId === e.id ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400']">
@@ -36,10 +37,11 @@
       </div>
       <div v-if="!store.filtered.length" class="p-8 text-center flex flex-col gap-3">
         <p class="text-sm text-gray-400 dark:text-gray-500">{{ store.entries?.length ? '无匹配结果' : '暂无密码条目，点击右上角新建' }}</p>
-        <div v-if="!store.entries?.length" class="mt-1 flex flex-col gap-0.5 text-xs text-gray-200 dark:text-gray-700 select-none leading-relaxed">
-          <p>花钥不存储任何密码</p>
-          <p>基于确定性算法，相同输入始终生成相同密码</p>
-          <p>即使数据丢失，密码亦可完整还原</p>
+        <div v-if="!store.entries?.length" class="mx-auto w-full max-w-sm rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-4 py-3 text-left text-xs text-blue-700 dark:text-blue-300 space-y-1.5 leading-relaxed">
+          <p class="font-medium text-blue-800 dark:text-blue-200">1 分钟上手</p>
+          <p>1. 新建一个区分代号，例如 github-main</p>
+          <p>2. 点击生成，密码会自动复制到剪贴板</p>
+          <p>3. 去登录页直接粘贴，后续还能按最近使用更快找到</p>
         </div>
       </div>
     </div>
@@ -126,8 +128,8 @@
           <button v-else @click="confirmUnlink = true" class="text-xs text-red-400 shrink-0">解除</button>
         </div>
         <div v-if="editingId" class="px-1 flex gap-4 text-xs text-gray-400 dark:text-gray-500">
-          <span v-if="form.createdAt">创建于 {{ fmtDate(form.createdAt) }}</span>
-          <span v-if="form.lastUsedAt">最近使用 {{ fmtDate(form.lastUsedAt) }}</span>
+          <span v-if="form.createdAt">创建于 {{ fmtDate(form.createdAt, true) }}</span>
+          <span v-if="form.lastUsedAt">最近使用 {{ fmtDate(form.lastUsedAt, true) }}</span>
           <span v-else-if="form.createdAt">从未使用</span>
         </div>
         <button v-if="editingId" @click="remove" class="w-full py-3 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-xl text-sm">删除条目</button>
@@ -147,7 +149,6 @@ import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { updateLastUsed } from '../db-sqlite';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useToast } from '../../../ui/src/composables/useToast';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
@@ -186,7 +187,7 @@ const previewCopied = ref(false);
 async function copyPreview() {
   if (!formPwdPreview.value) return;
   await Clipboard.write({ string: formPwdPreview.value });
-  if (editingId.value) await updateLastUsed(editingId.value);
+  if (editingId.value) await store.touchLastUsed(editingId.value);
   previewCopied.value = true;
   setTimeout(async () => {
     await Clipboard.write({ string: '' });
@@ -194,7 +195,17 @@ async function copyPreview() {
   }, 30000);
 }
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
-function fmtDate(ts: number) { return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }); }
+function fmtDate(ts?: number, withYear = false) {
+  if (!ts) return '未使用';
+  return new Date(ts).toLocaleDateString('zh-CN', withYear
+    ? { year: 'numeric', month: '2-digit', day: '2-digit' }
+    : { month: '2-digit', day: '2-digit' });
+}
+function buildMeta(e: Entry) {
+  const mode = e.storedPassword ? '已存储' : (e.charsetMode === 'with_symbols' ? '含特殊字符' : '字母+数字');
+  const length = e.storedPassword ? '自定义密码' : `${e.passwordLength || 16}位`;
+  return `${length} · ${mode} · 最近使用 ${fmtDate(e.lastUsedAt)}`;
+}
 
 const tagOptions = computed(() =>
   store.tags.filter(t => !form.value.tags.includes(t) && t.toLowerCase().includes(tagInput.value.toLowerCase()))
@@ -210,7 +221,12 @@ async function openAutofill() {
   await AutofillState.openSettings().catch(() => {});
   setTimeout(async () => {
     const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
-    if (r.enabled) showAutofillBanner.value = false;
+    if (r.enabled) {
+      showAutofillBanner.value = false;
+      toast.show('自动填充已开启，可去任意登录框测试', 'success');
+    } else {
+      toast.show('尚未开启，请在系统自动填充设置中选择花钥', 'info');
+    }
   }, 500);
 }
 
@@ -295,7 +311,7 @@ function closeForm() {
 async function generate(e: Entry) {
   const pwd = e.storedPassword || await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
   await Clipboard.write({ string: pwd });
-  await updateLastUsed(e.id);
+  await store.touchLastUsed(e.id);
   copiedId.value = e.id;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);

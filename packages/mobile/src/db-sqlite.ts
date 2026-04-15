@@ -116,7 +116,7 @@ export async function getEntry(id: string): Promise<Entry | undefined> {
 }
 
 export async function getEntriesByType(type: Entry['type']): Promise<Entry[]> {
-  const res = await db!.query('SELECT * FROM entries WHERE type=? ORDER BY updatedAt DESC', [type]);
+  const res = await db!.query('SELECT * FROM entries WHERE type=? ORDER BY COALESCE(lastUsedAt, updatedAt) DESC, updatedAt DESC', [type]);
   return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
 }
 

@@ -5,6 +5,10 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
 
+function sortEntriesByRecent(entries: Entry[]) {
+  return [...entries].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+}
+
 export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
   const currentType = ref<EntryType>('password');
@@ -26,6 +30,7 @@ export const useEntriesStore = defineStore('entries', () => {
         e.title?.toLowerCase().includes(q) ||
         e.description?.toLowerCase().includes(q)
       );
+      list = sortEntriesByRecent(list);
     }
     if (selectedTags.value.length) {
       list = list.filter(e => selectedTags.value.every(t => e.tags?.includes(t)));
@@ -53,5 +58,10 @@ export const useEntriesStore = defineStore('entries', () => {
     await load(currentType.value);
   }
 
-  return { entries, filtered, tags, selectedTags, currentType, searchQuery, load, create, update, remove };
+  async function touchLastUsed(id: string) {
+    await db.touchLastUsed(id);
+    await load(currentType.value);
+  }
+
+  return { entries, filtered, tags, selectedTags, currentType, searchQuery, load, create, update, remove, touchLastUsed };
 });

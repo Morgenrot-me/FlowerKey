@@ -7,8 +7,11 @@
 
     <!-- 数据安全警告 -->
     <div v-if="!syncStore.config"
-      class="p-3 bg-orange-50 border border-orange-300 rounded-xl text-orange-700 text-sm">
+      class="p-3 bg-orange-50 border border-orange-300 rounded-xl text-orange-700 text-sm space-y-2">
       <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>未配置同步，换设备将永久丢失所有数据，请配置 WebDAV 或定期导出备份。</span></p>
+      <button @click="focusSyncConfig" class="w-full py-2.5 rounded-xl border border-orange-300/80 bg-white/70 text-orange-700 text-sm hover:bg-white">
+        立即配置同步
+      </button>
     </div>
 
     <!-- 同步配置 -->
@@ -16,7 +19,7 @@
       <!-- WebDAV 配置表单 -->
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium">WebDAV 同步</p>
-        <input v-model="form.url" placeholder="服务器地址" class="input" />
+        <input ref="syncUrlInput" v-model="form.url" placeholder="服务器地址" class="input" />
         <input v-model="form.username" placeholder="用户名" class="input" />
         <input v-model="form.password" type="password" placeholder="密码" class="input" />
         <input v-model="form.basePath" placeholder="同步目录（默认 /FlowerKey）" class="input" />
@@ -61,7 +64,12 @@
           {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
         </p>
         <p class="text-xs text-gray-400">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
-        <p v-if="!bookmarkEncrypt" class="text-xs text-orange-600 flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签以明文存储于本地，任何能访问应用数据的程序均可读取。</span></p>
+        <div v-if="!bookmarkEncrypt" class="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-2 text-xs text-orange-700 flex flex-col gap-1.5">
+          <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签当前以明文存储于本地，任何能访问应用数据的程序均可读取。</span></p>
+          <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 rounded-xl border border-orange-300/80 bg-white/80 text-orange-700 text-sm hover:bg-white">
+            立即开启书签加密
+          </button>
+        </div>
         <div v-if="!showBookmarkPwdInput">
           <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 border rounded-xl text-sm">
             {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
@@ -87,7 +95,14 @@
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium">恢复码</p>
         <p class="text-xs text-gray-500">忘记主密码时可用恢复码解锁，请妥善保管。</p>
-        <button @click="handleGenerateRecovery" class="w-full py-2.5 border rounded-xl text-sm">生成新恢复码</button>
+        <div v-if="!hasRecovery" class="rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-xs text-blue-700 flex flex-col gap-1.5">
+          <p class="font-medium">建议现在就生成恢复码</p>
+          <p class="leading-relaxed">这是忘记主密码后唯一可用的自救方式，生成后请离线抄写保存。</p>
+          <button @click="handleGenerateRecovery" class="w-full py-2.5 rounded-xl border border-blue-200 bg-white/80 text-blue-700 text-sm hover:bg-white">
+            立即生成恢复码
+          </button>
+        </div>
+        <button @click="handleGenerateRecovery" class="w-full py-2.5 border rounded-xl text-sm">{{ hasRecovery ? '重新生成恢复码（旧码将失效）' : '生成新恢复码' }}</button>
         <div v-if="recoveryCode" class="p-3 bg-yellow-50 border border-yellow-300 rounded-xl break-all font-mono text-xs select-all">
           {{ recoveryCode }}
           <p class="text-yellow-600 mt-1 font-sans">请抄写保存，关闭后不再显示。</p>
@@ -99,6 +114,11 @@
       <div class="px-4 py-3 flex flex-col gap-2">
         <button @click="showChangePwd = !showChangePwd" class="w-full py-2.5 border rounded-xl text-sm text-left">修改主密码</button>
         <div v-if="showChangePwd" class="flex flex-col gap-2">
+          <div class="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-2 text-xs text-orange-700 flex flex-col gap-1">
+            <p class="font-medium">修改前请确认</p>
+            <p class="leading-relaxed">修改后，当前设备会立即用新主密码重加密本地数据；旧主密码将不能再解锁这份数据。</p>
+            <p class="leading-relaxed">如果你还在其他设备使用花钥，请尽快同步并在其他设备上完成相同修改，避免后续混淆。</p>
+          </div>
           <p class="text-xs text-gray-400">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
           <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
           <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
@@ -120,10 +140,12 @@
             <input type="file" accept=".json" class="hidden" @change="handleImport" />
           </label>
         </div>
+        <p v-if="importMsg" class="text-xs text-green-600 text-center">{{ importMsg }}</p>
         <label class="w-full py-2.5 border rounded-xl text-sm text-center cursor-pointer">
           导入浏览器书签（HTML）
           <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
         </label>
+        <p v-if="importBookmarkMsg" class="text-xs text-green-600 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
 
@@ -172,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
 import { db, type WebDAVConfig } from '@flowerkey/core';
@@ -190,6 +212,7 @@ const version = __APP_VERSION__;
 const mainStore = useMainStore();
 const syncStore = useSyncStore();
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
+const syncUrlInput = ref<HTMLInputElement | null>(null);
 const toast = useToast();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
@@ -199,7 +222,14 @@ onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  const data = await db.getMasterData();
+  hasRecovery.value = !!(data?.encryptedMasterPwd);
 });
+
+async function focusSyncConfig() {
+  await nextTick();
+  syncUrlInput.value?.focus();
+}
 
 async function saveConfig() {
   if (!form.value.url || !form.value.username) return;
@@ -237,17 +267,27 @@ async function confirmBookmarkEncrypt() {
 }
 
 const recoveryCode = ref('');
+const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
   const data = await db.getMasterData();
-  if (data?.encryptedMasterPwd) {
+  hasRecovery.value = !!(data?.encryptedMasterPwd);
+  if (hasRecovery.value) {
     if (!await ask('已存在恢复码，重新生成后旧恢复码将立即失效且无法恢复。确认继续？', { title: '重新生成恢复码', danger: true })) return;
   }
   recoveryCode.value = await mainStore.generateRecovery();
+  hasRecovery.value = true;
 }
 
 const showChangePwd = ref(false);
 const newPwd = ref(''), newPwdConfirm = ref('');
 const changingPwd = ref(false), changePwdMsg = ref(''), changePwdError = ref(false);
+const importMsg = ref('');
+const importBookmarkMsg = ref('');
+
+function buildImportSummary(imported: number, total: number, label: string) {
+  const skipped = Math.max(total - imported, 0);
+  return `本次共读取 ${total} 条${label}，新增 ${imported} 条，跳过 ${skipped} 条已存在内容。`;
+}
 
 async function handleChangePwd() {
   if (!newPwd.value || newPwd.value !== newPwdConfirm.value) {
@@ -275,8 +315,12 @@ function handleExport() {
 async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
-  const count = await mainStore.importData(await file.text());
-  toast.show(`已导入 ${count} 条新条目`, 'success');
+  const text = await file.text();
+  const parsed = JSON.parse(text) as { entries?: unknown[] };
+  const total = Array.isArray(parsed.entries) ? parsed.entries.length : 0;
+  const count = await mainStore.importData(text);
+  importMsg.value = buildImportSummary(count, total, '条备份条目');
+  toast.show(importMsg.value, 'success');
 }
 
 async function handleImportBookmarks(e: Event) {
@@ -292,6 +336,7 @@ async function handleImportBookmarks(e: Event) {
   })).filter(i => i.url.startsWith('http'));
   const encrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   const count = await db.importBookmarks(items, encrypt);
-  toast.show(`已导入 ${count} 条书签（跳过重复 ${items.length - count} 条）`, 'success');
+  importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
+  toast.show(importBookmarkMsg.value, 'success');
 }
 </script>

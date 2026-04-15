@@ -15,6 +15,10 @@
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
     <p class="text-xs text-gray-400">记忆密码决定所有生成密码的结果，输入有误将导致生成不同密码，确认输入以保证一致性。</p>
     <p class="text-xs text-orange-500 flex items-center gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0" /> 记忆密码是一切的根源，请务必牢记，且绝对不可泄露给任何人——任何知道你记忆密码的人都能生成你所有网站的密码。花钥无法帮你找回它。</p>
+    <div class="rounded-xl border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+      <p class="font-medium">极简示例</p>
+      <p class="mt-1 leading-relaxed">例如记忆密码只记一条你自己的短句；区分代号按网站填写 github、bilibili、招商银行。以后换设备时，只要两者保持一致，生成结果就完全一致。</p>
+    </div>
     <button @click="showSalt = !showSalt" class="text-left text-xs text-blue-500">
       {{ showSalt ? '▲ 收起高级选项' : '▼ 高级选项（可选）' }}
     </button>

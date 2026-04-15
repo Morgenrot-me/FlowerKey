@@ -57,6 +57,11 @@
 
         <!-- 已解锁：密码生成模式 -->
         <div v-else class="space-y-3">
+          <div v-if="!codename && !generatedPwd" class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 space-y-1.5 leading-relaxed">
+            <p class="font-medium text-blue-800 dark:text-blue-200">快速生成</p>
+            <p>输入一个区分代号，例如 github-main。</p>
+            <p>生成后会自动复制，直接回到网站粘贴即可。</p>
+          </div>
           <input v-model="codename" placeholder="输入区分代号" class="input" @keyup.enter="generate" />
           <div class="flex gap-2">
             <select v-model="charsetMode" class="flex-1 px-2 py-2 border rounded text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
@@ -203,10 +208,15 @@ async function saveBookmark() {
 async function generate() {
   if (!codename.value.trim()) return;
   generatedPwd.value = await mainStore.genPassword(codename.value, charsetMode.value, pwdLength.value);
+  await copyPwd();
 }
 
 async function copyPwd() {
+  if (!generatedPwd.value) return;
   await navigator.clipboard.writeText(generatedPwd.value);
+  const all = await db.getEntriesByType('password');
+  const matched = all.find(e => e.codename === codename.value.trim());
+  if (matched?.id) await db.touchLastUsed(matched.id);
   copied.value = true;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => (copied.value = false), 1500);

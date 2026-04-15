@@ -139,10 +139,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const password = await generatePassword(_masterPwd, _userSalt, msg.codename, msg.mode, msg.length);
         const all = await db.getEntriesByType('password');
-        if (!all.find(e => e.codename === msg.codename)) {
-          await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '' });
+        let entryId = all.find(e => e.codename === msg.codename)?.id;
+        if (!entryId) {
+          const created = await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '' });
+          entryId = created.id;
         }
-        sendResponse({ password });
+        sendResponse({ password, entryId });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();
     return true;
@@ -159,13 +161,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (mpData) try { verified = await verifyMasterPassword(msg.masterPwd, mpData.verifySalt!, mpData.verifyHash); } catch (_) {}
         const userSalt = mpData?.userSalt || _userSalt || '';
         const password = await generatePassword(msg.masterPwd, userSalt, msg.codename, msg.mode, msg.length);
+        let entryId: string | undefined;
         if (verified) {
           const all = await db.getEntriesByType('password');
-          if (!all.find(e => e.codename === msg.codename)) {
-            await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '', ...(msg.url && { url: msg.url }) });
+          const existing = all.find(e => e.codename === msg.codename);
+          if (existing) {
+            entryId = existing.id;
+          } else {
+            const created = await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '', ...(msg.url && { url: msg.url }) });
+            entryId = created.id;
           }
         }
-        sendResponse({ password, verified });
+        sendResponse({ password, verified, entryId });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();
     return true;
@@ -218,6 +225,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'touchLastUsed') {
+    (async () => {
+      try {
+        await db.touchLastUsed(msg.id);
+        sendResponse({ ok: true });
+      } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
+    })();
+    return true;
+  }
+
   if (msg.type === 'fillFromEntry') {
     (async () => {
       try {
@@ -227,6 +244,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const password = entry.storedPassword
           ? entry.storedPassword
           : await generatePassword(_masterPwd, _userSalt, entry.codename!, entry.charsetMode, entry.passwordLength);
+        await db.touchLastUsed(msg.id);
         sendResponse({ password });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();

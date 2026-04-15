@@ -6,6 +6,10 @@ import { ref, computed } from 'vue';
 import type { Entry, EntryType } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 
+function sortEntriesByRecent(entries: Entry[]) {
+  return [...entries].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+}
+
 export const useEntriesStore = defineStore('entries', () => {
   const entries = ref<Entry[]>([]);
   const currentType = ref<EntryType>('password');
@@ -23,6 +27,7 @@ export const useEntriesStore = defineStore('entries', () => {
         e.title?.toLowerCase().includes(q) ||
         e.description?.toLowerCase().includes(q)
       );
+      list = sortEntriesByRecent(list);
     }
     if (selectedTags.value.length) {
       list = list.filter(e => selectedTags.value.some(t => e.tags?.includes(t)));
@@ -32,7 +37,7 @@ export const useEntriesStore = defineStore('entries', () => {
 
   async function load(type: EntryType = 'password') {
     currentType.value = type;
-    entries.value = await sqliteDb.getEntriesByType(type);
+    entries.value = sortEntriesByRecent(await sqliteDb.getEntriesByType(type));
     tags.value = await sqliteDb.getAllTags();
   }
 
@@ -51,5 +56,10 @@ export const useEntriesStore = defineStore('entries', () => {
     await load(currentType.value);
   }
 
-  return { entries, filtered, currentType, searchQuery, selectedTags, tags, load, create, update, remove };
+  async function touchLastUsed(id: string) {
+    await sqliteDb.updateLastUsed(id);
+    await load(currentType.value);
+  }
+
+  return { entries, filtered, currentType, searchQuery, selectedTags, tags, load, create, update, remove, touchLastUsed };
 });

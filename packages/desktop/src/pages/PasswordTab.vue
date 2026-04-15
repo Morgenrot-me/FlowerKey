@@ -22,7 +22,8 @@
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
           <div class="font-medium truncate">{{ e.codename }}</div>
-          <div class="text-xs text-gray-400 truncate">{{ e.description }}</div>
+          <div class="text-xs text-gray-500 truncate">{{ buildMeta(e) }}</div>
+          <div v-if="e.description" class="text-xs text-gray-400 truncate mt-0.5">{{ e.description }}</div>
         </div>
         <button @click="generate(e)" :class="['px-3 py-1.5 rounded-lg text-sm font-medium',
           copiedId === e.id ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600']">
@@ -30,7 +31,20 @@
         </button>
         <button @click="remove(e.id)" class="px-2 py-1.5 rounded-lg text-sm text-red-400 hover:bg-red-50">删除</button>
       </div>
-      <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">暂无密码条目，点击右上角新建</div>
+      <div v-if="!store.filtered.length" class="p-8 text-center text-sm text-gray-400">
+        <template v-if="store.entries.length">
+          无匹配结果
+        </template>
+        <div v-else class="space-y-3">
+          <p>暂无密码条目，点击右上角新建</p>
+          <div class="mx-auto max-w-sm rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-left text-xs text-blue-700 space-y-1.5">
+            <p class="font-medium text-blue-800">1 分钟上手</p>
+            <p>1. 新建一个区分代号，例如 github-main</p>
+            <p>2. 点击生成，花钥会自动复制密码</p>
+            <p>3. 回到网站直接粘贴使用，下次还能按最近使用更快找到</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 新建/编辑表单 -->
@@ -141,10 +155,20 @@ watch([() => form.value.codename, () => form.value.charsetMode, () => form.value
 watch(pwdMode, () => { formPwdPreview.value = ''; });
 
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
+function fmtDate(ts?: number) {
+  if (!ts) return '未使用';
+  return new Date(ts).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+}
+function buildMeta(e: Entry) {
+  const mode = e.storedPassword ? '已存储' : (e.charsetMode === 'with_symbols' ? '含特殊字符' : '字母+数字');
+  const length = e.storedPassword ? '自定义密码' : `${e.passwordLength || 16}位`;
+  return `${length} · ${mode} · 最近使用 ${fmtDate(e.lastUsedAt)}`;
+}
 
 async function copyPreview() {
   if (!formPwdPreview.value) return;
   await navigator.clipboard.writeText(formPwdPreview.value);
+  if (editingId.value) await store.touchLastUsed(editingId.value);
   previewCopied.value = true;
   setTimeout(() => { previewCopied.value = false; }, 1500);
 }
@@ -204,6 +228,7 @@ function closeForm() {
 async function generate(e: Entry) {
   const pwd = e.storedPassword || await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
   await navigator.clipboard.writeText(pwd);
+  await store.touchLastUsed(e.id);
   copiedId.value = e.id;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);

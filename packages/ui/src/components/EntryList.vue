@@ -13,8 +13,14 @@
         <div class="font-medium truncate">
           {{ entry.codename || entry.title || entry.fileName || '未命名' }}
         </div>
-        <div class="text-gray-400 truncate">
+        <div v-if="entry.type === 'password'" class="text-gray-500 dark:text-gray-400 truncate">
+          {{ buildPasswordMeta(entry) }}
+        </div>
+        <div v-else class="text-gray-400 truncate">
           {{ entry.type === 'note' ? (entry.content?.slice(0, 60) || '') : (entry.description || entry.url || entry.sourceUrl || '') }}
+        </div>
+        <div v-if="entry.type === 'password' && entry.description" class="text-gray-400 truncate mt-0.5">
+          {{ entry.description }}
         </div>
         <div v-if="entry.tags?.length" class="flex gap-1 mt-0.5">
           <span v-for="t in entry.tags" :key="t" class="px-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded text-[10px]">{{ t }}</span>
@@ -42,6 +48,17 @@ const emit = defineEmits<{ edit: [Entry]; delete: [string]; generate: [Entry] }>
 
 const copiedId = ref('');
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
+
+function fmtDate(ts?: number) {
+  if (!ts) return '未使用';
+  return new Date(ts).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+}
+
+function buildPasswordMeta(entry: Entry) {
+  const mode = entry.storedPassword ? '已存储' : (entry.charsetMode === 'with_symbols' ? '含特殊字符' : '字母+数字');
+  const length = entry.storedPassword ? '自定义密码' : `${entry.passwordLength || 16}位`;
+  return `${length} · ${mode} · 最近使用 ${fmtDate(entry.lastUsedAt)}`;
+}
 
 async function handleDelete(id: string) {
   if (await ask('确定删除此条目？', { title: '删除确认', danger: true })) {

@@ -8,6 +8,10 @@ import type { Entry, ChangeLog, UserConfig, SyncState, MasterPasswordData } from
 import { encrypt, decrypt } from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 
+function sortEntriesByRecent(entries: Entry[]): Entry[] {
+  return [...entries].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+}
+
 /** 需要加密存储的敏感字段 */
 export const ENCRYPTED_FIELDS = ['codename', 'title', 'description', 'fileName', 'sourceUrl', 'storedPassword', 'content'] as const;
 export type EncryptedField = typeof ENCRYPTED_FIELDS[number];
@@ -163,13 +167,19 @@ export class FlowerKeyDB extends Dexie {
   }
 
   async getEntriesByType(type: Entry['type']): Promise<Entry[]> {
-    const rows = (await this.entries.where('type').equals(type).sortBy('updatedAt')).reverse();
-    return Promise.all(rows.map(e => this.decryptEntry(e)));
+    const rows = await this.entries.where('type').equals(type).toArray();
+    const decrypted = await Promise.all(rows.map(e => this.decryptEntry(e)));
+    return sortEntriesByRecent(decrypted);
+  }
+
+  async touchLastUsed(id: string): Promise<void> {
+    await this.entries.update(id, { lastUsedAt: Date.now() });
   }
 
   async getEntriesByFolder(folder: string): Promise<Entry[]> {
-    const rows = (await this.entries.where('folder').equals(folder).sortBy('updatedAt')).reverse();
-    return Promise.all(rows.map(e => this.decryptEntry(e)));
+    const rows = await this.entries.where('folder').equals(folder).toArray();
+    const decrypted = await Promise.all(rows.map(e => this.decryptEntry(e)));
+    return sortEntriesByRecent(decrypted);
   }
 
   async searchEntries(query: string): Promise<Entry[]> {
@@ -177,14 +187,14 @@ export class FlowerKeyDB extends Dexie {
     const all = await this.entries.toArray();
     const decrypted = await Promise.all(all.map(e => this.decryptEntry(e)));
     const q = query.toLowerCase();
-    return decrypted.filter(e =>
+    return sortEntriesByRecent(decrypted.filter(e =>
       (e.codename?.toLowerCase().includes(q)) ||
       (e.title?.toLowerCase().includes(q)) ||
       (e.description?.toLowerCase().includes(q)) ||
       (e.url?.toLowerCase().includes(q)) ||
       (e.fileName?.toLowerCase().includes(q)) ||
       (e.tags?.some(t => t.toLowerCase().includes(q))) || false
-    );
+    ));
   }
 
   // ==================== 配置管理 ====================

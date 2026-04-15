@@ -380,7 +380,9 @@ shadow.getElementById('fk-copy')!.addEventListener('click', () => {
     const btn = shadow.getElementById('fk-copy')!;
     btn.textContent = '已复制';
     setTimeout(() => { btn.textContent = '复制'; }, 1500);
-    chrome.runtime.sendMessage({ type: 'generatePasswordDirect', masterPwd, codename, mode, length, url: location.href });
+    chrome.runtime.sendMessage({ type: 'generatePasswordDirect', masterPwd, codename, mode, length, url: location.href }, (res) => {
+      if (res?.entryId) chrome.runtime.sendMessage({ type: 'touchLastUsed', id: res.entryId });
+    });
   });
 });
 

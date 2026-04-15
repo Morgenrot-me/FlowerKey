@@ -67,6 +67,14 @@
                   :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
                 >{{ t }}</button>
               </div>
+              <div v-if="currentTab === 'password' && !entriesStore.filteredEntries.length && !entriesStore.entries.length" class="px-3 pt-3">
+                <div class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-700 dark:text-blue-300 space-y-1.5 leading-relaxed">
+                  <p class="font-medium text-blue-800 dark:text-blue-200">1 分钟上手</p>
+                  <p>1. 新建一个区分代号，例如 github-main</p>
+                  <p>2. 点击生成，密码会自动复制到剪贴板</p>
+                  <p>3. 回到当前网站直接粘贴，常用条目会优先排在前面</p>
+                </div>
+              </div>
               <EntryList
                 :entries="entriesStore.filteredEntries"
                 @edit="editEntry"
@@ -210,6 +218,7 @@ async function generateForEntry(entry: Entry) {
       : null;
   if (!pwd) return;
   await navigator.clipboard.writeText(pwd);
+  await entriesStore.touchLastUsed(entry.id);
   toast.show('密码已复制到剪贴板', 'success');
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'fillPassword', password: pwd });
