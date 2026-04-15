@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"花钥桌面端默认权限 — 仅允许核心窗口操作和打开外部链接","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open"]}}

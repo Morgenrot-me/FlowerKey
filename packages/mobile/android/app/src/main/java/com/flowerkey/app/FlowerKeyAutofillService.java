@@ -2,8 +2,6 @@ package com.flowerkey.app;
 
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
-import android.app.slice.Slice;
-import android.app.slice.SliceSpec;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -23,9 +21,10 @@ import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
 import android.widget.inline.InlinePresentationSpec;
 
+import androidx.autofill.inline.v1.InlineSuggestionUi;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import javax.crypto.Cipher;
@@ -71,7 +70,7 @@ public class FlowerKeyAutofillService extends AutofillService {
                             EntryItem e = entries.get(i);
                             String pwd = e.storedPassword != null ? e.storedPassword
                                 : generatePassword(app.getMasterKey(), e.codename, e.passwordLength, e.charsetMode);
-                            Dataset ds = buildInlineDataset(passwordFieldIds, pwd, e.codename, specs.get(i));
+                            Dataset ds = buildInlineDataset(passwordFieldIds, pwd, e.codename, e.description, specs.get(i));
                             if (ds != null) rb.addDataset(ds);
                         } catch (Exception ignored) {}
                     }
@@ -94,14 +93,16 @@ public class FlowerKeyAutofillService extends AutofillService {
     // ==================== Dataset 构建 ====================
 
     private Dataset buildInlineDataset(List<AutofillId> fieldIds, String password, String label,
-                                        InlinePresentationSpec spec) {
+                                        String subtitle, InlinePresentationSpec spec) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null;
         try {
-            Slice slice = new Slice.Builder(
-                    android.net.Uri.parse("content://com.flowerkey.app/inline/" + label),
-                    new SliceSpec("androidx.slice", 1))
-                .addText(label, null, Collections.singletonList(android.app.slice.SliceItem.FORMAT_TEXT))
-                .build();
+            PendingIntent attribution = PendingIntent.getActivity(this, label.hashCode(),
+                new Intent(this, AutofillAuthActivity.class),
+                PendingIntent.FLAG_IMMUTABLE);
+            InlineSuggestionUi.Content.Builder cb = InlineSuggestionUi.newContentBuilder(attribution)
+                .setTitle(label);
+            if (subtitle != null && !subtitle.isEmpty()) cb.setSubtitle(subtitle);
+            android.app.slice.Slice slice = cb.build().getSlice();
             RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
             rv.setTextViewText(android.R.id.text1, label);
             Dataset.Builder builder = new Dataset.Builder();
@@ -131,11 +132,10 @@ public class FlowerKeyAutofillService extends AutofillService {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && spec != null) {
             try {
-                Slice slice = new Slice.Builder(
-                        android.net.Uri.parse("content://com.flowerkey.app/inline/more"),
-                        new SliceSpec("androidx.slice", 1))
-                    .addText(label, null, Collections.singletonList(android.app.slice.SliceItem.FORMAT_TEXT))
-                    .build();
+                android.app.slice.Slice slice = InlineSuggestionUi.newContentBuilder(pi)
+                    .setTitle(label)
+                    .build()
+                    .getSlice();
                 builder.setValue(fieldIds.get(0), null, rv,
                     new InlinePresentation(slice, spec, false));
             } catch (Exception ignored) {}
@@ -148,7 +148,7 @@ public class FlowerKeyAutofillService extends AutofillService {
     // ==================== 查询匹配条目 ====================
 
     static class EntryItem {
-        String codename, storedPassword, charsetMode;
+        String codename, description, storedPassword, charsetMode;
         int passwordLength = 16;
     }
 
@@ -162,9 +162,9 @@ public class FlowerKeyAutofillService extends AutofillService {
             SecretKeySpec aesKey = new SecretKeySpec(app.getDbKey(), "AES");
             // url 明文存储，可直接 SQL LIKE 匹配；passwordLength/charsetMode 明文字段
             c = (webDomain != null && !webDomain.isEmpty())
-                ? db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode FROM entries WHERE type='password' AND url LIKE ?",
+                ? db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode,description FROM entries WHERE type='password' AND url LIKE ?",
                     new String[]{"%" + webDomain + "%"})
-                : db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode FROM entries WHERE type='password' AND appPackage=?",
+                : db.rawQuery("SELECT codename,storedPassword,passwordLength,charsetMode,description FROM entries WHERE type='password' AND appPackage=?",
                     new String[]{packageName});
             while (c.moveToNext()) {
                 try {
@@ -174,6 +174,8 @@ public class FlowerKeyAutofillService extends AutofillService {
                     item.storedPassword = (sp != null && !sp.isEmpty()) ? aesGcmDecrypt(sp, aesKey) : null;
                     item.passwordLength = c.isNull(2) ? 16 : c.getInt(2);
                     item.charsetMode    = c.isNull(3) ? "alphanumeric" : c.getString(3);
+                    String desc = c.getString(4);
+                    item.description    = (desc != null && !desc.isEmpty()) ? aesGcmDecrypt(desc, aesKey) : null;
                     result.add(item);
                 } catch (Exception ignored) {}
             }

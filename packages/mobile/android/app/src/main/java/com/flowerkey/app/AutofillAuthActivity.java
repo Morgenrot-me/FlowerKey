@@ -144,12 +144,13 @@ public class AutofillAuthActivity extends Activity {
     private void verifyAndProceed() {
         String pwd = etMaster.getText().toString();
         if (pwd.isEmpty()) return;
+        SQLiteDatabase db = null;
+        Cursor c = null;
         try {
-            SQLiteDatabase db = openDb();
-            Cursor c = db.rawQuery("SELECT value FROM config WHERE key='masterPasswordData'", null);
-            if (!c.moveToFirst()) { c.close(); db.close(); toast("花钥未初始化"); return; }
+            db = openDb();
+            c = db.rawQuery("SELECT value FROM config WHERE key='masterPasswordData'", null);
+            if (!c.moveToFirst()) { toast("花钥未初始化"); return; }
             JSONObject data = new JSONObject(c.getString(0));
-            c.close(); db.close();
 
             userSalt = data.getString("userSalt");
             String verifySalt = data.optString("verifySalt", "");
@@ -167,6 +168,10 @@ public class AutofillAuthActivity extends Activity {
 
             showEntryStep(queryMatchingEntries(), false);
         } catch (Exception e) { toast("验证失败：" + e.getMessage()); }
+        finally {
+            if (c != null) try { c.close(); } catch (Exception ignored) {}
+            if (db != null) try { db.close(); } catch (Exception ignored) {}
+        }
     }
 
     // ==================== 第二步：展示匹配条目 ====================
@@ -222,7 +227,10 @@ public class AutofillAuthActivity extends Activity {
             if (codename.isEmpty()) { toast("请输入区分代号"); return; }
             try {
                 saveAssociation(codename);
-                returnPassword(generatePassword(codename, 16, "alphanumeric"), codename);
+                EntryItem found = lookupEntryByCodename(codename);
+                int len = (found != null) ? found.passwordLength : 16;
+                String mode = (found != null) ? found.charsetMode : "alphanumeric";
+                returnPassword(generatePassword(codename, len, mode), codename);
             } catch (Exception e) { toast("生成失败：" + e.getMessage()); }
         }));
         layout.addView(makeSpacing(8));
@@ -275,11 +283,13 @@ public class AutofillAuthActivity extends Activity {
      * - 未找到 → 新建条目（codename 加密，url/appPackage 明文）
      */
     private void saveAssociation(String codename) {
+        SQLiteDatabase db = null;
+        Cursor c = null;
         try {
-            SQLiteDatabase db = SQLiteDatabase.openDatabase(
+            db = SQLiteDatabase.openDatabase(
                 getDatabasePath("flowerkeySQLite.db").getPath(), null, SQLiteDatabase.OPEN_READWRITE);
             SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
-            Cursor c = db.rawQuery("SELECT id, codename FROM entries WHERE type='password'", null);
+            c = db.rawQuery("SELECT id, codename FROM entries WHERE type='password'", null);
             String targetId = null;
             while (c.moveToNext()) {
                 try {
@@ -288,7 +298,7 @@ public class AutofillAuthActivity extends Activity {
                     }
                 } catch (Exception ignored) {}
             }
-            c.close();
+            c.close(); c = null;
             String changedId;
             if (targetId != null) {
                 changedId = targetId;
@@ -320,16 +330,20 @@ public class AutofillAuthActivity extends Activity {
             // 写入 changelog，让同步引擎感知此变更
             String operation = (targetId != null) ? "update" : "create";
             String deviceId = "unknown";
+            Cursor dc = null;
             try {
-                Cursor dc = db.rawQuery("SELECT value FROM config WHERE key='deviceId'", null);
+                dc = db.rawQuery("SELECT value FROM config WHERE key='deviceId'", null);
                 if (dc.moveToFirst()) deviceId = dc.getString(0).replaceAll("^\"|\"$", "");
-                dc.close();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {} finally {
+                if (dc != null) try { dc.close(); } catch (Exception ignored) {}
+            }
             db.execSQL(
                 "INSERT INTO changelog (entryId,entryType,operation,timestamp,synced,deviceId) VALUES (?,?,?,?,?,?)",
                 new Object[]{changedId, "entry", operation, System.currentTimeMillis(), 0, deviceId});
-            db.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {} finally {
+            if (c != null) try { c.close(); } catch (Exception ignored) {}
+            if (db != null) try { db.close(); } catch (Exception ignored) {}
+        }
     }
 
     private String aesGcmEncrypt(String plaintext, SecretKeySpec key) throws Exception {
@@ -358,10 +372,11 @@ public class AutofillAuthActivity extends Activity {
      */
     private List<EntryItem> queryMatchingEntries() {
         List<EntryItem> result = new ArrayList<>();
+        SQLiteDatabase db = null;
+        Cursor c = null;
         try {
-            SQLiteDatabase db = openDb();
+            db = openDb();
             SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
-            Cursor c;
             if (webDomain != null && !webDomain.isEmpty()) {
                 c = db.rawQuery(
                     "SELECT id, codename, description, storedPassword, passwordLength, charsetMode FROM entries WHERE type='password' AND url LIKE ?",
@@ -385,12 +400,46 @@ public class AutofillAuthActivity extends Activity {
                     result.add(item);
                 } catch (Exception ignored) {}
             }
-            c.close(); db.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) try { c.close(); } catch (Exception ignored) {}
+            if (db != null) try { db.close(); } catch (Exception ignored) {}
+        }
         return result;
     }
 
     // ==================== 密码生成 ====================
+
+    /**
+     * 按代号查找已有条目，用于获取其 passwordLength / charsetMode
+     * 找不到时返回 null（调用方使用默认值）
+     */
+    private EntryItem lookupEntryByCodename(String codename) {
+        SQLiteDatabase db = null;
+        Cursor c = null;
+        try {
+            db = openDb();
+            SecretKeySpec aesKey = new SecretKeySpec(dbKey, "AES");
+            c = db.rawQuery(
+                "SELECT codename, passwordLength, charsetMode FROM entries WHERE type='password'", null);
+            while (c.moveToNext()) {
+                try {
+                    if (codename.equals(aesGcmDecrypt(c.getString(0), aesKey))) {
+                        EntryItem item = new EntryItem();
+                        item.codename       = codename;
+                        item.passwordLength = c.isNull(1) ? 16 : c.getInt(1);
+                        item.charsetMode    = c.isNull(2) ? "alphanumeric" : c.getString(2);
+                        return item;
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        finally {
+            if (c != null) try { c.close(); } catch (Exception ignored) {}
+            if (db != null) try { db.close(); } catch (Exception ignored) {}
+        }
+        return null;
+    }
 
     /** 与 core/crypto.ts encodePassword 完全一致 */
     private String generatePassword(String codename, int length, String charsetMode) throws Exception {
