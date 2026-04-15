@@ -9,6 +9,17 @@ Thumbs.db
 .claude/
 .vscode/
 app.js
+.workbuddy/
+
+# 本地崩溃/回放日志
+/hs_err_pid*.log
+/replay_pid*.log
+
+# 本地参考资料与临时资源
+/原文件/
+/花钥_*.exe
+/蓝钥匙.png
+/透明蓝钥匙*.png
 
 # Capacitor 生成的原生项目
 packages/mobile/ios/
