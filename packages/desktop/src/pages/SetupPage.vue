@@ -14,6 +14,7 @@
     <input v-model="pwd2" type="password" placeholder="确认记忆密码"
       class="w-full px-4 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
     <p class="text-xs text-gray-400">记忆密码决定所有生成密码的结果，输入有误将导致生成不同密码，确认输入以保证一致性。</p>
+    <p class="text-xs text-orange-500 flex items-center gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0" /> 记忆密码是一切的根源，请务必牢记，且绝对不可泄露给任何人——任何知道你记忆密码的人都能生成你所有网站的密码。花钥无法帮你找回它。</p>
     <button @click="showSalt = !showSalt" class="text-left text-xs text-blue-500">
       {{ showSalt ? '▲ 收起高级选项' : '▼ 高级选项（可选）' }}
     </button>
@@ -37,6 +38,7 @@
 import { ref } from 'vue';
 import { useMainStore } from '../stores/main';
 import PasswordStrength from '../../../ui/src/components/PasswordStrength.vue';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 const main = useMainStore();
 const pwd = ref(''), pwd2 = ref(''), salt = ref(''), salt2 = ref(''), showSalt = ref(true), err = ref(''), loading = ref(false);
 const emit = defineEmits<{ done: [] }>();

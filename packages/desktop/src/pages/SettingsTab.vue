@@ -8,7 +8,7 @@
     <!-- 数据安全警告 -->
     <div v-if="!syncStore.config"
       class="p-3 bg-orange-50 border border-orange-300 rounded-xl text-orange-700 text-sm">
-      ⚠️ 未配置同步，换设备将永久丢失所有数据，请配置 WebDAV 或定期导出备份。
+      <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>未配置同步，换设备将永久丢失所有数据，请配置 WebDAV 或定期导出备份。</span></p>
     </div>
 
     <!-- 同步配置 -->
@@ -31,7 +31,7 @@
           <p>② 找到「第三方应用管理」→ <b>添加应用</b>，名称随意，点击<b>生成密码</b></p>
           <p>③ 回到花钥，填写：</p>
           <p class="font-mono text-[11px] bg-white rounded p-2">服务器：https://dav.jianguoyun.com/dav/<br/>用户名：坚果云注册邮箱<br/>密码：刚才生成的应用密码</p>
-          <p class="text-gray-400">🔒 花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</p>
+          <p class="text-gray-400 flex items-start gap-1.5"><AppIcon name="lock" :size="14" class-name="shrink-0 mt-0.5" /> <span>花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</span></p>
         </div>
       </div>
 
@@ -44,8 +44,9 @@
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 text-center">
           上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
-        <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 text-center">
-          ⚠️ {{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请统一所有设备的书签加密设置后重新同步。
+        <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 text-center flex items-start justify-center gap-1.5">
+          <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
+          <span>{{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请统一所有设备的书签加密设置后重新同步。</span>
         </p>
         <p v-if="syncStore.error" class="text-xs text-red-500 text-center">{{ syncStore.error }}</p>
       </div>
@@ -60,7 +61,7 @@
           {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
         </p>
         <p class="text-xs text-gray-400">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
-        <p v-if="!bookmarkEncrypt" class="text-xs text-orange-600">⚠️ 书签以明文存储于本地，任何能访问应用数据的程序均可读取。</p>
+        <p v-if="!bookmarkEncrypt" class="text-xs text-orange-600 flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签以明文存储于本地，任何能访问应用数据的程序均可读取。</span></p>
         <div v-if="!showBookmarkPwdInput">
           <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 border rounded-xl text-sm">
             {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
@@ -90,7 +91,7 @@
         <div v-if="recoveryCode" class="p-3 bg-yellow-50 border border-yellow-300 rounded-xl break-all font-mono text-xs select-all">
           {{ recoveryCode }}
           <p class="text-yellow-600 mt-1 font-sans">请抄写保存，关闭后不再显示。</p>
-          <p class="text-red-600 mt-1 font-sans font-medium">⚠️ 恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</p>
+          <p class="text-red-600 mt-1 font-sans font-medium flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</span></p>
         </div>
       </div>
 
@@ -179,6 +180,7 @@ import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useToast } from '../../../ui/src/composables/useToast';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import Toast from '../../../ui/src/components/Toast.vue';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 
 defineEmits<{ lock: [] }>();
 

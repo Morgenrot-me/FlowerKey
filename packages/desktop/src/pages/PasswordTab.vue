@@ -96,6 +96,7 @@
     </div>
     <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
       :danger="confirmOpts.danger" @confirm="onConfirm" @cancel="onCancel" />
+    <Toast :visible="toast.visible.value" :message="toast.message.value" :type="toast.type.value" />
   </div>
 </template>
 
@@ -104,12 +105,15 @@ import { ref, watch, onMounted } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import { useToast } from '../../../ui/src/composables/useToast';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
+import Toast from '../../../ui/src/components/Toast.vue';
 import type { Entry } from '@flowerkey/core';
 
 const store = useEntriesStore();
 const main = useMainStore();
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
+const toast = useToast();
 const copiedId = ref('');
 const showForm = ref(false);
 const editingId = ref('');
@@ -201,6 +205,7 @@ async function generate(e: Entry) {
   const pwd = e.storedPassword || await main.genPassword(e.codename!, e.charsetMode || 'alphanumeric', e.passwordLength || 16);
   await navigator.clipboard.writeText(pwd);
   copiedId.value = e.id;
+  toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);
 }
 

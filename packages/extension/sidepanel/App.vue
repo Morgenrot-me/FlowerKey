@@ -47,56 +47,58 @@
               currentTab === tab.key ? 'text-blue-600 border-b-2 border-blue-500 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300']"
           >
             <span class="text-base leading-none">
-              <img v-if="!tab.icon" src="@ui/assets/key.png" class="w-4 h-4 object-contain" />
-              <template v-else>{{ tab.icon }}</template>
+              <AppIcon :name="tab.icon" :size="16" />
             </span>
             <span>{{ tab.label }}</span>
           </button>
         </nav>
 
-        <!-- 设置页 -->
-        <SettingsPage v-if="currentTab === 'settings'" class="flex-1 overflow-y-auto" />
+        <Transition name="fade" mode="out-in">
+          <!-- 设置页 -->
+          <SettingsPage v-if="currentTab === 'settings'" key="settings" class="flex-1 overflow-y-auto" />
 
-        <!-- 内容区 -->
-        <template v-if="currentTab !== 'settings'">
-          <div class="flex-1 overflow-y-auto">
-            <div v-if="entriesStore.tags.length" class="flex gap-1 px-3 py-2 text-xs flex-wrap">
-              <button
-                v-for="t in entriesStore.tags" :key="t"
-                @click="toggleTag(t)"
-                :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
-              >{{ t }}</button>
+          <!-- 内容区 -->
+          <div v-else key="content" class="flex-1 flex flex-col min-h-0">
+            <div class="flex-1 overflow-y-auto">
+              <div v-if="entriesStore.tags.length" class="flex gap-1 px-3 py-2 text-xs flex-wrap">
+                <button
+                  v-for="t in entriesStore.tags" :key="t"
+                  @click="toggleTag(t)"
+                  :class="['px-2 py-0.5 rounded', entriesStore.selectedTags.includes(t) ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-300']"
+                >{{ t }}</button>
+              </div>
+              <EntryList
+                :entries="entriesStore.filteredEntries"
+                @edit="editEntry"
+                @delete="deleteEntry"
+                @generate="generateForEntry"
+              />
             </div>
-            <EntryList
-              :entries="entriesStore.filteredEntries"
-              @edit="editEntry"
-              @delete="deleteEntry"
-              @generate="generateForEntry"
+
+            <footer class="border-t px-3 py-2 dark:border-gray-700 shrink-0">
+              <div v-if="currentTab === 'password'" class="flex gap-2">
+                <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
+                <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
+              </div>
+              <button v-else @click="openAdd()" class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 新建</button>
+            </footer>
+
+            <EntryForm
+              v-if="showAddForm"
+              :entry="editingEntry"
+              :type="entriesStore.currentType"
+              :initialMode="addMode"
+              :initialUrl="editingEntry ? undefined : currentTabUrl"
+              :folders="entriesStore.folders"
+              :tags="entriesStore.tags"
+              @save="onSave"
+              @cancel="closeForm"
             />
           </div>
-
-          <footer class="border-t px-3 py-2 dark:border-gray-700 shrink-0">
-            <div v-if="currentTab === 'password'" class="flex gap-2">
-              <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
-              <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
-            </div>
-            <button v-else @click="openAdd()" class="w-full py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 新建</button>
-          </footer>
-
-          <EntryForm
-            v-if="showAddForm"
-            :entry="editingEntry"
-            :type="entriesStore.currentType"
-            :initialMode="addMode"
-            :initialUrl="editingEntry ? undefined : currentTabUrl"
-            :folders="entriesStore.folders"
-            :tags="entriesStore.tags"
-            @save="onSave"
-            @cancel="closeForm"
-          />
-        </template>
+        </Transition>
       </div>
     </template>
+    <Toast :visible="toast.visible.value" :message="toast.message.value" :type="toast.type.value" />
   </div>
 </template>
 
@@ -104,6 +106,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useMainStore } from '../../ui/src/stores/main';
 import { useEntriesStore } from '../../ui/src/stores/entries';
+import { useToast } from '../../ui/src/composables/useToast';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
 import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
 import SetupForm from '../../ui/src/components/SetupForm.vue';
@@ -111,10 +114,12 @@ import UnlockForm from '../../ui/src/components/UnlockForm.vue';
 import EntryList from '../../ui/src/components/EntryList.vue';
 import EntryForm from '../../ui/src/components/EntryForm.vue';
 import SettingsPage from '../../ui/src/components/SettingsPage.vue';
+import Toast from '../../ui/src/components/Toast.vue';
 import AppIcon from '../../ui/src/icons/AppIcon.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
+const toast = useToast();
 const showSetup = ref(false);
 
 const searchQuery = ref('');
@@ -205,6 +210,7 @@ async function generateForEntry(entry: Entry) {
       : null;
   if (!pwd) return;
   await navigator.clipboard.writeText(pwd);
+  toast.show('密码已复制到剪贴板', 'success');
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'fillPassword', password: pwd });
 }
@@ -224,3 +230,8 @@ function closeForm() {
   addMode.value = undefined;
 }
 </script>
+
+<style>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

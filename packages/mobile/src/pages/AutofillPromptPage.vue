@@ -5,7 +5,9 @@
 <template>
   <div class="h-full flex flex-col items-center justify-between px-6 py-12">
     <div class="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-sm">
-      <div class="text-6xl">🔑</div>
+      <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 flex items-center justify-center">
+        <AppIcon name="lock" :size="34" />
+      </div>
       <div class="flex flex-col items-center gap-3 text-center">
         <p class="text-xl font-bold dark:text-gray-100">启用自动填充</p>
         <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
@@ -26,6 +28,7 @@
 
 <script setup lang="ts">
 import { registerPlugin } from '@capacitor/core';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 
 const AutofillState = registerPlugin<{
   openSettings(): Promise<void>;
@@ -38,3 +41,4 @@ async function open() {
   emit('done');
 }
 </script>
+

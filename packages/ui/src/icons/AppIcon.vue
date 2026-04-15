@@ -71,6 +71,12 @@
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </template>
+    <!-- 警告 -->
+    <template v-else-if="name === 'alert'">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3l-8.47-14.14a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </template>
     <!-- 锁定（解锁按钮） -->
     <template v-else-if="name === 'lock-open'">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -81,7 +87,7 @@
 
 <script setup lang="ts">
 defineProps<{
-  name: 'password' | 'bookmark' | 'note' | 'settings' | 'brain' | 'shield' | 'lock' | 'copy' | 'check' | 'close' | 'trash' | 'plus' | 'lock-open';
+  name: 'password' | 'bookmark' | 'note' | 'settings' | 'brain' | 'shield' | 'lock' | 'copy' | 'check' | 'close' | 'trash' | 'plus' | 'alert' | 'lock-open';
   size?: number;
   className?: string;
 }>();

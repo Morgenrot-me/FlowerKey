@@ -192,10 +192,13 @@ const panel = document.createElement('div');
 panel.className = 'panel';
 panel.innerHTML = `
   <div class="panel-header">
-    <span>🔑 花钥</span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+      花钥
+    </span>
     <div style="display:flex;gap:6px;align-items:center">
-      <button id="fk-pin" title="钉住">📌</button>
-      <button id="fk-cfg" title="设置">⚙</button>
+      <button id="fk-pin" title="钉住"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 3h14l-2 7v0l-3 2v3H10v-3l-3-2v0z"/></svg></button>
+      <button id="fk-cfg" title="设置"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
   <input id="fk-master" type="password" placeholder="记忆密码" />
@@ -451,7 +454,7 @@ function mountPopup(input: HTMLInputElement, content: HTMLElement) {
   popup.className = 'fk-fill-popup';
   const header = document.createElement('div');
   header.className = 'fk-fill-header';
-  header.textContent = '🔑 花钥';
+  header.innerHTML = `<span style="display:flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>花钥</span>`;
   popup.appendChild(header);
   popup.appendChild(content);
   popup.style.cssText = `position:absolute;top:${rect.bottom + window.scrollY + 2}px;left:${rect.left + window.scrollX}px;`;

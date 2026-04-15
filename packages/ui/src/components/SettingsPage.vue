@@ -9,7 +9,7 @@
     <!-- 数据安全警告 -->
     <div v-if="!syncStore.config"
       class="p-2 bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded text-orange-700 dark:text-orange-300">
-      ⚠️ 未配置 WebDAV 同步。卸载插件或换设备将永久丢失所有数据，建议配置同步或定期导出备份。
+      <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>未配置 WebDAV 同步。卸载插件或换设备将永久丢失所有数据，建议配置同步或定期导出备份。</span></p>
     </div>
 
     <!-- WebDAV 配置 -->
@@ -37,7 +37,7 @@
           <tr><td class="pr-2 text-gray-400">用户名</td><td>坚果云注册邮箱</td></tr>
           <tr><td class="pr-2 text-gray-400">密码</td><td>刚才生成的<b>应用密码</b>（非登录密码）</td></tr>
         </table>
-        <p class="text-[10px] text-gray-400 pt-1">🔒 花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</p>
+        <p class="text-[10px] text-gray-400 pt-1 flex items-start gap-1.5"><AppIcon name="lock" :size="12" class-name="shrink-0 mt-0.5" /> <span>花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</span></p>
       </div>
     </div>
 
@@ -53,8 +53,9 @@
       <p v-if="syncStore.lastResult" class="text-gray-500 dark:text-gray-400">
         上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
       </p>
-      <p v-if="syncStore.lastResult?.encryptMismatch" class="text-orange-600 dark:text-orange-400">
-        ⚠️ {{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请在所有设备上统一书签加密设置后重新同步。
+      <p v-if="syncStore.lastResult?.encryptMismatch" class="text-orange-600 dark:text-orange-400 flex items-start gap-1.5">
+        <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
+        <span>{{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请在所有设备上统一书签加密设置后重新同步。</span>
       </p>
       <p v-if="syncStore.error" class="text-red-500">{{ syncStore.error }}</p>
     </div>
@@ -88,7 +89,7 @@
         {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
       </p>
       <p class="text-[10px] text-gray-400 dark:text-gray-500">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
-      <p v-if="!bookmarkEncrypt" class="text-orange-600 dark:text-orange-400">⚠️ 书签以明文存储于本地 IndexedDB，任何能访问浏览器数据的程序均可读取。</p>
+      <p v-if="!bookmarkEncrypt" class="text-orange-600 dark:text-orange-400 flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签以明文存储于本地 IndexedDB，任何能访问浏览器数据的程序均可读取。</span></p>
       <div v-if="!showBookmarkPwdInput">
         <button @click="showBookmarkPwdInput = true" class="w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
           {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
@@ -120,7 +121,7 @@
         <div v-if="recoveryCode" class="p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded break-all font-mono select-all">
           {{ recoveryCode }}
           <p class="text-yellow-600 dark:text-yellow-400 mt-1 font-sans">请抄写或打印保存，关闭后不再显示。</p>
-          <p class="text-red-600 dark:text-red-400 mt-1 font-sans font-medium">⚠️ 恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</p>
+          <p class="text-red-600 dark:text-red-400 mt-1 font-sans font-medium flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</span></p>
         </div>
       </div>
 
@@ -214,6 +215,7 @@ import type { WebDAVConfig } from '@flowerkey/core';
 import { db } from '@flowerkey/core';
 import { useConfirm } from '../composables/useConfirm';
 import ConfirmDialog from './ConfirmDialog.vue';
+import AppIcon from '../icons/AppIcon.vue';
 
 const syncStore = useSyncStore();
 const mainStore = useMainStore();
