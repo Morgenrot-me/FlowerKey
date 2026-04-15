@@ -89,6 +89,7 @@ export class SyncEngine {
       const pushed = await this.push();
       const pulled = await this.pull();
       await this.maybeCompact();
+      await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
       const result: { pushed: number; pulled: number; encryptMismatch?: number } = { pushed, pulled };
       if (this.encryptMismatchCount > 0) result.encryptMismatch = this.encryptMismatchCount;
       return result;

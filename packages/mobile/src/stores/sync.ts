@@ -29,11 +29,18 @@ export const useSyncStore = defineStore('sync', () => {
   const syncMode = ref<SyncMode>('webdav');
   const syncing = ref(false);
   const lastResult = ref<{ pushed: number; pulled: number; encryptMismatch?: number } | null>(null);
+  const lastSyncTime = ref<number | null>(null);
   const error = ref('');
+
+  async function loadSyncState() {
+    const state = await sqliteDb.getConfig<{ lastSyncTime?: number }>('syncState');
+    lastSyncTime.value = typeof state?.lastSyncTime === 'number' ? state.lastSyncTime : null;
+  }
 
   async function loadConfig() {
     syncMode.value = (await sqliteDb.getConfig<SyncMode>('syncMode')) ?? 'webdav';
     config.value = await sqliteDb.getSecretConfig<WebDAVConfig>('webdavConfig') ?? null;
+    await loadSyncState();
   }
 
   async function saveConfig(cfg: WebDAVConfig) {
@@ -60,6 +67,7 @@ export const useSyncStore = defineStore('sync', () => {
         : new NativeWebDAVBackend(config.value!);
       const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);
       lastResult.value = await engine.sync();
+      await loadSyncState();
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
@@ -80,6 +88,7 @@ export const useSyncStore = defineStore('sync', () => {
       const backend = syncMode.value === 'icloud' ? new ICloudBackend() : new NativeWebDAVBackend(config.value!);
       const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);
       lastResult.value = await engine.sync();
+      await loadSyncState();
     } catch (e) {
       error.value = (e as Error).message || '未知错误';
     } finally {
@@ -90,5 +99,5 @@ export const useSyncStore = defineStore('sync', () => {
   // iCloud 模式下视为"已配置"
   const hasBackend = () => syncMode.value === 'icloud' || !!config.value;
 
-  return { config, syncMode, syncing, lastResult, error, loadConfig, saveConfig, setSyncMode, sync, fullSync, hasBackend };
+  return { config, syncMode, syncing, lastResult, lastSyncTime, error, loadConfig, saveConfig, setSyncMode, sync, fullSync, hasBackend };
 });

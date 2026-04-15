@@ -44,8 +44,11 @@
           class="w-full py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">
           {{ syncStore.syncing ? '同步中...' : '立即同步' }}
         </button>
+        <p v-if="syncStore.config" class="text-xs text-gray-500 text-center">
+          {{ syncStore.lastSyncTime ? `最近一次成功同步：${formatSyncTime(syncStore.lastSyncTime)}` : '尚未完成过成功同步，可点击“立即同步”验证当前配置。' }}
+        </p>
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 text-center">
-          上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
+          本次结果：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
         <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 text-center flex items-start justify-center gap-1.5">
           <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
@@ -217,6 +220,16 @@ const toast = useToast();
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
 const showDavGuide = ref(false);
 const showSecurity = ref(false);
+
+function formatSyncTime(ts: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(ts));
+}
 
 onMounted(async () => {
   await syncStore.loadConfig();

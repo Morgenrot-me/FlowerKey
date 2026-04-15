@@ -39,7 +39,10 @@ export default defineConfig({
         tailwindcss({
           content: [
             root + '/packages/ui/src/**/*.{vue,ts}',
-            root + '/packages/extension/**/*.{vue,ts,html}',
+            root + '/packages/extension/popup/**/*.{vue,ts,html}',
+            root + '/packages/extension/sidepanel/**/*.{vue,ts,html}',
+            root + '/packages/extension/content/**/*.ts',
+            root + '/packages/extension/background/**/*.ts',
           ],
           theme: { extend: {} },
           plugins: [],

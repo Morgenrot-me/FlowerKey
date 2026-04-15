@@ -102,8 +102,11 @@
           class="w-full py-2.5 border border-gray-300 dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm disabled:opacity-50">
           全量同步（重新上传所有数据）
         </button>
+        <p v-if="syncStore.hasBackend()" class="text-xs text-gray-500 dark:text-gray-400 text-center">
+          {{ syncStore.lastSyncTime ? `最近一次成功同步：${formatSyncTime(syncStore.lastSyncTime)}` : '尚未完成过成功同步，可点击“立即同步”验证当前配置。' }}
+        </p>
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 dark:text-gray-400 text-center">
-          上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
+          本次结果：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
         <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 dark:text-orange-400 text-center flex items-start justify-center gap-1.5">
           <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
@@ -256,6 +259,7 @@ import { ref, onMounted, computed, nextTick } from 'vue';
 import { version } from '../../package.json';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
+import { getMasterData } from '../db-sqlite';
 import { db, type WebDAVConfig } from '@flowerkey/core';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
@@ -287,6 +291,16 @@ const syncStatusText = computed(() => syncStore.hasBackend() ? (syncStore.syncMo
 const isAndroid = Capacitor.getPlatform() === 'android';
 const autofillEnabled = ref(false);
 
+function formatSyncTime(ts: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(ts));
+}
+
 async function focusSyncConfig() {
   showSyncConfig.value = true;
   await nextTick();
@@ -307,7 +321,6 @@ onMounted(async () => {
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   showSyncConfig.value = !syncStore.hasBackend();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const { getMasterData } = await import('../db-sqlite');
   const data = await getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   if (isAndroid) {
@@ -359,7 +372,6 @@ async function confirmBookmarkEncrypt() {
 const recoveryCode = ref('');
 const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
-  const { getMasterData } = await import('../db-sqlite');
   const data = await getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   if (hasRecovery.value) {

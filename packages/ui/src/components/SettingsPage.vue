@@ -53,8 +53,11 @@
       >
         {{ syncStore.syncing ? '同步中...' : '立即同步' }}
       </button>
+      <p v-if="syncStore.config" class="text-gray-500 dark:text-gray-400">
+        {{ syncStore.lastSyncTime ? `最近一次成功同步：${formatSyncTime(syncStore.lastSyncTime)}` : '尚未完成过成功同步，可点击“立即同步”验证当前配置。' }}
+      </p>
       <p v-if="syncStore.lastResult" class="text-gray-500 dark:text-gray-400">
-        上次同步：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
+        本次结果：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
       </p>
       <p v-if="syncStore.lastResult?.encryptMismatch" class="text-orange-600 dark:text-orange-400 flex items-start gap-1.5">
         <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
@@ -243,6 +246,16 @@ const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel 
 const syncUrlInput = ref<HTMLInputElement | null>(null);
 
 const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: '/FlowerKey' });
+
+function formatSyncTime(ts: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(ts));
+}
 
 onMounted(async () => {
   await syncStore.loadConfig();

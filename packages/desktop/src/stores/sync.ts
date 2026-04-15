@@ -10,10 +10,17 @@ export const useSyncStore = defineStore('sync', () => {
   const config = ref<WebDAVConfig | null>(null);
   const syncing = ref(false);
   const lastResult = ref<{ pushed: number; pulled: number; encryptMismatch?: number } | null>(null);
+  const lastSyncTime = ref<number | null>(null);
   const error = ref('');
+
+  async function loadSyncState() {
+    const state = await db.getConfig<{ lastSyncTime?: number }>('syncState');
+    lastSyncTime.value = typeof state?.lastSyncTime === 'number' ? state.lastSyncTime : null;
+  }
 
   async function loadConfig() {
     config.value = await db.getSecretConfig<WebDAVConfig>('webdavConfig') ?? null;
+    await loadSyncState();
   }
 
   async function saveConfig(cfg: WebDAVConfig) {
@@ -31,6 +38,7 @@ export const useSyncStore = defineStore('sync', () => {
       const deviceId = await db.getConfig<string>('deviceId') ?? 'unknown';
       const engine = new SyncEngine(config.value, main.getDbKey(), deviceId);
       lastResult.value = await engine.sync();
+      await loadSyncState();
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
@@ -38,5 +46,5 @@ export const useSyncStore = defineStore('sync', () => {
     }
   }
 
-  return { config, syncing, lastResult, error, loadConfig, saveConfig, sync };
+  return { config, syncing, lastResult, lastSyncTime, error, loadConfig, saveConfig, sync };
 });
