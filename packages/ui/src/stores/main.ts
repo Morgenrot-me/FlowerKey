@@ -9,8 +9,8 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  encryptEntry, decryptEntry,
-  type Entry, type CharsetMode,
+  encryptEntry, decryptEntry, runDirectPasswordFlow,
+  type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
 export const useMainStore = defineStore('main', () => {
@@ -75,7 +75,43 @@ export const useMainStore = defineStore('main', () => {
     return generatePassword(masterPwd.value, userSalt.value, codename, mode, length);
   }
 
-  /** 方案一：生成恢复码并加密存储主密码，返回恢复码给用户保管 */
+
+
+  async function runDirectPassword(
+    computeMode: DirectComputeMode,
+    inputPwd: string,
+    codename: string,
+    mode: CharsetMode = 'alphanumeric',
+    length = 16,
+    url?: string,
+  ) {
+    return runDirectPasswordFlow({
+      computeMode,
+      masterPwd: inputPwd,
+      codename,
+      mode,
+      length,
+      url,
+      runtime: {
+        getMasterData: () => db.getMasterData(),
+        verifyMasterPassword,
+        generatePassword,
+        listPasswordEntries: () => db.getEntriesByType('password'),
+        createPasswordEntry: (data) => db.createEntry(data),
+        touchLastUsed: (id) => db.touchLastUsed(id),
+        withWritableDbKey: async (pwd, salt, run) => {
+          const shouldRestore = isUnlocked.value && masterPwd.value === pwd && userSalt.value === salt;
+          if (!shouldRestore) db.setDbKey(await deriveDatabaseKey(pwd, salt));
+          try {
+            return await run();
+          } finally {
+            if (!shouldRestore) db.clearDbKey();
+          }
+        },
+      },
+    });
+  }
+
   async function generateRecovery(): Promise<string> {
     const code = generateRecoveryCode();
     const { encryptedMasterPwd, recoverySalt } = await encryptMasterPwdWithRecovery(masterPwd.value, code);
@@ -140,8 +176,8 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt,
-    checkSetup, setup, unlock, lock, genPassword,
+    isUnlocked, isSetup, userSalt, masterPwd,
+    checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };
 });

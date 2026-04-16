@@ -23,7 +23,13 @@
           {{ entry.description }}
         </div>
         <div v-if="entry.tags?.length" class="flex gap-1 mt-0.5">
-          <span v-for="t in entry.tags" :key="t" class="px-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded text-[10px]">{{ t }}</span>
+          <span
+            v-for="t in entry.tags"
+            :key="t"
+            :class="t === '临时'
+              ? 'px-1 border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-900/20 dark:text-blue-300 rounded text-[10px]'
+              : 'px-1 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded text-[10px]'"
+          >{{ t }}</span>
         </div>
       </div>
       <div class="flex gap-1 shrink-0">

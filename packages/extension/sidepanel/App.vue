@@ -6,7 +6,21 @@
   <div class="h-screen flex bg-white dark:bg-gray-900 dark:text-gray-100">
     <OnboardingForm v-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" class="p-4 flex-1" />
     <SetupForm v-else-if="!mainStore.isSetup" @done="() => {}" class="p-4 flex-1" />
-    <UnlockForm v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" @unlocked="() => {}" class="p-4 flex-1" />
+    <div v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" class="flex-1 flex flex-col justify-center px-4 py-5 gap-4">
+      <div class="space-y-1 text-center">
+        <h1 class="text-lg font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-2">
+          <img src="@ui/assets/key.png" class="w-6 h-6 object-contain" /> 花钥
+        </h1>
+        <p class="text-xs text-gray-400 dark:text-gray-500">主密码不存储，数据库密钥仅存于内存，锁定后立即清除</p>
+      </div>
+      <div class="rounded-3xl border border-gray-200/80 dark:border-gray-700 bg-white/90 dark:bg-gray-900/80 shadow-sm px-4 py-4 space-y-3">
+        <div v-if="currentTab === 'bookmark' && bookmarkEncrypt" class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 space-y-1 leading-relaxed">
+          <p class="font-medium text-blue-800 dark:text-blue-200">先登入数据库再查看加密书签</p>
+          <p>当前书签模式开启了加密，需先解锁后才能查看和管理内容。</p>
+        </div>
+        <UnlockForm @unlocked="onUnlocked" />
+      </div>
+    </div>
 
     <template v-else>
       <!-- 宽屏侧边栏导航 -->
@@ -186,6 +200,12 @@ watch(currentTab, (tab) => {
 
 function onSearch() {
   entriesStore.search(searchQuery.value);
+}
+
+async function onUnlocked() {
+  if (currentTab.value !== 'settings') {
+    await entriesStore.loadEntries(currentTab.value as EntryType);
+  }
 }
 
 function toggleTag(t: string) {

@@ -13,6 +13,7 @@ let ballY = window.innerHeight / 2;
 let snapSide: 'left' | 'right' = 'right';
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0, dragStartBallX = 0, dragStartBallY = 0;
+let directMode: 'formal' | 'independent' = 'formal';
 
 // ==================== 创建宿主元素 ====================
 const host = document.createElement('div');
@@ -133,6 +134,33 @@ style.textContent = `
   .btn-primary:hover { background: #1d4ed8; }
   .btn-primary:disabled { opacity: 0.5; cursor: default; }
 
+  .btn-secondary {
+    padding: 7px;
+    background: transparent;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    display: none;
+  }
+  .btn-secondary[data-variant="formal"] {
+    color: #2563eb;
+    border-color: #bfdbfe;
+  }
+  .btn-secondary:hover { background: #fffbeb; }
+  .btn-secondary[data-variant="formal"]:hover { background: #eff6ff; }
+
+  .hint {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
   .result {
     display: flex;
     align-items: center;
@@ -156,9 +184,8 @@ style.textContent = `
     text-align: center;
     color: #9ca3af;
     font-size: 11px;
-    cursor: pointer;
   }
-  .footer-link:hover { color: #2563eb; }
+  .footer-link:hover { color: #9ca3af; }
 
   .error { color: #ef4444; font-size: 11px; }
   .warn { color: #f59e0b; font-size: 11px; }
@@ -170,11 +197,14 @@ style.textContent = `
     .panel-header { color: #93c5fd; }
     input, select { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
     input:focus, select:focus { border-color: #3b82f6; }
+    .hint { background: #1e3a5f; color: #93c5fd; }
     .result { background: #1e3a5f; }
     .result code { color: #93c5fd; }
     .result button { color: #60a5fa; }
     .btn-primary { background: #2563eb; }
     .btn-primary:hover { background: #3b82f6; }
+    .btn-secondary { color: #fbbf24; border-color: #92400e; }
+    .btn-secondary:hover { background: rgba(146, 64, 14, 0.18); }
     .footer-link { color: #6b7280; }
     .footer-link:hover { color: #60a5fa; }
   }
@@ -201,6 +231,7 @@ panel.innerHTML = `
       <button id="fk-cfg" title="设置"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
+  <div class="hint" id="fk-hint">正式模式会校验记忆密码；成功后自动保存到数据库并标记临时条目。</div>
   <input id="fk-master" type="password" placeholder="记忆密码" />
   <input id="fk-codename" placeholder="区分代号" />
   <div class="cfg-row" id="fk-cfg-row">
@@ -215,11 +246,13 @@ panel.innerHTML = `
       <option value="32">32位</option>
     </select>
   </div>
+  <button class="btn-primary" id="fk-generate">计算正式密码</button>
+  <button class="btn-secondary" id="fk-independent">改用独立计算模式</button>
   <div class="result" id="fk-result" style="display:none">
     <code id="fk-pwd"></code>
     <button id="fk-copy">复制</button>
   </div>
-  <div class="warn" id="fk-warn" style="display:none">记忆密码不正确</div>
+  <div class="warn" id="fk-warn" style="display:none"></div>
   <div class="footer-link" id="fk-manage">点击工具栏图标打开管理面板</div>
 `;
 shadow.appendChild(panel);
@@ -294,7 +327,8 @@ function togglePanel() {
 function closePanel() {
   panelOpen = false;
   panel.classList.remove('open');
-  panelX = -1; panelY = -1;
+  panelX = -1;
+  panelY = -1;
 }
 
 shadow.getElementById('fk-pin')!.addEventListener('click', () => {
@@ -307,17 +341,18 @@ shadow.getElementById('fk-cfg')!.addEventListener('click', () => {
   shadow.getElementById('fk-cfg-row')!.classList.toggle('open');
 });
 
-// 钉住时 header 可拖动面板
 const panelHeader = panel.querySelector('.panel-header') as HTMLElement;
 panelHeader.addEventListener('pointerdown', (e) => {
   if ((e.target as HTMLElement).closest('button')) return;
-  const startX = e.clientX, startY = e.clientY;
+  const startX = e.clientX;
+  const startY = e.clientY;
   const rect = panel.getBoundingClientRect();
-  const startPX = rect.left, startPY = rect.top;
+  const startPX = rect.left;
+  const startPY = rect.top;
   panelHeader.setPointerCapture(e.pointerId);
-  const onMove = (e: PointerEvent) => {
-    panelX = startPX + (e.clientX - startX);
-    panelY = startPY + (e.clientY - startY);
+  const onMove = (moveEvent: PointerEvent) => {
+    panelX = startPX + (moveEvent.clientX - startX);
+    panelY = startPY + (moveEvent.clientY - startY);
     updatePositions();
   };
   const onUp = () => {
@@ -329,60 +364,129 @@ panelHeader.addEventListener('pointerdown', (e) => {
   e.preventDefault();
 });
 
-// 点击面板和悬浮球以外的区域关闭面板（钉住时不关闭）
 document.addEventListener('pointerdown', (e) => {
   if (!panelOpen || pinned) return;
   if (!host.contains(e.target as Node)) closePanel();
 }, true);
 
-// ==================== 防抖自动生成 ====================
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-function tryGenerate() {
+function setDirectMode(mode: 'formal' | 'independent') {
+  directMode = mode;
+  const hint = shadow.getElementById('fk-hint')!;
+  const btn = shadow.getElementById('fk-generate')!;
+  const independentBtn = shadow.getElementById('fk-independent')!;
+  if (mode === 'formal') {
+    hint.textContent = '正式模式会校验记忆密码；成功后自动保存到数据库并标记临时条目。';
+    btn.textContent = '计算正式密码';
+    independentBtn.textContent = '改用独立计算模式';
+    independentBtn.dataset.variant = 'independent';
+    independentBtn.style.display = 'none';
+    return;
+  }
+  hint.textContent = '独立计算模式沿用 FlowerKey 固定盐，仅生成可复制结果，不保存、不自动填充。';
+  btn.textContent = '计算独立密码';
+  independentBtn.textContent = '返回正式模式';
+  independentBtn.dataset.variant = 'formal';
+  independentBtn.style.display = 'block';
+}
+
+function resetDirectFeedback() {
+  (shadow.getElementById('fk-result') as HTMLElement).style.display = 'none';
+  (shadow.getElementById('fk-warn') as HTMLElement).style.display = 'none';
+}
+
+function showDirectMessage(message: string, tone: 'warn' | 'notice' = 'warn') {
+  const warn = shadow.getElementById('fk-warn') as HTMLElement;
+  warn.textContent = message;
+  warn.className = tone === 'notice' ? 'hint' : 'warn';
+  warn.style.display = 'block';
+}
+
+async function tryGenerate(modeOverride?: 'formal' | 'independent', persistUrl?: string) {
   const masterPwd = (shadow.getElementById('fk-master') as HTMLInputElement).value;
   const codename = (shadow.getElementById('fk-codename') as HTMLInputElement).value.trim();
   const mode = (shadow.getElementById('fk-mode') as HTMLSelectElement).value;
   const length = parseInt((shadow.getElementById('fk-length') as HTMLSelectElement).value);
-  const result = shadow.getElementById('fk-result')!;
-  const warn = shadow.getElementById('fk-warn')!;
+  const result = shadow.getElementById('fk-result') as HTMLElement;
+  const independentBtn = shadow.getElementById('fk-independent') as HTMLElement;
+  const computeMode = modeOverride ?? directMode;
 
-  if (!masterPwd || !codename) { result.style.display = 'none'; warn.style.display = 'none'; return; }
+  resetDirectFeedback();
+  if (!masterPwd || !codename) {
+    setDirectMode('formal');
+    return;
+  }
 
-  chrome.runtime.sendMessage({ type: 'generatePasswordDirect', masterPwd, codename, mode, length }, (res) => {
-    if (res?.password) {
-      (shadow.getElementById('fk-pwd') as HTMLElement).textContent = res.password;
-      result.style.display = 'flex';
-      warn.style.display = res.verified ? 'none' : 'block';
-    }
+  const res = await chrome.runtime.sendMessage({
+    type: 'generatePasswordDirect',
+    computeMode,
+    masterPwd,
+    codename,
+    mode,
+    length,
+    ...(persistUrl ? { url: persistUrl } : {}),
   });
+
+  if (res?.ok) {
+    setDirectMode(computeMode);
+    (shadow.getElementById('fk-pwd') as HTMLElement).textContent = res.password;
+    result.style.display = 'flex';
+    if (computeMode === 'independent') {
+      showDirectMessage('独立结果仅支持复制，不会写入数据库。', 'notice');
+    } else if (res.persisted === 'created') {
+      showDirectMessage('已保存到临时标签。', 'notice');
+    } else if (res.persisted === 'touched') {
+      showDirectMessage('已更新最近使用时间。', 'notice');
+    } else {
+      showDirectMessage('正式密码已生成。', 'notice');
+    }
+    return;
+  }
+
+  if (res?.reason === 'invalid_master_password') {
+    setDirectMode('formal');
+    showDirectMessage('记忆密码不正确，不能生成正式密码。');
+    if (computeMode === 'formal') independentBtn.style.display = 'block';
+    return;
+  }
+  setDirectMode('formal');
+  showDirectMessage('请先完成首次设置。');
 }
 
 function scheduleGenerate() {
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(tryGenerate, 500);
+  debounceTimer = setTimeout(() => {
+    void tryGenerate();
+  }, 500);
 }
 
+setDirectMode('formal');
+shadow.getElementById('fk-generate')!.addEventListener('click', () => {
+  void tryGenerate();
+});
+shadow.getElementById('fk-independent')!.addEventListener('click', () => {
+  if (directMode === 'independent') {
+    setDirectMode('formal');
+    resetDirectFeedback();
+    return;
+  }
+  void tryGenerate('independent');
+});
 ['fk-master', 'fk-codename'].forEach(id => {
   shadow.getElementById(id)!.addEventListener('input', scheduleGenerate);
 });
 ['fk-mode', 'fk-length'].forEach(id => {
   shadow.getElementById(id)!.addEventListener('change', scheduleGenerate);
 });
-
-// ==================== 复制 ====================
 shadow.getElementById('fk-copy')!.addEventListener('click', () => {
   const pwd = (shadow.getElementById('fk-pwd') as HTMLElement).textContent || '';
-  const codename = (shadow.getElementById('fk-codename') as HTMLInputElement).value.trim();
-  const masterPwd = (shadow.getElementById('fk-master') as HTMLInputElement).value;
-  const mode = (shadow.getElementById('fk-mode') as HTMLSelectElement).value;
-  const length = parseInt((shadow.getElementById('fk-length') as HTMLSelectElement).value);
   navigator.clipboard.writeText(pwd).then(() => {
     const btn = shadow.getElementById('fk-copy')!;
     btn.textContent = '已复制';
-    setTimeout(() => { btn.textContent = '复制'; }, 1500);
-    chrome.runtime.sendMessage({ type: 'generatePasswordDirect', masterPwd, codename, mode, length, url: location.href }, (res) => {
-      if (res?.entryId) chrome.runtime.sendMessage({ type: 'touchLastUsed', id: res.entryId });
-    });
+    setTimeout(() => {
+      btn.textContent = '复制';
+    }, 1500);
   });
 });
 

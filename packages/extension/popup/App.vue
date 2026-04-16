@@ -1,6 +1,6 @@
 <!--
-  花钥 Popup - 快速收藏当前页
-  解锁后自动识别当前页元数据，一键保存书签并同步 WebDAV
+  花钥 Popup - 锁定态首屏与快速收藏
+  默认展示首屏直算，书签模式在需要时再解锁收藏。
 -->
 <template>
   <div class="w-80 bg-white dark:bg-gray-900 dark:text-gray-100">
@@ -20,7 +20,15 @@
         <SetupForm v-else-if="!mainStore.isSetup" @done="onSetupDone" />
 
         <!-- 锁定（密码模式或加密书签模式才需要解锁） -->
-        <UnlockForm v-else-if="!mainStore.isUnlocked && (mode === 'password' || bookmarkEncrypt)" @unlocked="onUnlocked" />
+        <UnlockForm v-else-if="!mainStore.isUnlocked && mode === 'password'" @unlocked="onUnlocked" />
+
+        <div v-else-if="!mainStore.isUnlocked && bookmarkEncrypt" class="space-y-3">
+          <div class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 space-y-1 leading-relaxed">
+            <p class="font-medium text-blue-800 dark:text-blue-200">先登入数据库再收藏加密书签</p>
+            <p>当前书签模式开启了加密，需先解锁后才能保存页面内容。</p>
+          </div>
+          <UnlockForm @unlocked="onUnlocked" />
+        </div>
 
         <!-- 书签收藏模式（已解锁，或不加密时无需解锁） -->
         <div v-else-if="mode === 'bookmark'" class="space-y-2">
@@ -107,7 +115,7 @@ const syncStore = useSyncStore();
 const toast = useToast();
 const showSetup = ref(false);
 
-const mode = ref<'bookmark' | 'password'>('bookmark');
+const mode = ref<'bookmark' | 'password'>('password');
 
 // 页面元数据
 const meta = ref({ title: '', url: '', favicon: '', image: '', description: '' });
@@ -154,7 +162,7 @@ onMounted(async () => {
 
 // 监听解锁状态变化，同步到 background 并加载页面信息
 watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (unlocked) {
+  if (unlocked && mainStore.masterPwd) {
     await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
     await init();
   }
@@ -177,7 +185,12 @@ async function init() {
 }
 
 function onSetupDone() {}
-function onUnlocked() {}
+
+async function onUnlocked() {
+  if (mode.value === 'bookmark') {
+    await init();
+  }
+}
 
 async function saveBookmark() {
   saving.value = true; saveError.value = '';

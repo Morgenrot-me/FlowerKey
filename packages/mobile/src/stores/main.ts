@@ -6,7 +6,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { generateSalt, createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  type Entry, type CharsetMode } from '@flowerkey/core';
+  runDirectPasswordFlow,
+  type Entry, type CharsetMode, type DirectComputeMode } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
@@ -78,6 +79,43 @@ export const useMainStore = defineStore('main', () => {
     return generatePassword(masterPwd.value, userSalt.value, codename, mode, length);
   }
 
+
+
+  async function runDirectPassword(
+    computeMode: DirectComputeMode,
+    inputPwd: string,
+    codename: string,
+    mode: CharsetMode = 'alphanumeric',
+    length = 16,
+    url?: string,
+  ) {
+    return runDirectPasswordFlow({
+      computeMode,
+      masterPwd: inputPwd,
+      codename,
+      mode,
+      length,
+      url,
+      runtime: {
+        getMasterData: () => sqliteDb.getMasterData(),
+        verifyMasterPassword,
+        generatePassword,
+        listPasswordEntries: () => sqliteDb.getEntriesByType('password'),
+        createPasswordEntry: (data) => sqliteDb.createEntry(data),
+        touchLastUsed: (id) => sqliteDb.updateLastUsed(id),
+        withWritableDbKey: async (pwd, salt, run) => {
+          const shouldRestore = isUnlocked.value && masterPwd.value === pwd && userSalt.value === salt;
+          if (!shouldRestore) sqliteDb.setDbKey(await deriveDatabaseKey(pwd, salt));
+          try {
+            return await run();
+          } finally {
+            if (!shouldRestore) sqliteDb.clearDbKey();
+          }
+        },
+      },
+    });
+  }
+
   async function generateRecovery(): Promise<string> {
     const code = generateRecoveryCode();
     const { encryptedMasterPwd, recoverySalt } = await encryptMasterPwdWithRecovery(masterPwd.value, code);
@@ -146,6 +184,6 @@ export const useMainStore = defineStore('main', () => {
 
   function getDbKey() { return sqliteDb.getDbKey(); }
 
-  return { isUnlocked, isSetup, userSalt, needsPasswordReset, checkSetup, setup, unlock, lock, genPassword,
+  return { isUnlocked, isSetup, userSalt, masterPwd, needsPasswordReset, checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey };
 });

@@ -5,7 +5,7 @@
  * chrome.storage.session 只存 isUnlocked + userSalt（非敏感）
  */
 
-import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey } from '@flowerkey/core';
+import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey, runDirectPasswordFlow } from '@flowerkey/core';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
@@ -151,28 +151,36 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'generatePasswordDirect') {
-    // 仅允许扩展内部页面调用（popup/sidepanel），content script 有 sender.tab
-    if (sender.tab) { sendResponse({ error: '不允许' }); return; }
     (async () => {
       try {
-        let verified = false;
-        let mpData = null;
-        try { mpData = await db.getMasterData(); } catch (_) {}
-        if (mpData) try { verified = await verifyMasterPassword(msg.masterPwd, mpData.verifySalt!, mpData.verifyHash); } catch (_) {}
-        const userSalt = mpData?.userSalt || _userSalt || '';
-        const password = await generatePassword(msg.masterPwd, userSalt, msg.codename, msg.mode, msg.length);
-        let entryId: string | undefined;
-        if (verified) {
-          const all = await db.getEntriesByType('password');
-          const existing = all.find(e => e.codename === msg.codename);
-          if (existing) {
-            entryId = existing.id;
-          } else {
-            const created = await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '', ...(msg.url && { url: msg.url }) });
-            entryId = created.id;
-          }
-        }
-        sendResponse({ password, verified, entryId });
+        const result = await runDirectPasswordFlow({
+          computeMode: msg.computeMode ?? 'formal',
+          masterPwd: msg.masterPwd,
+          codename: msg.codename,
+          mode: msg.mode,
+          length: msg.length,
+          url: msg.url,
+          runtime: {
+            getMasterData: () => db.getMasterData(),
+            verifyMasterPassword,
+            generatePassword,
+            listPasswordEntries: () => db.getEntriesByType('password'),
+            createPasswordEntry: (data) => db.createEntry(data),
+            touchLastUsed: (id) => db.touchLastUsed(id),
+            withWritableDbKey: async (pwd, salt, run) => {
+              const reuseCurrentKey = _isUnlocked && _masterPwd === pwd && _userSalt === salt;
+              if (!reuseCurrentKey) db.setDbKey(await deriveDatabaseKey(pwd, salt));
+              try {
+                return await run();
+              } finally {
+                if (reuseCurrentKey) return;
+                if (_isUnlocked) db.setDbKey(await deriveDatabaseKey(_masterPwd, _userSalt));
+                else db.clearDbKey();
+              }
+            },
+          },
+        });
+        sendResponse(result);
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();
     return true;
