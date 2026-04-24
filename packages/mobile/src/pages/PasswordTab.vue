@@ -192,7 +192,7 @@ async function copyPreview() {
   setTimeout(async () => {
     await Clipboard.write({ string: '' });
     previewCopied.value = false;
-  }, 30000);
+  }, 60000);
 }
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
 function fmtDate(ts?: number, withYear = false) {
@@ -315,6 +315,8 @@ async function generate(e: Entry) {
   copiedId.value = e.id;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);
+  // 60秒后清空剪贴板
+  setTimeout(async () => { await Clipboard.write({ string: '' }); }, 60000);
 }
 
 async function save() {

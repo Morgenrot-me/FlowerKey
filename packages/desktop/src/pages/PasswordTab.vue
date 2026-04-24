@@ -20,13 +20,13 @@
 
     <div class="flex-1 overflow-y-auto divide-y">
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
-        <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
+        <div class="flex-1 min-w-0 cursor-pointer hover:bg-gray-50 -mx-4 px-4 py-2 -my-2 rounded transition-colors" @click="openEdit(e)">
           <div class="font-medium truncate">{{ e.codename }}</div>
           <div class="text-xs text-gray-500 truncate">{{ buildMeta(e) }}</div>
           <div v-if="e.description" class="text-xs text-gray-400 truncate mt-0.5">{{ e.description }}</div>
         </div>
         <button @click="generate(e)" :class="['px-3 py-1.5 rounded-lg text-sm font-medium',
-          copiedId === e.id ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600']">
+          copiedId === e.id ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100']">
           {{ copiedId === e.id ? '已复制' : '生成' }}
         </button>
         <button @click="remove(e.id)" class="px-2 py-1.5 rounded-lg text-sm text-red-400 hover:bg-red-50">删除</button>
@@ -171,6 +171,8 @@ async function copyPreview() {
   if (editingId.value) await store.touchLastUsed(editingId.value);
   previewCopied.value = true;
   setTimeout(() => { previewCopied.value = false; }, 1500);
+  // 60秒后清空剪贴板
+  setTimeout(() => { navigator.clipboard.writeText(''); }, 60000);
 }
 
 function toggleTag(t: string) {
@@ -232,6 +234,8 @@ async function generate(e: Entry) {
   copiedId.value = e.id;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => { copiedId.value = ''; }, 1500);
+  // 60秒后清空剪贴板
+  setTimeout(() => { navigator.clipboard.writeText(''); }, 60000);
 }
 
 async function save() {

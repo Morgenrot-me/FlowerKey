@@ -32,17 +32,23 @@
           class="w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400" />
         <textarea v-model="form.content" placeholder="笔记内容（端到端加密）"
           class="flex-1 w-full px-3 py-3 border rounded-xl text-base outline-none focus:border-blue-400 resize-none min-h-[200px]" />
+        <button v-if="editingId" @click="remove" class="w-full py-3 border border-red-300 text-red-500 rounded-xl text-sm">删除笔记</button>
       </div>
     </div>
+    <ConfirmDialog :visible="confirmVisible" :title="confirmOpts.title" :message="confirmOpts.message"
+      :danger="confirmOpts.danger" @confirm="onConfirm" @cancel="onCancel" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useEntriesStore } from '../stores/entries';
+import { useConfirm } from '../../../ui/src/composables/useConfirm';
+import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import type { Entry } from '@flowerkey/core';
 
 const store = useEntriesStore();
+const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const searchQuery = ref('');
 const showForm = ref(false);
 const editingId = ref('');
@@ -78,5 +84,13 @@ async function save() {
     await store.create({ type: 'note', title: form.value.title, content: form.value.content, tags: [], folder: '', description: '' });
   }
   showForm.value = false;
+}
+
+async function remove() {
+  if (!await ask('确认删除此笔记？', { title: '删除确认', danger: true })) return;
+  await store.remove(editingId.value);
+  showForm.value = false;
+  editingId.value = '';
+  form.value = { title: '', content: '' };
 }
 </script>
