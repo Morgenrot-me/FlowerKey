@@ -13,6 +13,13 @@ for (const pkg of pkgs) {
   console.log(`${pkg}: ${version}`);
 }
 
+// 同步 Cargo.toml
+const cargoPath = 'packages/desktop/src-tauri/Cargo.toml';
+let cargo = readFileSync(cargoPath, 'utf8');
+cargo = cargo.replace(/^version = "[^"]*"/m, `version = "${version}"`);
+writeFileSync(cargoPath, cargo);
+console.log(`Cargo.toml: ${version}`);
+
 // 同步 tauri.conf.json
 const tauriConfPath = 'packages/desktop/src-tauri/tauri.conf.json';
 const tauriConf = JSON.parse(readFileSync(tauriConfPath, 'utf8'));

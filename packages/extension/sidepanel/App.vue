@@ -126,18 +126,18 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
-import { useMainStore } from '../../ui/src/stores/main';
-import { useEntriesStore } from '../../ui/src/stores/entries';
-import { useToast } from '../../ui/src/composables/useToast';
+import { useMainStore } from '@ui/stores/main';
+import { useEntriesStore } from '@ui/stores/entries';
+import { useToast } from '@ui/composables/useToast';
 import { db, type Entry, type EntryType } from '@flowerkey/core';
-import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
-import SetupForm from '../../ui/src/components/SetupForm.vue';
-import UnlockForm from '../../ui/src/components/UnlockForm.vue';
-import EntryList from '../../ui/src/components/EntryList.vue';
-import EntryForm from '../../ui/src/components/EntryForm.vue';
-import SettingsPage from '../../ui/src/components/SettingsPage.vue';
-import Toast from '../../ui/src/components/Toast.vue';
-import AppIcon from '../../ui/src/icons/AppIcon.vue';
+import OnboardingForm from '@ui/components/OnboardingForm.vue';
+import SetupForm from '@ui/components/SetupForm.vue';
+import UnlockForm from '@ui/components/UnlockForm.vue';
+import EntryList from '@ui/components/EntryList.vue';
+import EntryForm from '@ui/components/EntryForm.vue';
+import SettingsPage from '@ui/components/SettingsPage.vue';
+import Toast from '@ui/components/Toast.vue';
+import AppIcon from '@ui/icons/AppIcon.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();

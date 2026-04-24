@@ -120,21 +120,24 @@ export const useMainStore = defineStore('main', () => {
   }
 
   async function changeMasterPwd(newPwd: string): Promise<void> {
+    const masterData = await db.getMasterData();
+    if (!masterData) throw new Error('未初始化');
+    const ok = await verifyMasterPassword(masterPwd.value, masterData.verifySalt!, masterData.verifyHash);
+    if (!ok) throw new Error('会话已过期，请重新解锁');
     const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
     const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
     await db.reEncryptAllEntries(oldKey, newKey);
     db.setDbKey(newKey);
     const verifySalt = generateSalt();
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    const data = await db.getMasterData();
     let recoveryFields: { encryptedMasterPwd?: string; recoverySalt?: string } = {};
-    if (data?.encryptedMasterPwd && data.recoverySalt) {
+    if (masterData?.encryptedMasterPwd && masterData.recoverySalt) {
       try {
-        const code = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, masterPwd.value);
+        const code = await decryptMasterPwdWithRecovery(masterData.encryptedMasterPwd, masterData.recoverySalt, masterPwd.value);
         recoveryFields = await encryptMasterPwdWithRecovery(newPwd, code);
       } catch { /* 恢复码无法解密则丢弃 */ }
     }
-    await db.setMasterData({ ...data!, verifyHash, verifySalt, ...recoveryFields });
+    await db.setMasterData({ ...masterData, verifyHash, verifySalt, ...recoveryFields });
     masterPwd.value = newPwd;
   }
 

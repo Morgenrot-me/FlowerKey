@@ -457,13 +457,13 @@ async function tryGenerate(modeOverride?: 'formal' | 'independent', persistUrl?:
 function scheduleGenerate() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    void tryGenerate();
+    tryGenerate().catch(() => showDirectMessage('扩展上下文已失效，请刷新页面'));
   }, 500);
 }
 
 setDirectMode('formal');
 shadow.getElementById('fk-generate')!.addEventListener('click', () => {
-  void tryGenerate();
+  tryGenerate().catch(() => showDirectMessage('扩展上下文已失效，请刷新页面'));
 });
 shadow.getElementById('fk-independent')!.addEventListener('click', () => {
   if (directMode === 'independent') {

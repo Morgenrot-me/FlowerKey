@@ -19,7 +19,7 @@ export type EncryptedField = typeof ENCRYPTED_FIELDS[number];
 /** 加密条目敏感字段，返回存储用对象 */
 export async function encryptEntry(entry: Entry, key: CryptoKey | null): Promise<Entry> {
   if (!key || entry.encrypted === false) return entry;
-  const result = { ...entry };
+  const result: Entry = { ...entry, encrypted: true };
   for (const field of ENCRYPTED_FIELDS) {
     const val = entry[field as EncryptedField];
     if (val) {

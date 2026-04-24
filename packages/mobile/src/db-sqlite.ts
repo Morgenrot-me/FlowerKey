@@ -235,7 +235,7 @@ export async function markAllUnsynced(deviceId: string): Promise<void> {
   for (const e of entries) {
     await db!.run(
       'INSERT INTO changelog (entryId,entryType,operation,timestamp,synced,deviceId) VALUES (?,?,?,?,?,?)',
-      [e.id, 'entry', 'upsert', Date.now(), 0, deviceId]
+      [e.id, 'entry', 'create', Date.now(), 0, deviceId]
     );
   }
 }

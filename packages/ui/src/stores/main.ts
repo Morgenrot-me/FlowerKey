@@ -131,7 +131,11 @@ export const useMainStore = defineStore('main', () => {
   }
 
   /** 方案二：修改主密码（需已解锁，重新加密所有条目） */
-  async function changeMasterPwd(newPwd: string): Promise<void> {
+  async function changeMasterPwd(currentPwd: string, newPwd: string): Promise<void> {
+    const masterData = await db.getMasterData();
+    if (!masterData) throw new Error('未初始化');
+    const ok = await verifyMasterPassword(currentPwd, masterData.verifySalt!, masterData.verifyHash);
+    if (!ok) throw new Error('当前主密码错误');
     const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
     const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
     await db.reEncryptAllEntries(oldKey, newKey);
@@ -139,16 +143,15 @@ export const useMainStore = defineStore('main', () => {
 
     const verifySalt = generateSalt();
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    const data = await db.getMasterData();
     // 恢复码存在时同步更新（用新密码重新加密）
     let recoveryFields: { encryptedMasterPwd?: string; recoverySalt?: string } = {};
-    if (data?.encryptedMasterPwd && data.recoverySalt) {
+    if (masterData?.encryptedMasterPwd && masterData.recoverySalt) {
       try {
-        const code = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, masterPwd.value);
+        const code = await decryptMasterPwdWithRecovery(masterData.encryptedMasterPwd, masterData.recoverySalt, masterPwd.value);
         recoveryFields = await encryptMasterPwdWithRecovery(newPwd, code);
       } catch { /* 恢复码无法解密则丢弃，用户需重新生成 */ }
     }
-    await db.setMasterData({ ...data!, verifyHash, verifySalt, ...recoveryFields });
+    await db.setMasterData({ ...masterData, verifyHash, verifySalt, ...recoveryFields });
     masterPwd.value = newPwd;
   }
 

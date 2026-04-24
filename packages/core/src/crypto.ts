@@ -19,9 +19,12 @@ const CHARSET_SYMBOLS = CHARSET_ALPHANUM + '!@#$%^&*()-_=+[]{}|;:,.<>?';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-/** 将字符串编码为 ArrayBuffer（兼容 Web Crypto BufferSource） */
+/** 将字符串编码为精准长度的 ArrayBuffer（避免 V8 缓冲池溢出问题） */
 function encode(str: string): ArrayBuffer {
-  return encoder.encode(str).buffer as ArrayBuffer;
+  const bytes = encoder.encode(str);
+  const buf = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buf).set(bytes);
+  return buf;
 }
 
 /** 将 ArrayBuffer 转为十六进制字符串 */
@@ -90,8 +93,8 @@ async function deriveRawKey(password: string, salt: string): Promise<string> {
 // ==================== 记忆密码验证 ====================
 
 /** 生成记忆密码的验证哈希（首次设置时调用，存储返回值） */
-export async function createVerifyHash(masterPwd: string, userSalt: string): Promise<string> {
-  return deriveRawKey(masterPwd, SALT_PREFIX_VERIFY + userSalt);
+export async function createVerifyHash(masterPwd: string, verifySalt: string): Promise<string> {
+  return deriveRawKey(masterPwd, SALT_PREFIX_VERIFY + verifySalt);
 }
 
 /** 验证记忆密码是否正确 */

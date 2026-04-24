@@ -99,15 +99,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { useMainStore } from '../../ui/src/stores/main';
-import { useEntriesStore } from '../../ui/src/stores/entries';
-import { useSyncStore } from '../../ui/src/stores/sync';
-import { useToast } from '../../ui/src/composables/useToast';
+import { useMainStore } from '@ui/stores/main';
+import { useEntriesStore } from '@ui/stores/entries';
+import { useSyncStore } from '@ui/stores/sync';
+import { useToast } from '@ui/composables/useToast';
 import { db, type CharsetMode } from '@flowerkey/core';
-import OnboardingForm from '../../ui/src/components/OnboardingForm.vue';
-import SetupForm from '../../ui/src/components/SetupForm.vue';
-import UnlockForm from '../../ui/src/components/UnlockForm.vue';
-import Toast from '../../ui/src/components/Toast.vue';
+import OnboardingForm from '@ui/components/OnboardingForm.vue';
+import SetupForm from '@ui/components/SetupForm.vue';
+import UnlockForm from '@ui/components/UnlockForm.vue';
+import Toast from '@ui/components/Toast.vue';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();

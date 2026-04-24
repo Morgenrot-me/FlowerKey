@@ -302,15 +302,19 @@ function cancelBookmarkEncrypt() {
 async function confirmBookmarkEncrypt() {
   bookmarkEncryptError.value = '';
   bookmarkEncryptProcessing.value = true;
+  const wasUnlocked = mainStore.isUnlocked;
   try {
-    const ok = await mainStore.unlock(bookmarkPwdInput.value);
-    if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
+    if (!wasUnlocked) {
+      const ok = await mainStore.unlock(bookmarkPwdInput.value);
+      if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
+    }
     const newVal = !bookmarkEncrypt.value;
     await db.setBookmarkEncryption(newVal);
     await db.setConfig('bookmarkEncrypt', newVal);
     bookmarkEncrypt.value = newVal;
     cancelBookmarkEncrypt();
   } finally {
+    if (!wasUnlocked) mainStore.lock();
     bookmarkEncryptProcessing.value = false;
   }
 }
@@ -338,7 +342,7 @@ async function handleChangePwd() {
   }
   changingPwd.value = true; changePwdMsg.value = '';
   try {
-    await mainStore.changeMasterPwd(newPwd.value);
+    await mainStore.changeMasterPwd(mainStore.masterPwd, newPwd.value);
     changePwdMsg.value = '修改成功'; changePwdError.value = false;
     newPwd.value = ''; newPwdConfirm.value = ''; showChangePwd.value = false;
   } catch (e) {

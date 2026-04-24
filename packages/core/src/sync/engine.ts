@@ -8,7 +8,7 @@ import { FlowerKeyWebDAV, type WebDAVConfig } from './webdav.js';
 import type { StorageBackend } from './backend.js';
 import { serializeOpLog, deserializeOpLog, type OpLogEntry } from './changelog.js';
 import { encrypt, decrypt } from '../crypto.js';
-import { db, encryptEntry } from '../db.js';
+import { db, encryptEntry, decryptEntry } from '../db.js';
 import type { Entry, ChangeLog } from '../models.js';
 
 const LOCK_TIMEOUT_MS = 60_000;
@@ -32,7 +32,10 @@ const defaultAdapter: LocalDbAdapter = {
   getEntry: (id) => db.getEntry(id),
   putEntry: async (entry) => { await db.entries.put(await encryptEntry(entry, db.getDbKey())); },
   deleteEntry: (id) => db.entries.delete(id),
-  getAllEntries: () => db.entries.toArray(),
+  getAllEntries: async () => {
+    const all = await db.entries.toArray();
+    return Promise.all(all.map(e => decryptEntry(e, db.getDbKey())));
+  },
   getConfig: (key) => db.getConfig(key),
   setConfig: (key, value) => db.setConfig(key, value),
 };
