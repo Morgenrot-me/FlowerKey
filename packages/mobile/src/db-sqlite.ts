@@ -5,7 +5,7 @@
  */
 
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
-import { encryptEntry, decryptEntry, ENCRYPTED_FIELDS } from '@flowerkey/core';
+import { encrypt, decrypt, encryptEntry, decryptEntry, ENCRYPTED_FIELDS, bytesToBase64, base64ToBytes } from '@flowerkey/core';
 import { v4 as uuidv4 } from 'uuid';
 import type { Entry, ChangeLog, MasterPasswordData } from '@flowerkey/core';
 
@@ -54,12 +54,9 @@ function rowToEntry(row: Record<string, unknown>): Entry {
   } as unknown as Entry;
 }
 
-export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
-  const now = Date.now();
-  const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };
-  const stored = await encryptEntry(entry, _dbKey);
+async function putStoredEntry(stored: Entry): Promise<void> {
   await db!.run(
-    `INSERT INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
+    `INSERT OR REPLACE INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [stored.id, stored.type, stored.folder ?? '', JSON.stringify(stored.tags ?? []),
      stored.createdAt, stored.updatedAt, stored.codename ?? null, stored.charsetMode ?? null,
@@ -69,8 +66,19 @@ export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'update
      stored.content ?? null, stored.fileName ?? null, stored.sourceUrl ?? null, stored.description ?? null,
      stored.appPackage ?? null]
   );
+}
+
+export async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
+  const now = Date.now();
+  const entry: Entry = { ...data, id: uuidv4(), createdAt: now, updatedAt: now };
+  await putStoredEntry(await encryptEntry(entry, _dbKey));
   await logChange(entry.id, 'create');
   return entry;
+}
+
+export async function importEntry(entry: Entry): Promise<void> {
+  await putStoredEntry(await encryptEntry(entry, _dbKey));
+  await logChange(entry.id, 'create');
 }
 
 export async function updateEntry(id: string, changes: Partial<Entry>): Promise<void> {
@@ -95,18 +103,7 @@ export async function deleteEntry(id: string): Promise<void> {
 
 /** 同步专用：直接写入条目，不记录 changelog（避免循环同步） */
 export async function putEntry(entry: Entry): Promise<void> {
-  const stored = await encryptEntry(entry, _dbKey);
-  await db!.run(
-    `INSERT OR REPLACE INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [stored.id, stored.type, stored.folder ?? '', JSON.stringify(stored.tags ?? []),
-     stored.createdAt, stored.updatedAt, stored.codename ?? null, stored.charsetMode ?? null,
-     stored.passwordLength ?? null, stored.storedPassword ?? null, stored.url ?? null,
-     stored.title ?? null, stored.favicon ?? null,
-     stored.encrypted === false ? 0 : null,
-     stored.content ?? null, stored.fileName ?? null, stored.sourceUrl ?? null, stored.description ?? null,
-     stored.appPackage ?? null]
-  );
+  await putStoredEntry(await encryptEntry(entry, _dbKey));
 }
 
 export async function getEntry(id: string): Promise<Entry | undefined> {
@@ -118,6 +115,44 @@ export async function getEntry(id: string): Promise<Entry | undefined> {
 export async function getEntriesByType(type: Entry['type']): Promise<Entry[]> {
   const res = await db!.query('SELECT * FROM entries WHERE type=? ORDER BY COALESCE(lastUsedAt, updatedAt) DESC, updatedAt DESC', [type]);
   return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
+}
+
+export async function setBookmarkEncryption(encrypt: boolean): Promise<void> {
+  const res = await db!.query('SELECT * FROM entries WHERE type=?', ['bookmark']);
+  for (const row of res.values ?? []) {
+    const plain = await decryptEntry(rowToEntry(row as Record<string, unknown>), _dbKey);
+    const next = encrypt
+      ? await encryptEntry(({ ...plain, encrypted: undefined }) as Entry, _dbKey)
+      : { ...plain, encrypted: false as const };
+    await putStoredEntry(next);
+    await logChange(plain.id, 'update');
+  }
+}
+
+export async function importBookmarks(items: { title: string; url: string; favicon?: string }[], encrypt: boolean): Promise<number> {
+  let count = 0;
+  for (const item of items) {
+    const exists = await db!.query('SELECT id FROM entries WHERE type=? AND url=? LIMIT 1', ['bookmark', item.url]);
+    if (exists.values?.length) continue;
+    const now = Date.now();
+    const entry: Entry = {
+      id: uuidv4(),
+      type: 'bookmark',
+      title: item.title,
+      url: item.url,
+      favicon: item.favicon,
+      tags: [],
+      folder: '',
+      description: '',
+      createdAt: now,
+      updatedAt: now,
+      ...(encrypt ? {} : { encrypted: false }),
+    };
+    await putStoredEntry(encrypt ? await encryptEntry(entry, _dbKey) : entry);
+    await logChange(entry.id, 'create');
+    count++;
+  }
+  return count;
 }
 
 export async function getAllEntries(): Promise<Entry[]> {
@@ -174,12 +209,8 @@ export async function setConfig(key: string, value: unknown): Promise<void> {
 
 export async function setSecretConfig(key: string, value: unknown): Promise<void> {
   if (!_dbKey) throw new Error('未解锁');
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, _dbKey, new TextEncoder().encode(JSON.stringify(value)));
-  const combined = new Uint8Array(12 + enc.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(enc), 12);
-  await setConfig(key, { __enc: btoa(String.fromCharCode(...combined)) });
+  const buf = await encrypt(JSON.stringify(value), _dbKey);
+  await setConfig(key, { __enc: bytesToBase64(new Uint8Array(buf)) });
 }
 
 export async function getSecretConfig<T>(key: string): Promise<T | undefined> {
@@ -189,7 +220,9 @@ export async function getSecretConfig<T>(key: string): Promise<T | undefined> {
   if (!v?.__enc) return item as T;
   if (!_dbKey) return undefined;
   try {
-    const bytes = Uint8Array.from(atob(v.__enc), c => c.charCodeAt(0));
+    const bytes = base64ToBytes(v.__enc);
+    if (bytes[0] === 1) return JSON.parse(await decrypt(bytes.buffer as ArrayBuffer, _dbKey)) as T;
+
     const iv = bytes.slice(0, 12);
     const data = bytes.slice(12);
     const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, _dbKey, data);

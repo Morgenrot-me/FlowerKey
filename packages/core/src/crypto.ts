@@ -13,6 +13,8 @@ const SALT_PREFIX_DBENC = 'flowerkey_dbenc_';
 const SALT_PREFIX_RECOVERY = 'flowerkey_recovery_';
 const ENCRYPT_VERSION = 0x01;
 
+const MAX_PASSWORD_LENGTH = 256;
+const BASE64_CHUNK_SIZE = 0x8000;
 const CHARSET_ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CHARSET_SYMBOLS = CHARSET_ALPHANUM + '!@#$%^&*()-_=+[]{}|;:,.<>?';
 
@@ -40,6 +42,33 @@ function hexToBuf(hex: string): Uint8Array {
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
   }
+  return bytes;
+}
+
+/** 常量时间比较十六进制哈希，避免提前退出泄露差异位置 */
+function timingSafeHexEqual(a: string, b: string): boolean {
+  const aBytes = hexToBuf(a);
+  const bBytes = hexToBuf(b);
+  let diff = aBytes.length ^ bBytes.length;
+  const len = Math.max(aBytes.length, bBytes.length);
+  for (let i = 0; i < len; i++) diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  return diff === 0;
+}
+
+/** Uint8Array 转 base64，分块避免大数组展开导致调用栈溢出 */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK_SIZE));
+  }
+  return btoa(binary);
+}
+
+/** base64 转 Uint8Array */
+export function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 
@@ -102,7 +131,7 @@ export async function verifyMasterPassword(
   masterPwd: string, verifySalt: string, storedHash: string
 ): Promise<boolean> {
   const hash = await deriveRawKey(masterPwd, SALT_PREFIX_VERIFY + verifySalt);
-  return hash === storedHash;
+  return timingSafeHexEqual(hash, storedHash);
 }
 
 // ==================== 密码生成 ====================
@@ -165,6 +194,7 @@ export async function generatePassword(
   length = 16
 ): Promise<string> {
   if (length < 8) throw new Error('密码长度不能小于8');
+  if (length > MAX_PASSWORD_LENGTH) throw new Error(`密码长度不能大于${MAX_PASSWORD_LENGTH}`);
   const masterKeyBits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
@@ -231,7 +261,7 @@ export async function encryptMasterPwdWithRecovery(
   const recoverySalt = generateSalt();
   const key = await deriveKey(recoveryCode, SALT_PREFIX_RECOVERY + recoverySalt, ['encrypt', 'decrypt']);
   const buf = await encrypt(masterPwd, key);
-  const encryptedMasterPwd = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const encryptedMasterPwd = bytesToBase64(new Uint8Array(buf));
   return { encryptedMasterPwd, recoverySalt };
 }
 
@@ -240,6 +270,6 @@ export async function decryptMasterPwdWithRecovery(
   encryptedMasterPwd: string, recoverySalt: string, recoveryCode: string
 ): Promise<string> {
   const key = await deriveKey(recoveryCode, SALT_PREFIX_RECOVERY + recoverySalt, ['encrypt', 'decrypt']);
-  const bytes = Uint8Array.from(atob(encryptedMasterPwd), c => c.charCodeAt(0));
+  const bytes = base64ToBytes(encryptedMasterPwd);
   return decrypt(bytes.buffer as ArrayBuffer, key);
 }

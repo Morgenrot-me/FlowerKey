@@ -5,11 +5,21 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { SyncEngine, type WebDAVConfig, type LocalDbAdapter } from '@flowerkey/core';
+import { SyncEngine, generateDeviceId, type WebDAVConfig, type LocalDbAdapter } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 import { ICloudBackend } from './icloud';
 import { NativeWebDAVBackend } from './webdav-native';
 import { useMainStore } from './main';
+
+async function ensureDeviceId() {
+  let deviceId = await sqliteDb.getConfig<string>('deviceId');
+  if (!deviceId) {
+    deviceId = generateDeviceId();
+    await sqliteDb.setConfig('deviceId', deviceId);
+  }
+  sqliteDb.setDeviceId(deviceId);
+  return deviceId;
+}
 
 const sqliteAdapter: LocalDbAdapter = {
   getUnsyncedLogs: () => sqliteDb.getUnsyncedLogs(),
@@ -61,7 +71,7 @@ export const useSyncStore = defineStore('sync', () => {
     syncing.value = true;
     error.value = '';
     try {
-      const deviceId = await sqliteDb.getConfig<string>('deviceId') ?? 'unknown';
+      const deviceId = await ensureDeviceId();
       const backend = syncMode.value === 'icloud'
         ? new ICloudBackend()
         : new NativeWebDAVBackend(config.value!);
@@ -83,7 +93,7 @@ export const useSyncStore = defineStore('sync', () => {
     syncing.value = true;
     error.value = '';
     try {
-      const deviceId = await sqliteDb.getConfig<string>('deviceId') ?? 'unknown';
+      const deviceId = await ensureDeviceId();
       await sqliteDb.markAllUnsynced(deviceId);
       const backend = syncMode.value === 'icloud' ? new ICloudBackend() : new NativeWebDAVBackend(config.value!);
       const engine = new SyncEngine(backend, main.getDbKey(), deviceId, sqliteAdapter);

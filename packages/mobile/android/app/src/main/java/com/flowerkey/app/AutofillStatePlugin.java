@@ -1,8 +1,8 @@
 package com.flowerkey.app;
 
+import android.content.ComponentName;
 import android.content.Intent;
 import android.provider.Settings;
-import android.view.autofill.AutofillManager;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -47,8 +47,9 @@ public class AutofillStatePlugin extends Plugin {
     /** 检测系统自动填充服务是否已设置为花钥 */
     @PluginMethod
     public void checkEnabled(PluginCall call) {
-        AutofillManager afm = getContext().getSystemService(AutofillManager.class);
-        boolean enabled = afm != null && afm.hasEnabledAutofillServices();
+        String current = Settings.Secure.getString(getContext().getContentResolver(), "autofill_service");
+        ComponentName service = new ComponentName(getContext(), FlowerKeyAutofillService.class);
+        boolean enabled = service.flattenToString().equals(current) || service.flattenToShortString().equals(current);
         JSObject ret = new JSObject();
         ret.put("enabled", enabled);
         call.resolve(ret);

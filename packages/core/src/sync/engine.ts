@@ -7,12 +7,31 @@
 import { FlowerKeyWebDAV, type WebDAVConfig } from './webdav.js';
 import type { StorageBackend } from './backend.js';
 import { serializeOpLog, deserializeOpLog, type OpLogEntry } from './changelog.js';
-import { encrypt, decrypt } from '../crypto.js';
+import { encrypt, decrypt, generateDeviceId } from '../crypto.js';
 import { db, encryptEntry, decryptEntry } from '../db.js';
 import type { Entry, ChangeLog } from '../models.js';
 
 const LOCK_TIMEOUT_MS = 60_000;
 const OPLOG_COMPACT_THRESHOLD = 20;
+
+interface SyncLock {
+  deviceId: string;
+  token: string;
+  expires: number;
+}
+
+interface SyncCursor {
+  lastSyncTime?: number;
+  lastOplogTime?: number;
+  lastVaultOplogTime?: number;
+}
+
+interface VaultSnapshot {
+  version?: number;
+  snapshotTime?: number;
+  oplogTime?: number;
+  entries?: Entry[];
+}
 
 /** 本地数据库适配接口，允许移动端注入 SQLite 实现 */
 export interface LocalDbAdapter {
@@ -45,6 +64,7 @@ export class SyncEngine {
   private dbKey: CryptoKey;
   private deviceId: string;
   private local: LocalDbAdapter;
+  private lockToken = '';
   encryptMismatchCount = 0;
 
   constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string, localAdapter?: LocalDbAdapter) {
@@ -66,17 +86,50 @@ export class SyncEngine {
   private async acquireLock(): Promise<boolean> {
     const existing = await this.dav.read('sync.lock');
     if (existing) {
-      const text = new TextDecoder().decode(existing);
-      const lock = JSON.parse(text) as { deviceId: string; expires: number };
-      if (lock.expires > Date.now() && lock.deviceId !== this.deviceId) return false;
+      try {
+        const text = new TextDecoder().decode(existing);
+        const lock = JSON.parse(text) as Partial<SyncLock>;
+        if (lock.expires && lock.expires > Date.now() && (lock.deviceId !== this.deviceId || lock.token)) return false;
+      } catch {
+        return false;
+      }
     }
-    const lock = { deviceId: this.deviceId, expires: Date.now() + LOCK_TIMEOUT_MS };
+
+    this.lockToken = generateDeviceId();
+    const lock: SyncLock = { deviceId: this.deviceId, token: this.lockToken, expires: Date.now() + LOCK_TIMEOUT_MS };
     await this.dav.write('sync.lock', JSON.stringify(lock));
-    return true;
+
+    const current = await this.dav.read('sync.lock');
+    if (!current) return false;
+    try {
+      const saved = JSON.parse(new TextDecoder().decode(current)) as Partial<SyncLock>;
+      return saved.deviceId === this.deviceId && saved.token === this.lockToken;
+    } catch {
+      return false;
+    }
   }
 
   private async releaseLock(): Promise<void> {
-    await this.dav.remove('sync.lock');
+    if (!this.lockToken) return;
+    try {
+      const existing = await this.dav.read('sync.lock');
+      if (!existing) return;
+      try {
+        const lock = JSON.parse(new TextDecoder().decode(existing)) as Partial<SyncLock>;
+        if (lock.deviceId === this.deviceId && lock.token === this.lockToken) {
+          await this.dav.remove('sync.lock');
+        }
+      } catch {
+        return;
+      }
+    } finally {
+      this.lockToken = '';
+    }
+  }
+
+  private getOplogTimestamp(file: string): number {
+    const m = /^[^_]+_(\d+)\.enc$/.exec(file);
+    return m ? parseInt(m[1]) : 0;
   }
 
   /** 执行一次完整同步 */
@@ -90,9 +143,11 @@ export class SyncEngine {
     try {
       this.encryptMismatchCount = 0;
       const pushed = await this.push();
+      await this.restoreFromVaultIfNeeded();
       const pulled = await this.pull();
       await this.maybeCompact();
-      await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
+      const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
+      await this.local.setConfig('syncState', { ...state, lastSyncTime: Date.now() });
       const result: { pushed: number; pulled: number; encryptMismatch?: number } = { pushed, pulled };
       if (this.encryptMismatchCount > 0) result.encryptMismatch = this.encryptMismatchCount;
       return result;
@@ -107,8 +162,10 @@ export class SyncEngine {
     if (!unsyncedLogs.length) return 0;
 
     const opEntries: OpLogEntry[] = [];
+    const pushedIds: number[] = [];
     for (const log of unsyncedLogs) {
       const entry = log.operation !== 'delete' ? await this.local.getEntry(log.entryId) : undefined;
+      if (log.operation !== 'delete' && !entry) continue;
       opEntries.push({
         entryId: log.entryId,
         entryType: log.entryType,
@@ -117,34 +174,35 @@ export class SyncEngine {
         deviceId: log.deviceId,
         payload: entry,
       });
+      if (log.id) pushedIds.push(log.id);
     }
+
+    if (!opEntries.length) return 0;
 
     const filename = `oplog/${this.deviceId}_${Date.now()}.enc`;
     const encrypted = await this.encryptText(serializeOpLog(opEntries));
     await this.dav.write(filename, encrypted);
 
-    const ids = unsyncedLogs.map(l => l.id!).filter(Boolean) as number[];
-    await this.local.markLogsSynced(ids);
+    await this.local.markLogsSynced(pushedIds);
 
     return opEntries.length;
   }
 
   /** 拉取远端新变更并应用 */
   private async pull(): Promise<number> {
-    const state = await this.local.getConfig<{ lastSyncTime: number }>('syncState');
-    const lastSync = state?.lastSyncTime ?? 0;
+    const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
+    const lastOplogTime = state.lastOplogTime ?? state.lastSyncTime ?? 0;
 
     const files = await this.dav.listOplog();
-    const newFiles = files.filter(f => {
-      const m = /^[^_]+_(\d+)\.enc$/.exec(f);
-      if (!m) return false;
-      const ts = parseInt(m[1]);
-      return ts > lastSync && !f.startsWith(this.deviceId + '_');
-    });
+    const newFiles = files
+      .map(file => ({ file, timestamp: this.getOplogTimestamp(file) }))
+      .filter(item => item.timestamp > lastOplogTime && !item.file.startsWith(this.deviceId + '_'))
+      .sort((a, b) => a.timestamp - b.timestamp || a.file.localeCompare(b.file));
 
     let applied = 0;
-    for (const file of newFiles) {
-      const buf = await this.dav.read(`oplog/${file}`);
+    let maxAppliedOplogTime = lastOplogTime;
+    for (const item of newFiles) {
+      const buf = await this.dav.read(`oplog/${item.file}`);
       if (!buf) continue;
       const text = await this.decryptBuf(buf);
       const ops = deserializeOpLog(text);
@@ -152,10 +210,11 @@ export class SyncEngine {
         await this.applyOp(op);
         applied++;
       }
+      maxAppliedOplogTime = Math.max(maxAppliedOplogTime, item.timestamp);
     }
 
-    if (newFiles.length > 0) {
-      await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
+    if (maxAppliedOplogTime > lastOplogTime) {
+      await this.local.setConfig('syncState', { ...state, lastOplogTime: maxAppliedOplogTime, lastSyncTime: Date.now() });
     }
 
     return applied;
@@ -198,25 +257,56 @@ export class SyncEngine {
     if (files.length < OPLOG_COMPACT_THRESHOLD) return;
 
     const allEntries = await this.local.getAllEntries();
-    const snapshot = JSON.stringify(allEntries);
+    const snapshotTime = Date.now();
+    const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
+    const maxOplogTime = files.reduce((max, file) => Math.max(max, this.getOplogTimestamp(file)), state.lastOplogTime ?? 0);
+    const snapshot = JSON.stringify({ version: 1, snapshotTime, oplogTime: maxOplogTime, entries: allEntries });
     const encrypted = await this.encryptText(snapshot);
     await this.dav.write('vault.enc', encrypted);
 
     for (const f of files) {
       await this.dav.remove(`oplog/${f}`);
     }
-    await this.local.setConfig('syncState', { lastSyncTime: Date.now() });
+    await this.local.setConfig('syncState', { ...state, lastOplogTime: maxOplogTime, lastVaultOplogTime: maxOplogTime, lastSyncTime: snapshotTime });
+  }
+
+  private async readVaultSnapshot(): Promise<VaultSnapshot | null> {
+    const buf = await this.dav.read('vault.enc');
+    if (!buf) return null;
+    const text = await this.decryptBuf(buf);
+    const parsed = JSON.parse(text) as Entry[] | VaultSnapshot;
+    if (Array.isArray(parsed)) return { entries: parsed };
+    return parsed;
+  }
+
+  private async applyVaultSnapshot(snapshot: VaultSnapshot): Promise<boolean> {
+    if (!snapshot.entries) return false;
+    for (const entry of snapshot.entries) {
+      await this.local.putEntry(entry);
+    }
+    const now = Date.now();
+    const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
+    const oplogTime = snapshot.oplogTime ?? snapshot.snapshotTime ?? now;
+    await this.local.setConfig('syncState', { ...state, lastOplogTime: oplogTime, lastVaultOplogTime: oplogTime, lastSyncTime: now });
+    return true;
+  }
+
+  private async restoreFromVaultIfNeeded(): Promise<void> {
+    const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
+    const snapshot = await this.readVaultSnapshot();
+    if (!snapshot?.entries) return;
+    const oplogTime = snapshot.oplogTime ?? snapshot.snapshotTime;
+    if (oplogTime && (state.lastVaultOplogTime ?? 0) >= oplogTime) return;
+    if (state.lastOplogTime && oplogTime && state.lastOplogTime >= oplogTime) {
+      await this.local.setConfig('syncState', { ...state, lastVaultOplogTime: oplogTime });
+      return;
+    }
+    await this.applyVaultSnapshot(snapshot);
   }
 
   /** 首次加入：从远端全量快照恢复 */
   async restoreFromVault(): Promise<boolean> {
-    const buf = await this.dav.read('vault.enc');
-    if (!buf) return false;
-    const text = await this.decryptBuf(buf);
-    const entries = JSON.parse(text) as Entry[];
-    for (const entry of entries) {
-      await this.local.putEntry(entry);
-    }
-    return true;
+    const snapshot = await this.readVaultSnapshot();
+    return snapshot ? this.applyVaultSnapshot(snapshot) : false;
   }
 }

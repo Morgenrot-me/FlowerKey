@@ -4,6 +4,7 @@
  * 仅在 iOS 平台可用
  */
 
+import { bytesToBase64, base64ToBytes } from '@flowerkey/core';
 import type { StorageBackend } from '@flowerkey/core';
 
 // 运行时动态导入 Capacitor，避免在非移动端环境报错
@@ -44,10 +45,7 @@ export class ICloudBackend implements StorageBackend {
       // result.data 可能是 base64 string 或 Blob
       const data = result.data;
       if (typeof data === 'string') {
-        const binary = atob(data);
-        const buf = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
-        return buf.buffer as ArrayBuffer;
+        return base64ToBytes(data).buffer as ArrayBuffer;
       }
       // Blob
       return await (data as Blob).arrayBuffer();
@@ -60,9 +58,9 @@ export class ICloudBackend implements StorageBackend {
     const { Filesystem, Directory } = await getFs();
     let b64: string;
     if (typeof data === 'string') {
-      b64 = btoa(unescape(encodeURIComponent(data)));
+      b64 = bytesToBase64(new TextEncoder().encode(data));
     } else {
-      b64 = btoa(String.fromCharCode(...new Uint8Array(data)));
+      b64 = bytesToBase64(new Uint8Array(data));
     }
     await Filesystem.writeFile({
       path: this.path(name),

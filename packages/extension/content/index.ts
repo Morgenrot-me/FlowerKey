@@ -271,7 +271,16 @@ function updatePositions() {
     panel.style.top = `${Math.round((window.innerHeight - 320) / 2)}px`;
     return;
   }
+  const pw = panel.offsetWidth || 280;
   const ph = panel.offsetHeight || 300;
+  if (panelX >= 0 && panelY >= 0) {
+    panelX = Math.max(12, Math.min(panelX, Math.max(12, window.innerWidth - pw - 12)));
+    panelY = Math.max(12, Math.min(panelY, Math.max(12, window.innerHeight - ph - 8)));
+    panel.style.left = `${panelX}px`;
+    panel.style.right = 'auto';
+    panel.style.top = `${panelY}px`;
+    return;
+  }
   if (snapSide === 'right') {
     panel.style.right = '12px';
     panel.style.left = 'auto';
@@ -366,7 +375,7 @@ panelHeader.addEventListener('pointerdown', (e) => {
 
 document.addEventListener('pointerdown', (e) => {
   if (!panelOpen || pinned) return;
-  if (!host.contains(e.target as Node)) closePanel();
+  if (!e.composedPath().includes(host)) closePanel();
 }, true);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;

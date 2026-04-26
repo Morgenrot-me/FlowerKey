@@ -2,7 +2,7 @@
  * 花钥 Background Service Worker
  * 处理右键菜单、消息通信
  * 维护解锁状态：masterPwd 仅存内存变量，不写入 storage
- * chrome.storage.session 只存 isUnlocked + userSalt（非敏感）
+ * chrome.storage.session 只存 isUnlocked + userSalt（非敏感），Service Worker 重启时强制清空
  */
 
 import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey, runDirectPasswordFlow } from '@flowerkey/core';
@@ -42,6 +42,7 @@ chrome.runtime.onStartup.addListener(detectTheme);
 let _masterPwd = '';
 let _userSalt = '';
 let _isUnlocked = false;
+chrome.storage.session.set({ isUnlocked: false, userSalt: '', unlockedAt: 0 });
 
 function setUnlocked(masterPwd: string, userSalt: string) {
   _masterPwd = masterPwd;

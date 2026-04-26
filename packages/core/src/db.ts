@@ -5,7 +5,7 @@
 
 import Dexie, { type Table } from 'dexie';
 import type { Entry, ChangeLog, UserConfig, SyncState, MasterPasswordData } from './models.js';
-import { encrypt, decrypt } from './crypto.js';
+import { encrypt, decrypt, bytesToBase64, base64ToBytes } from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 
 function sortEntriesByRecent(entries: Entry[]): Entry[] {
@@ -24,7 +24,7 @@ export async function encryptEntry(entry: Entry, key: CryptoKey | null): Promise
     const val = entry[field as EncryptedField];
     if (val) {
       const buf = await encrypt(val, key);
-      (result as unknown as Record<string, unknown>)[field] = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      (result as unknown as Record<string, unknown>)[field] = bytesToBase64(new Uint8Array(buf));
     }
   }
   return result;
@@ -38,7 +38,7 @@ export async function decryptEntry(entry: Entry, key: CryptoKey | null): Promise
     const val = entry[field as EncryptedField];
     if (val) {
       try {
-        const bytes = Uint8Array.from(atob(val), c => c.charCodeAt(0));
+        const bytes = base64ToBytes(val);
         try {
           (result as unknown as Record<string, unknown>)[field] = await decrypt(bytes.buffer as ArrayBuffer, key);
         } catch {
@@ -127,7 +127,17 @@ export class FlowerKeyDB extends Dexie {
         return { ...plain, encrypted: false as const };
       }
     }));
-    await this.entries.bulkPut(processed);
+    await this.transaction('rw', [this.entries, this.changelog], async () => {
+      await this.entries.bulkPut(processed);
+      for (const entry of processed) await this.log(entry.id, 'update');
+    });
+  }
+
+  async importEntry(entry: Entry): Promise<void> {
+    await this.transaction('rw', [this.entries, this.changelog], async () => {
+      await this.entries.put(await this.encryptEntry(entry));
+      await this.log(entry.id, 'create');
+    });
   }
 
   async createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
@@ -221,7 +231,7 @@ export class FlowerKeyDB extends Dexie {
   async setSecretConfig(key: string, value: unknown): Promise<void> {
     if (!this._dbKey) throw new Error('未解锁');
     const buf = await encrypt(JSON.stringify(value), this._dbKey);
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const b64 = bytesToBase64(new Uint8Array(buf));
     await this.config.put({ key, value: { __enc: b64 }, updatedAt: Date.now() });
   }
 
@@ -233,7 +243,7 @@ export class FlowerKeyDB extends Dexie {
     if (!v?.__enc) return item.value as T; // 兼容旧明文数据
     if (!this._dbKey) return undefined;
     try {
-      const bytes = Uint8Array.from(atob(v.__enc), c => c.charCodeAt(0));
+      const bytes = base64ToBytes(v.__enc);
       return JSON.parse(await decrypt(bytes.buffer as ArrayBuffer, this._dbKey)) as T;
     } catch { return undefined; }
   }
@@ -280,7 +290,10 @@ export class FlowerKeyDB extends Dexie {
         createdAt: Date.now(), updatedAt: Date.now(),
         ...(encrypt ? {} : { encrypted: false }),
       };
-      await this.entries.put(encrypt ? await this.encryptEntry(entry) : entry);
+      await this.transaction('rw', [this.entries, this.changelog], async () => {
+        await this.entries.put(encrypt ? await this.encryptEntry(entry) : entry);
+        await this.log(entry.id, 'create');
+      });
       count++;
     }
     return count;

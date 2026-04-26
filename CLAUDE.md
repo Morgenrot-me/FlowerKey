@@ -12,7 +12,8 @@ packages/
 ├── core/       核心库（加密/数据层/同步引擎），所有端复用
 ├── ui/         插件共享 UI 组件（仅 extension 使用）
 ├── extension/  Chrome/Edge 浏览器插件（Manifest V3）
-└── mobile/     Android/iOS 移动端（Capacitor 7）
+├── mobile/     Android/iOS 移动端（Capacitor 7）
+└── desktop/    Windows 桌面端（Tauri 2）
 scripts/
 └── sync-version.js   版本号同步脚本
 ```
@@ -27,6 +28,7 @@ scripts/
 | 加密 | Web Crypto API（零外部依赖） |
 | 云同步 | WebDAV（webdav npm 包） |
 | 移动端 | Capacitor 7 |
+| 桌面端 | Tauri 2 |
 | 样式 | Tailwind CSS 3 |
 | 构建 | Vite 6 |
 | 包管理 | pnpm workspace |
@@ -99,7 +101,7 @@ pnpm --filter @flowerkey/mobile build
 cd packages/mobile && npx cap sync android
 
 # 3. 构建 APK（必须用 PowerShell，bash 下 gradlew 无法运行）
-powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat assembleRelease"
+powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat --no-daemon --max-workers=1 \"-Dorg.gradle.jvmargs=-Xms64m -Xmx1024m -XX:CICompilerCount=2 -XX:ReservedCodeCacheSize=64m -XX:+HeapDumpOnOutOfMemoryError\" \"-Dorg.gradle.parallel=false\" :app:assembleRelease"
 # APK 输出：packages/mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
 ```
 

@@ -24,8 +24,9 @@ public class FlowerKeyApp extends Application {
     public static FlowerKeyApp get() { return instance; }
 
     public synchronized void setUnlocked(byte[] dbKey, byte[] masterKey, String salt) {
-        this.dbKey = dbKey;
-        this.masterKey = masterKey;
+        setLocked();
+        this.dbKey = dbKey == null ? null : Arrays.copyOf(dbKey, dbKey.length);
+        this.masterKey = masterKey == null ? null : Arrays.copyOf(masterKey, masterKey.length);
         this.userSalt = salt;
     }
 

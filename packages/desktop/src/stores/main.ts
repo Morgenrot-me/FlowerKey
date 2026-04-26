@@ -8,9 +8,19 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  encryptEntry, decryptEntry, runDirectPasswordFlow,
+  decryptEntry, runDirectPasswordFlow,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
+
+async function ensureDeviceId() {
+  let deviceId = await db.getConfig<string>('deviceId');
+  if (!deviceId) {
+    deviceId = generateDeviceId();
+    await db.setConfig('deviceId', deviceId);
+  }
+  db.setDeviceId(deviceId);
+  return deviceId;
+}
 
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
@@ -21,6 +31,7 @@ export const useMainStore = defineStore('main', () => {
   async function checkSetup() {
     const data = await db.getMasterData();
     isSetup.value = !!data;
+    if (isSetup.value) await ensureDeviceId();
     return isSetup.value;
   }
 
@@ -30,10 +41,7 @@ export const useMainStore = defineStore('main', () => {
     const hash = await createVerifyHash(pwd, verifySalt);
     await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
 
-    const deviceId = await db.getConfig<string>('deviceId');
-    if (!deviceId) {
-      await db.setConfig('deviceId', generateDeviceId());
-    }
+    await ensureDeviceId();
 
     masterPwd.value = pwd;
     userSalt.value = s;
@@ -51,6 +59,7 @@ export const useMainStore = defineStore('main', () => {
       userSalt.value = data.userSalt;
       isUnlocked.value = true;
       db.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      await ensureDeviceId();
     }
     return ok;
   }
@@ -130,14 +139,7 @@ export const useMainStore = defineStore('main', () => {
     db.setDbKey(newKey);
     const verifySalt = generateSalt();
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    let recoveryFields: { encryptedMasterPwd?: string; recoverySalt?: string } = {};
-    if (masterData?.encryptedMasterPwd && masterData.recoverySalt) {
-      try {
-        const code = await decryptMasterPwdWithRecovery(masterData.encryptedMasterPwd, masterData.recoverySalt, masterPwd.value);
-        recoveryFields = await encryptMasterPwdWithRecovery(newPwd, code);
-      } catch { /* 恢复码无法解密则丢弃 */ }
-    }
-    await db.setMasterData({ ...masterData, verifyHash, verifySalt, ...recoveryFields });
+    await db.setMasterData({ ...masterData, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
     masterPwd.value = newPwd;
   }
 
@@ -153,7 +155,7 @@ export const useMainStore = defineStore('main', () => {
     for (const entry of entries) {
       const exists = await db.getEntry(entry.id);
       if (!exists) {
-        await db.entries.put(await encryptEntry(entry, db.getDbKey()));
+        await db.importEntry(entry);
         count++;
       }
     }

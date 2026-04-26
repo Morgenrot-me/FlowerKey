@@ -4,7 +4,7 @@
  */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { generateSalt, createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+import { generateSalt, generateDeviceId, createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
   runDirectPasswordFlow,
   type Entry, type CharsetMode, type DirectComputeMode } from '@flowerkey/core';
@@ -28,6 +28,16 @@ function clearAutofillState() {
     AutofillState.setLocked().catch(() => {});
 }
 
+async function ensureDeviceId() {
+  let deviceId = await sqliteDb.getConfig<string>('deviceId');
+  if (!deviceId) {
+    deviceId = generateDeviceId();
+    await sqliteDb.setConfig('deviceId', deviceId);
+  }
+  sqliteDb.setDeviceId(deviceId);
+  return deviceId;
+}
+
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
   const isSetup = ref(false);
@@ -39,6 +49,7 @@ export const useMainStore = defineStore('main', () => {
   async function checkSetup() {
     const data = await sqliteDb.getMasterData();
     isSetup.value = !!data;
+    if (isSetup.value) await ensureDeviceId();
     return isSetup.value;
   }
 
@@ -47,6 +58,7 @@ export const useMainStore = defineStore('main', () => {
     const verifySalt = generateSalt();
     const hash = await createVerifyHash(pwd, verifySalt);
     await sqliteDb.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
+    await ensureDeviceId();
     masterPwd.value = pwd;
     userSalt.value = s;
     isSetup.value = true;
@@ -64,6 +76,7 @@ export const useMainStore = defineStore('main', () => {
       userSalt.value = data.userSalt;
       isUnlocked.value = true;
       sqliteDb.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      await ensureDeviceId();
       syncAutofillState(pwd, data.userSalt);
     }
     return ok;
@@ -149,16 +162,7 @@ export const useMainStore = defineStore('main', () => {
     sqliteDb.setDbKey(newKey);
     const verifySalt = generateSalt();
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    let recoveryFields: { encryptedMasterPwd?: string; recoverySalt?: string } = {};
-    if (data?.encryptedMasterPwd && data.recoverySalt) {
-      try {
-        // 恢复码场景下 currentPwd 为空，用内存中的旧主密码解密恢复码
-        const pwdForRecovery = needsPasswordReset.value ? masterPwd.value : currentPwd;
-        const code = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, pwdForRecovery);
-        recoveryFields = await encryptMasterPwdWithRecovery(newPwd, code);
-      } catch {}
-    }
-    await sqliteDb.setMasterData({ ...data!, verifyHash, verifySalt, ...recoveryFields });
+    await sqliteDb.setMasterData({ ...data!, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
     masterPwd.value = newPwd;
     needsPasswordReset.value = false;
     syncAutofillState(newPwd, userSalt.value);
@@ -177,7 +181,7 @@ export const useMainStore = defineStore('main', () => {
     for (const entry of parsed.entries) {
       if (!entry?.id) continue;
       const exists = await sqliteDb.getEntry(entry.id);
-      if (!exists) { await sqliteDb.createEntry(entry); count++; }
+      if (!exists) { await sqliteDb.importEntry(entry); count++; }
     }
     return count;
   }

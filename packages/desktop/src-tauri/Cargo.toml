@@ -1,6 +1,6 @@
 [package]
 name = "flowerkey-desktop"
-version = "0.3.0"
+version = "0.4.2"
 description = "花钥桌面端"
 authors = ["FlowerKey"]
 edition = "2021"

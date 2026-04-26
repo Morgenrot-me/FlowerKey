@@ -5,8 +5,18 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { SyncEngine, db, type WebDAVConfig } from '@flowerkey/core';
+import { SyncEngine, db, generateDeviceId, type WebDAVConfig } from '@flowerkey/core';
 import { useMainStore } from './main';
+
+async function ensureDeviceId() {
+  let deviceId = await db.getConfig<string>('deviceId');
+  if (!deviceId) {
+    deviceId = generateDeviceId();
+    await db.setConfig('deviceId', deviceId);
+  }
+  db.setDeviceId(deviceId);
+  return deviceId;
+}
 
 export const useSyncStore = defineStore('sync', () => {
   const config = ref<WebDAVConfig | null>(null);
@@ -38,7 +48,7 @@ export const useSyncStore = defineStore('sync', () => {
     syncing.value = true;
     error.value = '';
     try {
-      const deviceId = await db.getConfig<string>('deviceId') ?? 'unknown';
+      const deviceId = await ensureDeviceId();
       const engine = new SyncEngine(config.value, main.getDbKey(), deviceId);
       lastResult.value = await engine.sync();
       await loadSyncState();

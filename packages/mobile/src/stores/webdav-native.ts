@@ -1,4 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
+import { bytesToBase64, base64ToBytes } from '@flowerkey/core';
 import type { StorageBackend, WebDAVConfig } from '@flowerkey/core';
 
 const WebDAV = registerPlugin<{
@@ -54,16 +55,13 @@ export class NativeWebDAVBackend implements StorageBackend {
     });
     if (res.status === 404 || res.status === 410) return null;
     if (res.status >= 400) throw new Error(`GET ${name} 失败：HTTP ${res.status}`);
-    const binary = atob(res.data);
-    const buf = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
-    return buf.buffer as ArrayBuffer;
+    return base64ToBytes(res.data).buffer as ArrayBuffer;
   }
 
   async write(name: string, data: ArrayBuffer | string): Promise<void> {
     const b64 = typeof data === 'string'
-      ? btoa(unescape(encodeURIComponent(data)))
-      : btoa(String.fromCharCode(...new Uint8Array(data)));
+      ? bytesToBase64(new TextEncoder().encode(data))
+      : bytesToBase64(new Uint8Array(data));
     const doput = () => this.req('PUT', this.buildUrl(name), {
       headers: { ...this.auth, 'Content-Type': 'application/octet-stream' },
       body: b64,

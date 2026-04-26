@@ -18,8 +18,6 @@ app.js
 # 本地参考资料与临时资源
 /原文件/
 /花钥_*.exe
-/蓝钥匙.png
-/透明蓝钥匙*.png
 
 # Capacitor 生成的原生项目
 packages/mobile/ios/

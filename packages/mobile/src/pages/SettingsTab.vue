@@ -102,7 +102,6 @@
           </svg>
           <span>{{ syncStore.syncing ? '同步中...' : '立即同步' }}</span>
         </button>
-        </button>
         <button @click="handleFullSync" :disabled="syncStore.syncing || !syncStore.hasBackend()"
           class="w-full py-2.5 border border-gray-300 dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm disabled:opacity-50">
           全量同步（重新上传所有数据）
@@ -264,8 +263,8 @@ import { ref, onMounted, computed, nextTick } from 'vue';
 import { version } from '../../package.json';
 import { useMainStore } from '../stores/main';
 import { useSyncStore } from '../stores/sync';
-import { getMasterData } from '../db-sqlite';
-import { db, type WebDAVConfig } from '@flowerkey/core';
+import * as sqliteDb from '../db-sqlite';
+import type { WebDAVConfig } from '@flowerkey/core';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useToast } from '../../../ui/src/composables/useToast';
@@ -325,8 +324,8 @@ onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   showSyncConfig.value = !syncStore.hasBackend();
-  bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const data = await getMasterData();
+  bookmarkEncrypt.value = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  const data = await sqliteDb.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   if (isAndroid) {
     const r = await AutofillState.checkEnabled().catch(() => ({ enabled: false }));
@@ -365,8 +364,8 @@ async function confirmBookmarkEncrypt() {
     const ok = await mainStore.unlock(bookmarkPwdInput.value);
     if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
     const newVal = !bookmarkEncrypt.value;
-    await db.setBookmarkEncryption(newVal);
-    await db.setConfig('bookmarkEncrypt', newVal);
+    await sqliteDb.setBookmarkEncryption(newVal);
+    await sqliteDb.setConfig('bookmarkEncrypt', newVal);
     bookmarkEncrypt.value = newVal;
     cancelBookmarkEncrypt();
   } finally {
@@ -377,7 +376,7 @@ async function confirmBookmarkEncrypt() {
 const recoveryCode = ref('');
 const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
-  const data = await getMasterData();
+  const data = await sqliteDb.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   if (hasRecovery.value) {
     if (!await ask('已存在恢复码，重新生成后旧恢复码将立即失效且无法恢复。确认继续？', { title: '重新生成恢复码', danger: true })) return;
@@ -445,8 +444,8 @@ async function handleImportBookmarks(e: Event) {
     url: a.getAttribute('href') || '',
     favicon: a.getAttribute('icon') || undefined,
   })).filter(i => i.url.startsWith('http'));
-  const encrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const count = await db.importBookmarks(items, encrypt);
+  const encrypt = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  const count = await sqliteDb.importBookmarks(items, encrypt);
   importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
   toast.show(importBookmarkMsg.value, 'success');
 }
