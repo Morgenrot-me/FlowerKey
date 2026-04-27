@@ -97,16 +97,20 @@
         </template>
 
         <!-- 标签 -->
-        <div class="relative">
-          <input v-model="tagInput" placeholder="添加标签" @keyup.enter.prevent="addTag"
-            @focus="showTagDrop = true" @blur="hideTagDrop" class="input pr-12" />
-          <button @mousedown.prevent="addTag" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-500 text-white rounded-full text-lg leading-none flex items-center justify-center">+</button>
-          <ul v-if="showTagDrop && tagOptions.length"
-            class="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl shadow-lg max-h-32 overflow-y-auto text-sm">
-            <li v-for="t in tagOptions" :key="t"
-              @mousedown.prevent="addTagValue(t)"
-              class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-200">{{ t }}</li>
-          </ul>
+        <div>
+          <div class="relative">
+            <input v-model="tagInput" placeholder="添加标签" @keyup.enter.prevent="addTag"
+              @focus="showTagDrop = true" @blur="hideTagDrop" class="input pr-12" />
+            <button @mousedown.prevent="addTag" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-500 text-white rounded-full text-lg leading-none flex items-center justify-center">+</button>
+          </div>
+          <div class="relative">
+            <ul v-if="showTagDrop && tagOptions.length"
+              class="absolute z-10 w-full mt-0.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl shadow-lg max-h-32 overflow-y-auto text-sm">
+              <li v-for="t in tagOptions" :key="t"
+                @mousedown.prevent="addTagValue(t)"
+                class="px-3 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-200">{{ t }}</li>
+            </ul>
+          </div>
           <div v-if="form.tags.length" class="flex flex-wrap gap-1 mt-2">
             <span v-for="t in form.tags" :key="t"
               class="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs">

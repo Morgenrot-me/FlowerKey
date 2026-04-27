@@ -3,7 +3,7 @@
   提供正式密码直算、登入数据库与恢复码入口。
 -->
 <template>
-  <div class="flex-1 flex flex-col justify-center px-8 gap-4">
+  <div class="flex-1 flex flex-col justify-center px-8 gap-4 max-w-md w-full mx-auto">
     <h1 class="text-2xl font-bold text-center text-blue-600 flex items-center justify-center gap-2">
       <img src="../assets/key.png" class="w-10 h-10 object-contain" /> 花钥
     </h1>
