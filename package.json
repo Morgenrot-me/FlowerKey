@@ -9,9 +9,20 @@
     "build:extension": "pnpm --filter @flowerkey/extension build",
     "build:core": "pnpm --filter @flowerkey/core build",
     "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "version:sync": "node scripts/sync-version.js"
   },
   "devDependencies": {
-    "@types/node": "^25.2.3"
+    "@types/node": "^25.2.3",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vue/test-utils": "^2.4.8",
+    "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.9.0",
+    "pinia": "^2.3.1",
+    "vitest": "^4.1.5",
+    "vue": "^3.5.28"
   }
 }

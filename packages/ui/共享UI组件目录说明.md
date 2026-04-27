@@ -9,23 +9,26 @@ FlowerKey 的共享 Vue 3 UI 组件库，所有端（插件/桌面/移动）复�
 ### components/
 
 | 文件 | 作用 |
-|------|------|
+| ---- | ---- |
 | `SetupForm.vue` | 首次设置表单 - 设置记忆密码和自定义盐 |
 | `UnlockForm.vue` | 锁定态入口表单 - 支持正式密码计算、独立计算、数据库登录与恢复码解锁 |
 | `EntryList.vue` | 条目列表 - 展示密码/书签/文件引用条目 |
 | `EntryForm.vue` | 条目新建/编辑表单 - 支持三种条目类型 |
+| `PasswordStrength.vue` | 密码强度指示条 |
+| `PasswordStrength.test.ts` | 密码强度组件测试 |
 
 ### stores/
 
 | 文件 | 作用 |
-|------|------|
+| ---- | ---- |
 | `main.ts` | 主状态管理 - 认证状态、解锁/锁定、密码生成 |
 | `entries.ts` | 条目状态管理 - CRUD、筛选、搜索 |
+| `entries.test.ts` | 条目状态管理测试（加载、筛选、搜索、CRUD 刷新） |
 
 ### 其他
 
 | 文件 | 作用 |
-|------|------|
+| ---- | ---- |
 | `style.css` | Tailwind CSS 入口样式 |
 
 ## 技术说明
