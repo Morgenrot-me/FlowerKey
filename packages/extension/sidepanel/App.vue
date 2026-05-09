@@ -111,7 +111,6 @@
               :type="entriesStore.currentType"
               :initialMode="addMode"
               :initialUrl="editingEntry ? undefined : currentTabUrl"
-              :folders="entriesStore.folders"
               :tags="entriesStore.tags"
               @save="onSave"
               @cancel="closeForm"
@@ -168,7 +167,6 @@ onMounted(async () => {
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   if (!mainStore.isUnlocked) {
-    // 先查询解锁状态，再让 background 恢复 dbKey（masterPwd 不离开 background 内存）
     const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
     if (state?.isUnlocked) {
       const restored = await chrome.runtime.sendMessage({ type: 'restoreDbKey' });
@@ -182,13 +180,14 @@ onMounted(async () => {
   else if (!bookmarkEncrypt.value) await entriesStore.loadEntries('bookmark');
 });
 
+async function syncBackgroundUnlock() {
+  if (!mainStore.masterPwd) return;
+  await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+}
+
 watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (unlocked && mainStore.masterPwd) {
-    // 解锁时将 masterPwd 同步给 background 内存（仅此一次传输）
-    chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
-    entriesStore.loadEntries();
-  } else if (!unlocked) {
-    chrome.runtime.sendMessage({ type: 'setLocked' });
+  if (!unlocked) {
+    await chrome.runtime.sendMessage({ type: 'setLocked' });
   }
 });
 
@@ -203,6 +202,7 @@ function onSearch() {
 }
 
 async function onUnlocked() {
+  await syncBackgroundUnlock();
   if (currentTab.value !== 'settings') {
     await entriesStore.loadEntries(currentTab.value as EntryType);
   }

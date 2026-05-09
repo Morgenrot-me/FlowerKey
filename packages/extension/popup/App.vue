@@ -68,7 +68,7 @@
           <div v-if="!codename && !generatedPwd" class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 space-y-1.5 leading-relaxed">
             <p class="font-medium text-blue-800 dark:text-blue-200">快速生成</p>
             <p>输入一个区分代号，例如 github-main。</p>
-            <p>生成后会自动复制，直接回到网站粘贴即可。</p>
+            <p>点击复制按钮自动保存，直接回到网站粘贴即可。</p>
           </div>
           <input v-model="codename" placeholder="输入区分代号" class="input" @keyup.enter="generate" />
           <div class="flex gap-2">
@@ -147,7 +147,6 @@ watch([codename, charsetMode, pwdLength], async ([c]) => {
 onMounted(async () => {
   await mainStore.checkSetup();
   bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  // 通过 background 恢复解锁状态，masterPwd 不经过 storage
   const state = await chrome.runtime.sendMessage({ type: 'getUnlockState' });
   if (state?.isUnlocked) {
     const restored = await chrome.runtime.sendMessage({ type: 'restoreDbKey' });
@@ -156,16 +155,17 @@ onMounted(async () => {
       mainStore.isUnlocked = true;
     }
   }
-  // 无论是否解锁，都加载页面元数据（不加密书签无需解锁）
   if (mainStore.isSetup) await init();
 });
 
-// 监听解锁状态变化，同步到 background 并加载页面信息
+async function syncBackgroundUnlock() {
+  if (!mainStore.masterPwd) return;
+  await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+}
+
 watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (unlocked && mainStore.masterPwd) {
-    await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
-    await init();
-  }
+  if (!unlocked) return;
+  await syncBackgroundUnlock();
 });
 
 async function init() {
@@ -187,6 +187,7 @@ async function init() {
 function onSetupDone() {}
 
 async function onUnlocked() {
+  await syncBackgroundUnlock();
   if (mode.value === 'bookmark') {
     await init();
   }
@@ -229,7 +230,19 @@ async function copyPwd() {
   await navigator.clipboard.writeText(generatedPwd.value);
   const all = await db.getEntriesByType('password');
   const matched = all.find(e => e.codename === codename.value.trim());
-  if (matched?.id) await db.touchLastUsed(matched.id);
+  if (matched?.id) {
+    await db.touchLastUsed(matched.id);
+  } else {
+    await db.createEntry({
+      type: 'password',
+      codename: codename.value.trim(),
+      charsetMode: charsetMode.value,
+      passwordLength: pwdLength.value,
+      tags: ['临时'],
+      folder: '',
+      description: '',
+    });
+  }
   copied.value = true;
   toast.show('密码已复制到剪贴板', 'success');
   setTimeout(() => (copied.value = false), 1500);

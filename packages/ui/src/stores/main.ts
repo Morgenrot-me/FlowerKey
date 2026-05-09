@@ -9,7 +9,7 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  decryptEntry, runDirectPasswordFlow,
+  decryptEntry, runDirectPasswordFlow, savePasswordEntry,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
@@ -121,6 +121,43 @@ export const useMainStore = defineStore('main', () => {
     });
   }
 
+  /** 用户复制密码时落库 */
+  async function savePassword(
+    inputPwd: string,
+    codename: string,
+    mode: CharsetMode = 'alphanumeric',
+    length = 16,
+    url?: string,
+  ) {
+    return savePasswordEntry({
+      masterPwd: inputPwd,
+      codename,
+      mode,
+      length,
+      url,
+      runtime: {
+        getMasterData: () => db.getMasterData(),
+        verifyMasterPassword,
+        generatePassword,
+        listPasswordEntries: () => db.getEntriesByType('password'),
+        createPasswordEntry: (data) => db.createEntry(data),
+        touchLastUsed: (id) => db.touchLastUsed(id),
+        withWritableDbKey: async (pwd, salt, run) => {
+          const reuseCurrentKey = isUnlocked.value && masterPwd.value === pwd && userSalt.value === salt;
+          if (!reuseCurrentKey) db.setDbKey(await deriveDatabaseKey(pwd, salt));
+          try {
+            return await run();
+          } finally {
+            if (!reuseCurrentKey) {
+              if (isUnlocked.value) db.setDbKey(await deriveDatabaseKey(masterPwd.value, userSalt.value));
+              else db.clearDbKey();
+            }
+          }
+        },
+      },
+    });
+  }
+
   async function generateRecovery(): Promise<string> {
     const code = generateRecoveryCode();
     const { encryptedMasterPwd, recoverySalt } = await encryptMasterPwdWithRecovery(masterPwd.value, code);
@@ -182,7 +219,7 @@ export const useMainStore = defineStore('main', () => {
 
   return {
     isUnlocked, isSetup, userSalt, masterPwd,
-    checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
+    checkSetup, setup, unlock, lock, genPassword, runDirectPassword, savePassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };
 });
