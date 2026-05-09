@@ -117,6 +117,30 @@ describe('FlowerKeyDB', () => {
     expect(logs.every(log => log.deviceId === 'device-a')).toBe(true);
   });
 
+  it('returns encrypted fields until the current context has a database key', async () => {
+    const created = await database.createEntry({
+      type: 'password',
+      tags: [],
+      folder: '',
+      description: 'account note',
+      codename: 'github',
+    });
+
+    database.clearDbKey();
+    const encryptedRows = await database.getEntriesByType('password');
+    expect(encryptedRows[0].id).toBe(created.id);
+    expect(encryptedRows[0].codename).not.toBe('github');
+    expect(encryptedRows[0].description).not.toBe('account note');
+
+    database.setDbKey(await deriveDatabaseKey('master', 'FlowerKey'));
+    const decryptedRows = await database.getEntriesByType('password');
+    expect(decryptedRows[0]).toMatchObject({
+      id: created.id,
+      codename: 'github',
+      description: 'account note',
+    });
+  });
+
   it('stores normal config plainly and secret config encrypted after unlock', async () => {
     await database.setConfig('theme', 'dark');
     await expect(database.getConfig('theme')).resolves.toBe('dark');

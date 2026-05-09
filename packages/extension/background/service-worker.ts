@@ -5,7 +5,7 @@
  * chrome.storage.session 只存 isUnlocked + userSalt（非敏感），Service Worker 重启时强制清空
  */
 
-import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey, runDirectPasswordFlow } from '@flowerkey/core';
+import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey, runDirectPasswordFlow, savePasswordEntry } from '@flowerkey/core';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
@@ -140,11 +140,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const password = await generatePassword(_masterPwd, _userSalt, msg.codename, msg.mode, msg.length);
         const all = await db.getEntriesByType('password');
-        let entryId = all.find(e => e.codename === msg.codename)?.id;
-        if (!entryId) {
-          const created = await db.createEntry({ type: 'password', codename: msg.codename, charsetMode: msg.mode, passwordLength: msg.length, tags: [], folder: '', description: '' });
-          entryId = created.id;
-        }
+        const entryId = all.find(e => e.codename === msg.codename)?.id;
         sendResponse({ password, entryId });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();
@@ -174,15 +170,53 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               try {
                 return await run();
               } finally {
-                if (reuseCurrentKey) return;
-                if (_isUnlocked) db.setDbKey(await deriveDatabaseKey(_masterPwd, _userSalt));
-                else db.clearDbKey();
+                if (!reuseCurrentKey) {
+                  if (_isUnlocked) db.setDbKey(await deriveDatabaseKey(_masterPwd, _userSalt));
+                  else db.clearDbKey();
+                }
               }
             },
           },
         });
         sendResponse(result);
       } catch (e) { sendResponse({ error: (e as Error).message }); }
+    })();
+    return true;
+  }
+
+  // 用户复制密码后落库：content script 调用
+  if (msg.type === 'savePasswordEntry') {
+    (async () => {
+      try {
+        const result = await savePasswordEntry({
+          masterPwd: msg.masterPwd,
+          codename: msg.codename,
+          mode: msg.mode,
+          length: msg.length,
+          url: msg.url,
+          runtime: {
+            getMasterData: () => db.getMasterData(),
+            verifyMasterPassword,
+            generatePassword,
+            listPasswordEntries: () => db.getEntriesByType('password'),
+            createPasswordEntry: (data) => db.createEntry(data),
+            touchLastUsed: (id) => db.touchLastUsed(id),
+            withWritableDbKey: async (pwd, salt, run) => {
+              const reuseCurrentKey = _isUnlocked && _masterPwd === pwd && _userSalt === salt;
+              if (!reuseCurrentKey) db.setDbKey(await deriveDatabaseKey(pwd, salt));
+              try {
+                return await run();
+              } finally {
+                if (!reuseCurrentKey) {
+                  if (_isUnlocked) db.setDbKey(await deriveDatabaseKey(_masterPwd, _userSalt));
+                  else db.clearDbKey();
+                }
+              }
+            },
+          },
+        });
+        sendResponse({ ok: true, ...result });
+      } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
     })();
     return true;
   }

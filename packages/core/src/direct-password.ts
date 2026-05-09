@@ -1,6 +1,7 @@
 /**
  * 花钥 FlowerKey - 首屏直算共享逻辑
- * 统一处理正式模式与独立计算模式的密码生成、记忆密码校验与按代号沉淀逻辑。
+ * 统一处理正式模式与独立计算模式的密码生成、记忆密码校验。
+ * 生成与落库分离：只有用户主动复制时才调用 savePasswordEntry 保存。
  */
 
 import type { CharsetMode, Entry, MasterPasswordData } from './models.js';
@@ -33,7 +34,7 @@ export type DirectPasswordResult =
     ok: true;
     password: string;
     entryId?: string;
-    persisted?: 'created' | 'touched';
+    persisted?: 'touched';
   };
 
 const DEFAULT_USER_SALT = 'FlowerKey';
@@ -86,22 +87,43 @@ export async function runDirectPasswordFlow(input: DirectPasswordInput): Promise
       } satisfies DirectPasswordResult;
     }
 
+    return { ok: true, password };
+  });
+}
+
+/** 用户主动复制时落库：已存在则更新最近使用，不存在则创建临时条目 */
+export async function savePasswordEntry(input: {
+  masterPwd: string;
+  codename: string;
+  mode: CharsetMode;
+  length: number;
+  url?: string;
+  runtime: DirectPasswordRuntime;
+}): Promise<{ entryId: string; created: boolean }> {
+  const codename = normalizeCodename(input.codename);
+  const masterData = await input.runtime.getMasterData();
+  const userSalt = masterData?.userSalt || DEFAULT_USER_SALT;
+
+  return input.runtime.withWritableDbKey(input.masterPwd, userSalt, async () => {
+    const existing = (await input.runtime.listPasswordEntries())
+      .find((entry) => entry.codename?.trim() === codename);
+
+    if (existing?.id) {
+      await input.runtime.touchLastUsed(existing.id);
+      return { entryId: existing.id, created: false };
+    }
+
     const created = await input.runtime.createPasswordEntry({
       type: 'password',
       codename,
-      charsetMode: mode,
-      passwordLength: length,
+      charsetMode: input.mode,
+      passwordLength: input.length,
       tags: ['临时'],
       folder: '',
       description: '',
       ...(input.url ? { url: input.url } : {}),
     });
     await input.runtime.touchLastUsed(created.id);
-    return {
-      ok: true,
-      password,
-      entryId: created.id,
-      persisted: 'created',
-    } satisfies DirectPasswordResult;
+    return { entryId: created.id, created: true };
   });
 }

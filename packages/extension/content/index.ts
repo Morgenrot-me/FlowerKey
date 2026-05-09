@@ -379,6 +379,13 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+// 跟踪最后一次生成状态，用于复制时判断是否需要落库
+let lastGenFormal = false;
+let lastGenMasterPwd = '';
+let lastGenCodename = '';
+let lastGenMode = 'alphanumeric';
+let lastGenLength = 16;
+let lastGenUrl: string | undefined;
 
 function setDirectMode(mode: 'formal' | 'independent') {
   directMode = mode;
@@ -386,7 +393,7 @@ function setDirectMode(mode: 'formal' | 'independent') {
   const btn = shadow.getElementById('fk-generate')!;
   const independentBtn = shadow.getElementById('fk-independent')!;
   if (mode === 'formal') {
-    hint.textContent = '正式模式会校验记忆密码；成功后自动保存到数据库并标记临时条目。';
+    hint.textContent = '正式模式会校验记忆密码；点击复制时自动保存到数据库并标记临时条目。';
     btn.textContent = '计算正式密码';
     independentBtn.textContent = '改用独立计算模式';
     independentBtn.dataset.variant = 'independent';
@@ -441,14 +448,19 @@ async function tryGenerate(modeOverride?: 'formal' | 'independent', persistUrl?:
     setDirectMode(computeMode);
     (shadow.getElementById('fk-pwd') as HTMLElement).textContent = res.password;
     result.style.display = 'flex';
+    // 跟踪生成状态，供复制时落库使用
+    lastGenFormal = computeMode === 'formal';
+    lastGenMasterPwd = masterPwd;
+    lastGenCodename = codename;
+    lastGenMode = mode;
+    lastGenLength = length;
+    lastGenUrl = persistUrl;
     if (computeMode === 'independent') {
       showDirectMessage('独立结果仅支持复制，不会写入数据库。', 'notice');
-    } else if (res.persisted === 'created') {
-      showDirectMessage('已保存到临时标签。', 'notice');
     } else if (res.persisted === 'touched') {
-      showDirectMessage('已更新最近使用时间。', 'notice');
+      showDirectMessage('已更新最近使用时间，点击复制即可。', 'notice');
     } else {
-      showDirectMessage('正式密码已生成。', 'notice');
+      showDirectMessage('正式密码已生成，点击复制将自动保存。', 'notice');
     }
     return;
   }
@@ -497,6 +509,21 @@ shadow.getElementById('fk-copy')!.addEventListener('click', () => {
       btn.textContent = '复制';
     }, 1500);
   });
+  // 正式模式复制时落库
+  if (lastGenFormal && lastGenMasterPwd && lastGenCodename) {
+    chrome.runtime.sendMessage({
+      type: 'savePasswordEntry',
+      masterPwd: lastGenMasterPwd,
+      codename: lastGenCodename,
+      mode: lastGenMode,
+      length: lastGenLength,
+      ...(lastGenUrl ? { url: lastGenUrl } : {}),
+    }).then((res) => {
+      if (res?.ok) {
+        showDirectMessage(res.created ? '已保存到临时标签。' : '已更新最近使用时间。', 'notice');
+      }
+    }).catch(() => {});
+  }
 });
 
 // ==================== 内联自动填充浮层 ====================

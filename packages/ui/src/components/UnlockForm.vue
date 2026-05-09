@@ -6,7 +6,7 @@
   <div class="space-y-3">
     <div class="space-y-1 text-center">
       <p class="text-sm text-gray-700 dark:text-gray-300">输入记忆密码和区分代号即可计算密码</p>
-      <p class="text-[10px] text-gray-400 dark:text-gray-500">正式模式会校验并保存；独立模式仅复制</p>
+      <p class="text-[10px] text-gray-400 dark:text-gray-500">正式模式会校验记忆密码；复制时自动保存</p>
     </div>
 
     <div v-if="computeMode === 'independent'" class="rounded-2xl border border-amber-200/70 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 space-y-1 leading-relaxed">
@@ -213,18 +213,14 @@ async function submitCompute(nextMode?: DirectComputeMode) {
     lastComputedKey = key;
     generatedPwd.value = result.password;
     if (targetMode === 'independent') {
-      notice.value = '独立计算模式不会保存到数据库，也不会自动填充。';
-      return;
-    }
-    if (result.persisted === 'created') {
-      notice.value = '正式密码已生成，并已保存到临时标签。';
+      notice.value = '独立计算模式不会保存到数据库。';
       return;
     }
     if (result.persisted === 'touched') {
-      notice.value = '正式密码已生成，并已更新最近使用时间。';
+      notice.value = '已有此代号条目，已更新最近使用时间，点击复制即可。';
       return;
     }
-    notice.value = '正式密码已生成。';
+    notice.value = '正式密码已生成，点击复制将自动保存。';
   } finally {
     if (seq === computeSeq) computeLoading.value = false;
   }
@@ -243,7 +239,22 @@ watch([pwd, codename, charsetMode, pwdLength, computeMode], scheduleCompute);
 
 async function copyPwd() {
   if (!generatedPwd.value) return;
+  let saved = false;
+  if (computeMode.value === 'formal' && pwd.value.trim() && codename.value.trim()) {
+    try {
+      await mainStore.savePassword(
+        pwd.value,
+        codename.value,
+        charsetMode.value,
+        pwdLength.value,
+      );
+      saved = true;
+    } catch {
+      notice.value = '密码已复制，保存条目失败。';
+    }
+  }
   await navigator.clipboard.writeText(generatedPwd.value);
+  if (saved) notice.value = '密码已复制，条目已保存到临时标签。';
   copied.value = true;
   setTimeout(() => {
     copied.value = false;
