@@ -23,5 +23,13 @@ if ($nsis) {
     Write-Host "OK: Desktop installer ($($nsis.Name))"
 } else { Write-Host "SKIP: Desktop installer not found" }
 
+# 浏览器插件端（Chrome/Edge 加载 zip + 解压目录）
+$extensionDist = "$base\packages\extension\dist"
+if (Test-Path "$extensionDist\manifest.json") {
+    Copy-Item $extensionDist "$out\花钥-browser-extension-unpacked" -Recurse
+    Compress-Archive -Path "$extensionDist\*" -DestinationPath "$out\花钥-browser-extension.zip" -Force
+    Write-Host "OK: Browser extension"
+} else { Write-Host "SKIP: Browser extension dist not found" }
+
 Write-Host "`n产物已收集到: $out"
 Get-ChildItem $out | Format-Table Name, @{L='Size';E={"{0:N1} MB" -f ($_.Length/1MB)}}
