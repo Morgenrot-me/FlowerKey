@@ -85,7 +85,7 @@ export async function updateEntry(id: string, changes: Partial<Entry>): Promise<
   const encChanges = await encryptEntry({ ...changes, id } as Entry, _dbKey);
   const stored: Partial<Entry> = { ...changes, updatedAt: Date.now() };
   for (const field of ENCRYPTED_FIELDS) {
-    if (field in changes) (stored as Record<string, unknown>)[field] = (encChanges as Record<string, unknown>)[field];
+    if (field in changes) (stored as unknown as Record<string, unknown>)[field] = (encChanges as unknown as Record<string, unknown>)[field];
   }
   const sets = Object.keys(stored).filter(k => k !== 'id').map(k => `${k}=?`).join(',');
   const vals = Object.keys(stored).filter(k => k !== 'id').map(k => {

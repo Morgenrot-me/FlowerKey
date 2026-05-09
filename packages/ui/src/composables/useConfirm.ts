@@ -17,7 +17,7 @@ interface ConfirmOptions {
 
 export function useConfirm() {
   const visible = ref(false);
-  const options = ref<ConfirmOptions & { message: '' }>({ message: '' });
+  const options = ref<ConfirmOptions & { message: string }>({ message: '' });
   let _resolve: ((value: boolean) => void) | null = null;
 
   function ask(message: string, opts: ConfirmOptions = {}): Promise<boolean> {

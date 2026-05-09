@@ -36,7 +36,7 @@
     <Transition name="slide-up">
       <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
         <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
-          <button @click="showForm = false; editingId = ''; form = { title: '', url: '' }" class="text-blue-500">取消</button>
+          <button @click="showForm = false; editingId = ''; form = { title: '', url: '', tags: [], description: '' }" class="text-blue-500">取消</button>
           <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑书签' : '新建书签' }}</span>
           <button @click="save" class="text-blue-500 font-medium">保存</button>
         </div>

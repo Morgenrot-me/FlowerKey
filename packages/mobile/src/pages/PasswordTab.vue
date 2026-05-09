@@ -343,7 +343,7 @@ async function save() {
   if (editingId.value) {
     await store.update(editingId.value, data);
   } else {
-    await store.create({ type: 'password', ...data, tags: data.tags ?? [], folder: '' });
+    await store.create({ type: 'password', ...data, description: data.description ?? '', tags: data.tags ?? [], folder: '' });
   }
   closeForm();
 }
