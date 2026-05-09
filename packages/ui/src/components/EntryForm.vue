@@ -82,6 +82,11 @@
             </div>
           </div>
 
+          <input v-model="form.folder" placeholder="文件夹（可选）" class="input" list="entry-folders-list" />
+          <datalist id="entry-folders-list">
+            <option v-for="folder in props.folders ?? []" :key="folder" :value="folder" />
+          </datalist>
+
           <textarea v-model="form.description" placeholder="备注（可选）" rows="2" class="input resize-none" />
 
           <button @click="save"
@@ -127,7 +132,7 @@ function copyPreview() {
 const form = ref({
   codename: '', charsetMode: 'alphanumeric' as const,
   passwordLength: 16, storedPassword: '', title: '', url: '',
-  content: '', description: '',
+  content: '', description: '', folder: '',
 });
 
 // 标签
@@ -175,6 +180,7 @@ function save() {
   emit('save', {
     type: props.type,
     tags: [...selectedTags.value],
+    folder: form.value.folder,
     description: form.value.description,
     ...(props.type === 'password' && pwdMode.value === 'generate' && {
       codename: form.value.codename,

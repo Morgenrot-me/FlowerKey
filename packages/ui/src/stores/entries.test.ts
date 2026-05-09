@@ -1,6 +1,6 @@
 /**
  * 花钥 FlowerKey - 条目 Store 测试
- * 覆盖条目加载、筛选、搜索和 CRUD 刷新行为
+ * 覆盖条目加载、筛选、搜索和 CRUD 刷新行为。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
@@ -9,6 +9,7 @@ import type { Entry } from '@flowerkey/core';
 const dbMock = vi.hoisted(() => ({
   getEntriesByType: vi.fn(),
   getAllTags: vi.fn(),
+  getAllFolders: vi.fn(),
   createEntry: vi.fn(),
   updateEntry: vi.fn(),
   deleteEntry: vi.fn(),
@@ -38,6 +39,7 @@ describe('useEntriesStore', () => {
     vi.clearAllMocks();
     dbMock.getEntriesByType.mockResolvedValue([]);
     dbMock.getAllTags.mockResolvedValue([]);
+    dbMock.getAllFolders.mockResolvedValue([]);
     dbMock.createEntry.mockResolvedValue(undefined);
     dbMock.updateEntry.mockResolvedValue(undefined);
     dbMock.deleteEntry.mockResolvedValue(undefined);
@@ -45,18 +47,20 @@ describe('useEntriesStore', () => {
     dbMock.searchEntries.mockResolvedValue([]);
   });
 
-  it('loads entries for the selected type and refreshes tags', async () => {
+  it('loads entries for the selected type and refreshes tags and folders', async () => {
     const { useEntriesStore } = await import('./entries.js');
     const store = useEntriesStore();
     const loaded = [entry('one', ['work'], 1000)];
     dbMock.getEntriesByType.mockResolvedValueOnce(loaded);
     dbMock.getAllTags.mockResolvedValueOnce(['work']);
+    dbMock.getAllFolders.mockResolvedValueOnce(['工作']);
 
     await store.loadEntries('bookmark');
 
     expect(store.currentType).toBe('bookmark');
     expect(store.entries).toEqual(loaded);
     expect(store.tags).toEqual(['work']);
+    expect(store.folders).toEqual(['工作']);
     expect(dbMock.getEntriesByType).toHaveBeenCalledWith('bookmark');
   });
 
@@ -74,6 +78,7 @@ describe('useEntriesStore', () => {
     const store = useEntriesStore();
     dbMock.getEntriesByType.mockResolvedValue([entry('one', [], 1000)]);
     dbMock.getAllTags.mockResolvedValue(['tag']);
+    dbMock.getAllFolders.mockResolvedValue(['工作']);
 
     await store.createEntry({ type: 'password', tags: [], folder: '', description: '', codename: 'one' });
     await store.updateEntry('one', { description: 'updated' });

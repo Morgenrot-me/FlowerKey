@@ -111,6 +111,7 @@
               :type="entriesStore.currentType"
               :initialMode="addMode"
               :initialUrl="editingEntry ? undefined : currentTabUrl"
+              :folders="entriesStore.folders"
               :tags="entriesStore.tags"
               @save="onSave"
               @cancel="closeForm"

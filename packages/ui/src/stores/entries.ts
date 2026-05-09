@@ -16,6 +16,7 @@ export const useEntriesStore = defineStore('entries', () => {
   const currentType = ref<EntryType>('password');
   const selectedTags = ref<string[]>([]);
   const tags = ref<string[]>([]);
+  const folders = ref<string[]>([]);
 
   const filteredEntries = computed(() => {
     if (!selectedTags.value.length) return entries.value;
@@ -26,6 +27,7 @@ export const useEntriesStore = defineStore('entries', () => {
     if (type) currentType.value = type;
     entries.value = await db.getEntriesByType(currentType.value);
     tags.value = await db.getAllTags();
+    folders.value = await db.getAllFolders();
   }
 
   async function createEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) {
@@ -55,7 +57,7 @@ export const useEntriesStore = defineStore('entries', () => {
 
   return {
     entries, currentType, selectedTags,
-    tags, filteredEntries,
+    tags, folders, filteredEntries,
     loadEntries, createEntry, updateEntry, deleteEntry, touchLastUsed, search,
   };
 });
