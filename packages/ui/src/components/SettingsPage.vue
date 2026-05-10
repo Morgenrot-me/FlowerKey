@@ -241,6 +241,7 @@ import { useMainStore } from '../stores/main';
 import type { WebDAVConfig } from '@flowerkey/core';
 import { db } from '@flowerkey/core';
 import { useConfirm } from '../composables/useConfirm';
+import { getImportEntryCount } from '../utils/import-preview';
 import ConfirmDialog from './ConfirmDialog.vue';
 import AppIcon from '../icons/AppIcon.vue';
 
@@ -377,8 +378,7 @@ async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
   const text = await file.text();
-  const parsed = JSON.parse(text) as { entries?: unknown[] };
-  const total = Array.isArray(parsed.entries) ? parsed.entries.length : 0;
+  const total = getImportEntryCount(text);
   const count = await mainStore.importData(text);
   importMsg.value = buildImportSummary(count, total, '条备份条目');
 }

@@ -180,6 +180,9 @@ export const useMainStore = defineStore('main', () => {
   async function changeMasterPwd(currentPwd: string, newPwd: string): Promise<void> {
     const masterData = await db.getMasterData();
     if (!masterData) throw new Error('未初始化');
+    if (masterData.encryptedMasterPwd || masterData.recoverySalt) {
+      throw new Error('存在恢复码，请先记录并在改密后重新生成');
+    }
     const ok = await verifyMasterPassword(currentPwd, masterData.verifySalt!, masterData.verifyHash);
     if (!ok) throw new Error('当前主密码错误');
     const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
@@ -189,7 +192,6 @@ export const useMainStore = defineStore('main', () => {
 
     const verifySalt = generateSalt();
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    // 恢复码存在时同步更新（用新密码重新加密）
     await db.setMasterData({ ...masterData, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
     masterPwd.value = newPwd;
   }
@@ -203,11 +205,22 @@ export const useMainStore = defineStore('main', () => {
 
   /** 方案三：从明文 JSON 导入（合并，不覆盖已有条目） */
   async function importData(json: string): Promise<number> {
-    const { entries } = JSON.parse(json) as { entries: Entry[] };
+    const validTypes = new Set<Entry['type']>(['password', 'bookmark', 'file_ref', 'note']);
+    let parsed: { entries: Entry[] };
+    try { parsed = JSON.parse(json); } catch { throw new Error('导入文件格式错误'); }
+    if (!Array.isArray(parsed?.entries)) throw new Error('导入文件缺少 entries 字段');
     let count = 0;
-    for (const entry of entries) {
+    for (const entry of parsed.entries) {
+      if (!entry?.id) continue;
+      if (!validTypes.has(entry.type)) throw new Error('导入文件包含不支持的条目类型');
+      if (!Number.isFinite(entry.createdAt) || !Number.isFinite(entry.updatedAt)) {
+        throw new Error('导入文件包含无效条目时间');
+      }
       const exists = await db.getEntry(entry.id);
-      if (!exists) {
+      const duplicateBookmark = entry.type === 'bookmark' && entry.url
+        ? await db.getBookmarkByUrl(entry.url)
+        : undefined;
+      if (!exists && !duplicateBookmark) {
         await db.importEntry(entry);
         count++;
       }

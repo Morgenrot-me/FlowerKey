@@ -138,6 +138,7 @@ import EntryForm from '@ui/components/EntryForm.vue';
 import SettingsPage from '@ui/components/SettingsPage.vue';
 import Toast from '@ui/components/Toast.vue';
 import AppIcon from '@ui/icons/AppIcon.vue';
+import { syncBackgroundLockState } from '../src/state-sync';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
@@ -181,15 +182,16 @@ onMounted(async () => {
   else if (!bookmarkEncrypt.value) await entriesStore.loadEntries('bookmark');
 });
 
-async function syncBackgroundUnlock() {
-  if (!mainStore.masterPwd) return;
-  await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+async function syncBackgroundLock() {
+  await syncBackgroundLockState(chrome.runtime.sendMessage, {
+    isUnlocked: mainStore.isUnlocked,
+    masterPwd: mainStore.masterPwd,
+    userSalt: mainStore.userSalt,
+  });
 }
 
-watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (!unlocked) {
-    await chrome.runtime.sendMessage({ type: 'setLocked' });
-  }
+watch(() => mainStore.isUnlocked, async () => {
+  await syncBackgroundLock();
 });
 
 watch(currentTab, (tab) => {
@@ -203,7 +205,7 @@ function onSearch() {
 }
 
 async function onUnlocked() {
-  await syncBackgroundUnlock();
+  await syncBackgroundLock();
   if (currentTab.value !== 'settings') {
     await entriesStore.loadEntries(currentTab.value as EntryType);
   }

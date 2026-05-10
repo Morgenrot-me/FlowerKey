@@ -131,6 +131,9 @@ export const useMainStore = defineStore('main', () => {
   async function changeMasterPwd(newPwd: string): Promise<void> {
     const masterData = await db.getMasterData();
     if (!masterData) throw new Error('未初始化');
+    if (masterData.encryptedMasterPwd || masterData.recoverySalt) {
+      throw new Error('存在恢复码，请先记录并在改密后重新生成');
+    }
     const ok = await verifyMasterPassword(masterPwd.value, masterData.verifySalt!, masterData.verifyHash);
     if (!ok) throw new Error('会话已过期，请重新解锁');
     const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
@@ -150,11 +153,22 @@ export const useMainStore = defineStore('main', () => {
   }
 
   async function importData(json: string): Promise<number> {
-    const { entries } = JSON.parse(json) as { entries: Entry[] };
+    const validTypes = new Set<Entry['type']>(['password', 'bookmark', 'file_ref', 'note']);
+    let parsed: { entries: Entry[] };
+    try { parsed = JSON.parse(json); } catch { throw new Error('导入文件格式错误'); }
+    if (!Array.isArray(parsed?.entries)) throw new Error('导入文件缺少 entries 字段');
     let count = 0;
-    for (const entry of entries) {
+    for (const entry of parsed.entries) {
+      if (!entry?.id) continue;
+      if (!validTypes.has(entry.type)) throw new Error('导入文件包含不支持的条目类型');
+      if (!Number.isFinite(entry.createdAt) || !Number.isFinite(entry.updatedAt)) {
+        throw new Error('导入文件包含无效条目时间');
+      }
       const exists = await db.getEntry(entry.id);
-      if (!exists) {
+      const duplicateBookmark = entry.type === 'bookmark' && entry.url
+        ? await db.getBookmarkByUrl(entry.url)
+        : undefined;
+      if (!exists && !duplicateBookmark) {
         await db.importEntry(entry);
         count++;
       }

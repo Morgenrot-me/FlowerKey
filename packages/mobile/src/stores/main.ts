@@ -151,6 +151,10 @@ export const useMainStore = defineStore('main', () => {
   async function changeMasterPwd(currentPwd: string, newPwd: string): Promise<void> {
     const data = await sqliteDb.getMasterData();
     if (!data) throw new Error('未初始化');
+    // 恢复码解锁后的强制重置允许清空旧恢复码；普通改密则必须先让用户重新记录并稍后再生成
+    if (!needsPasswordReset.value && (data.encryptedMasterPwd || data.recoverySalt)) {
+      throw new Error('存在恢复码，请先记录并在改密后重新生成');
+    }
     // 恢复码场景下已解锁，跳过旧密码验证；正常场景需验证
     if (!needsPasswordReset.value) {
       const ok = await verifyMasterPassword(currentPwd, data.verifySalt!, data.verifyHash);
@@ -174,14 +178,22 @@ export const useMainStore = defineStore('main', () => {
   }
 
   async function importData(json: string): Promise<number> {
+    const validTypes = new Set<Entry['type']>(['password', 'bookmark', 'file_ref', 'note']);
     let parsed: { entries: Entry[] };
     try { parsed = JSON.parse(json); } catch { throw new Error('导入文件格式错误'); }
     if (!Array.isArray(parsed?.entries)) throw new Error('导入文件缺少 entries 字段');
     let count = 0;
     for (const entry of parsed.entries) {
       if (!entry?.id) continue;
+      if (!validTypes.has(entry.type)) throw new Error('导入文件包含不支持的条目类型');
+      if (!Number.isFinite(entry.createdAt) || !Number.isFinite(entry.updatedAt)) {
+        throw new Error('导入文件包含无效条目时间');
+      }
       const exists = await sqliteDb.getEntry(entry.id);
-      if (!exists) { await sqliteDb.importEntry(entry); count++; }
+      const duplicateBookmark = entry.type === 'bookmark' && entry.url
+        ? await sqliteDb.getBookmarkByUrl(entry.url)
+        : undefined;
+      if (!exists && !duplicateBookmark) { await sqliteDb.importEntry(entry); count++; }
     }
     return count;
   }

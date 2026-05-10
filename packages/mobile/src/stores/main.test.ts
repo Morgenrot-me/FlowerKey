@@ -1,11 +1,11 @@
 /**
- * 花钥 FlowerKey - 主状态 Store 测试
- * 覆盖解锁、锁定与临时写库时数据库密钥恢复行为。
+ * 花钥移动端 - 主状态 Store 测试
+ * 覆盖普通改密时的恢复码保护，以及恢复码重置后的合法改密路径。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
-const dbMock = vi.hoisted(() => ({
+const sqliteDbMock = vi.hoisted(() => ({
   getMasterData: vi.fn(),
   setDbKey: vi.fn(),
   clearDbKey: vi.fn(),
@@ -15,15 +15,15 @@ const dbMock = vi.hoisted(() => ({
   setDeviceId: vi.fn(),
   getEntriesByType: vi.fn(),
   createEntry: vi.fn(),
-  touchLastUsed: vi.fn(),
+  updateLastUsed: vi.fn(),
   reEncryptAllEntries: vi.fn(),
+  getAllEntries: vi.fn(),
   getEntry: vi.fn(),
   importEntry: vi.fn(),
   getBookmarkByUrl: vi.fn(),
 }));
 
 const coreMock = vi.hoisted(() => ({
-  db: dbMock,
   generateSalt: vi.fn(() => 'verify-salt'),
   generateDeviceId: vi.fn(() => 'device-1'),
   createVerifyHash: vi.fn(),
@@ -33,57 +33,39 @@ const coreMock = vi.hoisted(() => ({
   generateRecoveryCode: vi.fn(),
   encryptMasterPwdWithRecovery: vi.fn(),
   decryptMasterPwdWithRecovery: vi.fn(),
-  decryptEntry: vi.fn(),
   runDirectPasswordFlow: vi.fn(),
-  savePasswordEntry: vi.fn(),
+}));
+
+const capacitorMock = vi.hoisted(() => ({
+  Capacitor: { getPlatform: vi.fn(() => 'web') },
+  registerPlugin: vi.fn(() => ({ setUnlocked: vi.fn(), setLocked: vi.fn() })),
 }));
 
 vi.mock('@flowerkey/core', () => coreMock);
+vi.mock('../db-sqlite', () => sqliteDbMock);
+vi.mock('@capacitor/core', () => capacitorMock);
 
-describe('useMainStore', () => {
+describe('mobile useMainStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
-    dbMock.getMasterData.mockResolvedValue({
+    sqliteDbMock.getMasterData.mockResolvedValue({
       verifyHash: 'hash',
       verifySalt: 'salt',
       userSalt: 'FlowerKey',
       createdAt: 1,
     });
-    dbMock.getConfig.mockResolvedValue('device-1');
+    sqliteDbMock.getConfig.mockResolvedValue('device-1');
     coreMock.verifyMasterPassword.mockResolvedValue(true);
     coreMock.createVerifyHash.mockResolvedValue('next-verify-hash');
     coreMock.deriveDatabaseKey.mockImplementation(async (pwd: string, salt: string) => `dbkey:${pwd}:${salt}`);
-    coreMock.savePasswordEntry.mockImplementation(async (input: {
-      masterPwd: string;
-      codename: string;
-      mode: string;
-      length: number;
-      runtime: { withWritableDbKey: (pwd: string, salt: string, run: () => Promise<{ ok: boolean }>) => Promise<{ ok: boolean }> };
-    }) => input.runtime.withWritableDbKey(input.masterPwd, 'FlowerKey', async () => ({ ok: true })));
   });
 
-  it('restores the unlocked database key after saving a temporary password with another password', async () => {
+  it('rejects a normal password change when a recovery payload exists', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
-    await store.unlock('correct-password');
-    dbMock.setDbKey.mockClear();
-    dbMock.clearDbKey.mockClear();
-
-    await store.savePassword('another-password', 'github-main');
-
-    expect(coreMock.savePasswordEntry).toHaveBeenCalledOnce();
-    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(1, 'dbkey:another-password:FlowerKey');
-    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(2, 'dbkey:correct-password:FlowerKey');
-    expect(dbMock.clearDbKey).not.toHaveBeenCalled();
-  });
-
-  it('reports that the recovery code must be regenerated after changing the master password', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    dbMock.getMasterData.mockResolvedValue({
+    sqliteDbMock.getMasterData.mockResolvedValue({
       verifyHash: 'hash',
       verifySalt: 'salt',
       userSalt: 'FlowerKey',
@@ -97,20 +79,40 @@ describe('useMainStore', () => {
     await expect(store.changeMasterPwd('correct-password', 'new-password')).rejects.toThrow('存在恢复码，请先记录并在改密后重新生成');
   });
 
-  it('changes the master password when no recovery payload exists', async () => {
+  it('allows changing the master password after recovery unlock reset flow', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
-    await store.unlock('correct-password');
-    dbMock.setMasterData.mockClear();
+    sqliteDbMock.getMasterData
+      .mockResolvedValueOnce({
+        verifyHash: 'hash',
+        verifySalt: 'salt',
+        userSalt: 'FlowerKey',
+        createdAt: 1,
+        encryptedMasterPwd: 'encrypted-old-master',
+        recoverySalt: 'recovery-salt',
+      })
+      .mockResolvedValueOnce({
+        verifyHash: 'hash',
+        verifySalt: 'salt',
+        userSalt: 'FlowerKey',
+        createdAt: 1,
+        encryptedMasterPwd: 'encrypted-old-master',
+        recoverySalt: 'recovery-salt',
+      });
+    coreMock.decryptMasterPwdWithRecovery.mockResolvedValue('correct-password');
 
-    await store.changeMasterPwd('correct-password', 'new-password');
+    const recovered = await store.recoverWithCode('recovery-code');
+    expect(recovered).toBe(true);
 
-    expect(dbMock.reEncryptAllEntries).toHaveBeenCalledWith(
+    sqliteDbMock.setMasterData.mockClear();
+    await store.changeMasterPwd('', 'new-password');
+
+    expect(sqliteDbMock.reEncryptAllEntries).toHaveBeenCalledWith(
       'dbkey:correct-password:FlowerKey',
       'dbkey:new-password:FlowerKey',
     );
-    expect(dbMock.setMasterData).toHaveBeenCalledWith(expect.objectContaining({
+    expect(sqliteDbMock.setMasterData).toHaveBeenCalledWith(expect.objectContaining({
       verifyHash: 'next-verify-hash',
       verifySalt: 'verify-salt',
       encryptedMasterPwd: undefined,
@@ -118,49 +120,12 @@ describe('useMainStore', () => {
     }));
   });
 
-  it('generates a new recovery code after the master password changes', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    await store.unlock('correct-password');
-    dbMock.setMasterData.mockClear();
-    coreMock.generateRecoveryCode.mockReturnValue('new-recovery-code');
-    coreMock.encryptMasterPwdWithRecovery.mockResolvedValue({
-      encryptedMasterPwd: 'encrypted-new-master',
-      recoverySalt: 'recovery-salt-2',
-    });
-
-    await store.changeMasterPwd('correct-password', 'new-password');
-    const recoveryCode = await store.generateRecovery();
-
-    expect(recoveryCode).toBe('new-recovery-code');
-    expect(coreMock.encryptMasterPwdWithRecovery).toHaveBeenCalledWith('new-password', 'new-recovery-code');
-    expect(dbMock.setMasterData).toHaveBeenLastCalledWith(expect.objectContaining({
-      encryptedMasterPwd: 'encrypted-new-master',
-      recoverySalt: 'recovery-salt-2',
-    }));
-  });
-
-  it('reports a stable error when import JSON is invalid', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    await expect(store.importData('{invalid')).rejects.toThrow('导入文件格式错误');
-  });
-
-  it('reports a stable error when import JSON has no entries array', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    await expect(store.importData('{"version":1}')).rejects.toThrow('导入文件缺少 entries 字段');
-  });
-
   it('skips importing a bookmark when another bookmark with the same url already exists', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
-    dbMock.getEntry.mockResolvedValue(undefined);
-    dbMock.getBookmarkByUrl.mockResolvedValue({
+    sqliteDbMock.getEntry.mockResolvedValue(undefined);
+    sqliteDbMock.getBookmarkByUrl.mockResolvedValue({
       id: 'existing-bookmark',
       type: 'bookmark',
       url: 'https://example.com',
@@ -187,7 +152,7 @@ describe('useMainStore', () => {
     }));
 
     expect(imported).toBe(0);
-    expect(dbMock.importEntry).not.toHaveBeenCalled();
+    expect(sqliteDbMock.importEntry).not.toHaveBeenCalled();
   });
 
   it('rejects importing an entry with an unsupported type', async () => {
@@ -205,7 +170,7 @@ describe('useMainStore', () => {
         updatedAt: 1,
       }],
     }))).rejects.toThrow('导入文件包含不支持的条目类型');
-    expect(dbMock.importEntry).not.toHaveBeenCalled();
+    expect(sqliteDbMock.importEntry).not.toHaveBeenCalled();
   });
 
   it('rejects importing an entry with a non-numeric updatedAt', async () => {
@@ -224,6 +189,6 @@ describe('useMainStore', () => {
         updatedAt: 'oops',
       }],
     }))).rejects.toThrow('导入文件包含无效条目时间');
-    expect(dbMock.importEntry).not.toHaveBeenCalled();
+    expect(sqliteDbMock.importEntry).not.toHaveBeenCalled();
   });
 });

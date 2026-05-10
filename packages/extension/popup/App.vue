@@ -108,6 +108,7 @@ import OnboardingForm from '@ui/components/OnboardingForm.vue';
 import SetupForm from '@ui/components/SetupForm.vue';
 import UnlockForm from '@ui/components/UnlockForm.vue';
 import Toast from '@ui/components/Toast.vue';
+import { syncBackgroundLockState } from '../src/state-sync';
 
 const mainStore = useMainStore();
 const entriesStore = useEntriesStore();
@@ -158,14 +159,16 @@ onMounted(async () => {
   if (mainStore.isSetup) await init();
 });
 
-async function syncBackgroundUnlock() {
-  if (!mainStore.masterPwd) return;
-  await chrome.runtime.sendMessage({ type: 'setUnlocked', masterPwd: mainStore.masterPwd, userSalt: mainStore.userSalt });
+async function syncBackgroundLock() {
+  await syncBackgroundLockState(chrome.runtime.sendMessage, {
+    isUnlocked: mainStore.isUnlocked,
+    masterPwd: mainStore.masterPwd,
+    userSalt: mainStore.userSalt,
+  });
 }
 
-watch(() => mainStore.isUnlocked, async (unlocked) => {
-  if (!unlocked) return;
-  await syncBackgroundUnlock();
+watch(() => mainStore.isUnlocked, async () => {
+  await syncBackgroundLock();
 });
 
 async function init() {
@@ -187,7 +190,7 @@ async function init() {
 function onSetupDone() {}
 
 async function onUnlocked() {
-  await syncBackgroundUnlock();
+  await syncBackgroundLock();
   if (mode.value === 'bookmark') {
     await init();
   }

@@ -117,6 +117,12 @@ export async function getEntriesByType(type: Entry['type']): Promise<Entry[]> {
   return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
 }
 
+export async function getBookmarkByUrl(url: string): Promise<Entry | undefined> {
+  const res = await db!.query('SELECT * FROM entries WHERE type=? AND url=? LIMIT 1', ['bookmark', url]);
+  if (!res.values?.length) return undefined;
+  return decryptEntry(rowToEntry(res.values[0] as Record<string, unknown>), _dbKey);
+}
+
 export async function setBookmarkEncryption(encrypt: boolean): Promise<void> {
   const res = await db!.query('SELECT * FROM entries WHERE type=?', ['bookmark']);
   for (const row of res.values ?? []) {
