@@ -15,11 +15,7 @@ export const useEntriesStore = defineStore('entries', () => {
   const searchQuery = ref('');
   const selectedTags = ref<string[]>([]);
 
-  const tags = computed(() => {
-    const set = new Set<string>();
-    entries.value.forEach(e => e.tags?.forEach(t => set.add(t)));
-    return [...set];
-  });
+  const tags = ref<string[]>([]);
 
   const filtered = computed(() => {
     let list = entries.value;
@@ -33,7 +29,7 @@ export const useEntriesStore = defineStore('entries', () => {
       list = sortEntriesByRecent(list);
     }
     if (selectedTags.value.length) {
-      list = list.filter(e => selectedTags.value.every(t => e.tags?.includes(t)));
+      list = list.filter(e => selectedTags.value.some(t => e.tags?.includes(t)));
     }
     return list;
   });
@@ -41,6 +37,7 @@ export const useEntriesStore = defineStore('entries', () => {
   async function load(type: EntryType = 'password') {
     currentType.value = type;
     entries.value = await db.getEntriesByType(type);
+    tags.value = await db.getAllTags();
   }
 
   async function create(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) {

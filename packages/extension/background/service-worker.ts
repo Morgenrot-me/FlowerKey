@@ -260,7 +260,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const host = msg.host as string;
         const matched = all.filter(e => {
           if (!e.url) return false;
-          try { return new URL(e.url).hostname === host; } catch { return false; }
+          const urlStr = e.url.includes('://') ? e.url : `https://${e.url}`;
+          try { return new URL(urlStr).hostname === host; } catch { return false; }
         }).map(e => ({ id: e.id, codename: e.codename || '', description: e.description || '' }));
         sendResponse({ entries: matched, locked: false });
       } catch { sendResponse({ entries: [], locked: false }); }

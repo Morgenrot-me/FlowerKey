@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Entry } from '@flowerkey/core';
 
 const dbRunMock = vi.hoisted(() => vi.fn());
+const dbQueryMock = vi.hoisted(() => vi.fn());
 const dbExecuteMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@capacitor-community/sqlite', () => ({
@@ -16,7 +17,7 @@ vi.mock('@capacitor-community/sqlite', () => ({
         open: vi.fn(),
         execute: dbExecuteMock,
         run: dbRunMock,
-        query: vi.fn(),
+        query: dbQueryMock,
       };
     }
   },
@@ -28,8 +29,8 @@ vi.mock('@flowerkey/core', async (importOriginal) => {
     ...actual,
     encryptEntry: vi.fn(async (entry: Entry) => entry),
     decryptEntry: vi.fn(async (entry: Entry) => entry),
-    encrypt: vi.fn(),
-    decrypt: vi.fn(),
+    encrypt: vi.fn(async (text: string) => new TextEncoder().encode(text).buffer),
+    decrypt: vi.fn(async (data: ArrayBuffer) => new TextDecoder().decode(data)),
   };
 });
 
@@ -64,5 +65,68 @@ describe('mobile db-sqlite', () => {
       expect.stringContaining('lastUsedAt'),
       expect.arrayContaining([3000]),
     );
+  });
+
+  it('markAllUnsynced inserts update operations, not create', async () => {
+    const sqliteDb = await import('./db-sqlite.js');
+    await sqliteDb.initSQLite();
+
+    dbQueryMock.mockResolvedValueOnce({
+      values: [{ id: 'entry-1' }, { id: 'entry-2' }],
+    });
+
+    await sqliteDb.markAllUnsynced('device-test');
+
+    // 先删除旧 changelog
+    expect(dbRunMock).toHaveBeenCalledWith(
+      'DELETE FROM changelog WHERE synced=1',
+    );
+
+    // 后续两次 INSERT 使用 'update' 操作
+    const insertCalls = dbRunMock.mock.calls.filter((call: unknown[]) =>
+      typeof call[0] === 'string' && call[0].includes('INSERT INTO changelog')
+    );
+    expect(insertCalls).toHaveLength(2);
+    for (const call of insertCalls) {
+      expect(call[1][2]).toBe('update');
+    }
+  });
+
+  it('getSecretConfig decrypts with version-aware decrypt function', async () => {
+    const sqliteDb = await import('./db-sqlite.js');
+    await sqliteDb.initSQLite();
+    sqliteDb.setDbKey({} as CryptoKey);
+
+    const { decrypt } = await import('@flowerkey/core');
+    const mockDecrypt = decrypt as ReturnType<typeof vi.fn>;
+    mockDecrypt.mockResolvedValueOnce(JSON.stringify({ url: 'https://example.com', username: 'test' }));
+
+    dbQueryMock.mockResolvedValueOnce({
+      values: [{ value: JSON.stringify({ __enc: 'AQAAAAAAAAAAAAAAAAAAAAAKFBQ=' }) }],
+    });
+
+    const result = await sqliteDb.getSecretConfig('webdavConfig');
+    expect(result).toEqual({ url: 'https://example.com', username: 'test' });
+  });
+
+  it('getSecretConfig returns undefined when dbKey is null', async () => {
+    const sqliteDb = await import('./db-sqlite.js');
+    await sqliteDb.initSQLite();
+    sqliteDb.clearDbKey();
+
+    dbQueryMock.mockResolvedValueOnce({
+      values: [{ value: JSON.stringify({ __enc: 'AAAA' }) }],
+    });
+
+    const result = await sqliteDb.getSecretConfig('webdavConfig');
+    expect(result).toBeUndefined();
+  });
+
+  it('setSecretConfig throws when dbKey is null', async () => {
+    const sqliteDb = await import('./db-sqlite.js');
+    await sqliteDb.initSQLite();
+    sqliteDb.clearDbKey();
+
+    await expect(sqliteDb.setSecretConfig('key', 'value')).rejects.toThrow('未解锁');
   });
 });

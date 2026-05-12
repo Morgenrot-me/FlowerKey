@@ -21,7 +21,7 @@ async function ensureDeviceId() {
 export const useSyncStore = defineStore('sync', () => {
   const config = ref<WebDAVConfig | null>(null);
   const syncing = ref(false);
-  const lastResult = ref<{ pushed: number; pulled: number; encryptMismatch?: number } | null>(null);
+  const lastResult = ref<{ pushed: number; pulled: number; encryptMismatch?: number; mismatchedBookmarkIds?: string[] } | null>(null);
   const lastSyncTime = ref<number | null>(null);
   const error = ref('');
 

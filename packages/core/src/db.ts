@@ -261,7 +261,7 @@ export class FlowerKeyDB extends Dexie {
   /** 获取所有文件夹路径（去重） */
   async getAllFolders(): Promise<string[]> {
     const entries = await this.entries.orderBy('folder').uniqueKeys();
-    return entries as string[];
+    return (entries as string[]).filter(Boolean);
   }
 
   /** 获取所有标签（去重） */

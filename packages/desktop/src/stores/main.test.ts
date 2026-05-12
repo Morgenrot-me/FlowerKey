@@ -179,4 +179,41 @@ describe('desktop useMainStore', () => {
     }))).rejects.toThrow('导入文件包含无效条目时间');
     expect(dbMock.importEntry).not.toHaveBeenCalled();
   });
+
+  it('allows changing master password after recovery code unlock', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+
+    dbMock.getMasterData
+      .mockResolvedValueOnce({
+        verifyHash: 'hash', verifySalt: 'salt', userSalt: 'FlowerKey', createdAt: 1,
+        encryptedMasterPwd: 'encrypted-old-master', recoverySalt: 'recovery-salt',
+      })
+      .mockResolvedValueOnce({
+        verifyHash: 'hash', verifySalt: 'salt', userSalt: 'FlowerKey', createdAt: 1,
+        encryptedMasterPwd: 'encrypted-old-master', recoverySalt: 'recovery-salt',
+      });
+    coreMock.decryptMasterPwdWithRecovery.mockResolvedValue('correct-password');
+
+    const recovered = await store.recoverWithCode('recovery-code');
+    expect(recovered).toBe(true);
+    expect(store.needsPasswordReset).toBe(true);
+
+    dbMock.setMasterData.mockClear();
+    await store.changeMasterPwd('new-password');
+
+    expect(dbMock.reEncryptAllEntries).toHaveBeenCalled();
+    expect(dbMock.setMasterData).toHaveBeenCalledWith(expect.objectContaining({
+      encryptedMasterPwd: undefined, recoverySalt: undefined,
+    }));
+    expect(store.needsPasswordReset).toBe(false);
+  });
+
+  it('clears needsPasswordReset on lock', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+    store.needsPasswordReset = true;
+    store.lock();
+    expect(store.needsPasswordReset).toBe(false);
+  });
 });

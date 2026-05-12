@@ -66,6 +66,7 @@ export class SyncEngine {
   private local: LocalDbAdapter;
   private lockToken = '';
   encryptMismatchCount = 0;
+  mismatchedBookmarkIds: string[] = [];
 
   constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string, localAdapter?: LocalDbAdapter) {
     this.dav = 'url' in backend ? new FlowerKeyWebDAV(backend) : backend;
@@ -82,7 +83,7 @@ export class SyncEngine {
     return decrypt(buf, this.dbKey);
   }
 
-  /** 尝试获取同步锁（60秒过期） */
+  /** 尝试获取同步锁（60秒过期，二次读回防TOCTOU竞态） */
   private async acquireLock(): Promise<boolean> {
     const existing = await this.dav.read('sync.lock');
     if (existing) {
@@ -99,11 +100,29 @@ export class SyncEngine {
     const lock: SyncLock = { deviceId: this.deviceId, token: this.lockToken, expires: Date.now() + LOCK_TIMEOUT_MS };
     await this.dav.write('sync.lock', JSON.stringify(lock));
 
+    // 第一次读回确认
     const current = await this.dav.read('sync.lock');
     if (!current) return false;
     try {
       const saved = JSON.parse(new TextDecoder().decode(current)) as Partial<SyncLock>;
-      return saved.deviceId === this.deviceId && saved.token === this.lockToken;
+      if (saved.deviceId !== this.deviceId || saved.token !== this.lockToken) return false;
+    } catch {
+      return false;
+    }
+
+    // 二次读回验证：随机延迟后再次确认，防止并发写入覆盖
+    await new Promise(r => setTimeout(r, 100 + Math.floor(Math.random() * 200)));
+    const recheck = await this.dav.read('sync.lock');
+    if (!recheck) return false;
+    try {
+      const recheckLock = JSON.parse(new TextDecoder().decode(recheck)) as Partial<SyncLock>;
+      if (recheckLock.deviceId !== this.deviceId || recheckLock.token !== this.lockToken) {
+        // 锁被其他设备覆盖，释放自己的写入
+        await this.dav.remove('sync.lock').catch(() => {});
+        this.lockToken = '';
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
@@ -133,7 +152,7 @@ export class SyncEngine {
   }
 
   /** 执行一次完整同步 */
-  async sync(): Promise<{ pushed: number; pulled: number; encryptMismatch?: number }> {
+  async sync(): Promise<{ pushed: number; pulled: number; encryptMismatch?: number; mismatchedBookmarkIds?: string[] }> {
     await this.dav.ensureDir();
 
     if (!(await this.acquireLock())) {
@@ -142,14 +161,16 @@ export class SyncEngine {
 
     try {
       this.encryptMismatchCount = 0;
+      this.mismatchedBookmarkIds = [];
       const pushed = await this.push();
       await this.restoreFromVaultIfNeeded();
       const pulled = await this.pull();
       await this.maybeCompact();
       const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
       await this.local.setConfig('syncState', { ...state, lastSyncTime: Date.now() });
-      const result: { pushed: number; pulled: number; encryptMismatch?: number } = { pushed, pulled };
+      const result: { pushed: number; pulled: number; encryptMismatch?: number; mismatchedBookmarkIds?: string[] } = { pushed, pulled };
       if (this.encryptMismatchCount > 0) result.encryptMismatch = this.encryptMismatchCount;
+      if (this.mismatchedBookmarkIds.length > 0) result.mismatchedBookmarkIds = [...this.mismatchedBookmarkIds];
       return result;
     } finally {
       await this.releaseLock();
@@ -241,6 +262,7 @@ export class SyncEngine {
       const remoteEncrypt = remote.encrypted !== false;
       if (localEncrypt !== remoteEncrypt) {
         this.encryptMismatchCount++;
+        this.mismatchedBookmarkIds.push(op.entryId);
         return;
       }
     }

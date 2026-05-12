@@ -27,6 +27,7 @@ export const useMainStore = defineStore('main', () => {
   const isSetup = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
+  const needsPasswordReset = ref(false);
 
   async function checkSetup() {
     const data = await db.getMasterData();
@@ -67,6 +68,7 @@ export const useMainStore = defineStore('main', () => {
   function lock() {
     masterPwd.value = '';
     isUnlocked.value = false;
+    needsPasswordReset.value = false;
     db.clearDbKey();
   }
 
@@ -124,18 +126,22 @@ export const useMainStore = defineStore('main', () => {
     if (!data?.encryptedMasterPwd || !data.recoverySalt) return false;
     try {
       const pwd = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, code);
-      return unlock(pwd);
+      const ok = await unlock(pwd);
+      if (ok) needsPasswordReset.value = true;
+      return ok;
     } catch { return false; }
   }
 
   async function changeMasterPwd(newPwd: string): Promise<void> {
     const masterData = await db.getMasterData();
     if (!masterData) throw new Error('未初始化');
-    if (masterData.encryptedMasterPwd || masterData.recoverySalt) {
+    if (!needsPasswordReset.value && (masterData.encryptedMasterPwd || masterData.recoverySalt)) {
       throw new Error('存在恢复码，请先记录并在改密后重新生成');
     }
-    const ok = await verifyMasterPassword(masterPwd.value, masterData.verifySalt!, masterData.verifyHash);
-    if (!ok) throw new Error('会话已过期，请重新解锁');
+    if (!needsPasswordReset.value) {
+      const ok = await verifyMasterPassword(masterPwd.value, masterData.verifySalt!, masterData.verifyHash);
+      if (!ok) throw new Error('会话已过期，请重新解锁');
+    }
     const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
     const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
     await db.reEncryptAllEntries(oldKey, newKey);
@@ -144,6 +150,7 @@ export const useMainStore = defineStore('main', () => {
     const verifyHash = await createVerifyHash(newPwd, verifySalt);
     await db.setMasterData({ ...masterData, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
     masterPwd.value = newPwd;
+    needsPasswordReset.value = false;
   }
 
   async function exportData(): Promise<string> {
@@ -179,7 +186,7 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt, masterPwd,
+    isUnlocked, isSetup, userSalt, masterPwd, needsPasswordReset,
     checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
     generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
   };

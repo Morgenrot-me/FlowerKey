@@ -227,12 +227,7 @@ export async function getSecretConfig<T>(key: string): Promise<T | undefined> {
   if (!_dbKey) return undefined;
   try {
     const bytes = base64ToBytes(v.__enc);
-    if (bytes[0] === 1) return JSON.parse(await decrypt(bytes.buffer as ArrayBuffer, _dbKey)) as T;
-
-    const iv = bytes.slice(0, 12);
-    const data = bytes.slice(12);
-    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, _dbKey, data);
-    return JSON.parse(new TextDecoder().decode(dec)) as T;
+    return JSON.parse(await decrypt(bytes.buffer as ArrayBuffer, _dbKey)) as T;
   } catch { return undefined; }
 }
 
@@ -274,7 +269,7 @@ export async function markAllUnsynced(deviceId: string): Promise<void> {
   for (const e of entries) {
     await db!.run(
       'INSERT INTO changelog (entryId,entryType,operation,timestamp,synced,deviceId) VALUES (?,?,?,?,?,?)',
-      [e.id, 'entry', 'create', Date.now(), 0, deviceId]
+      [e.id, 'entry', 'update', Date.now(), 0, deviceId]
     );
   }
 }
