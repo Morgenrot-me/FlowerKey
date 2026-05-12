@@ -28,11 +28,12 @@ writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + '\n');
 console.log(`tauri.conf.json: ${version}`);
 
 // 同步 manifest.json
-const manifestPath = 'packages/extension/manifest.json';
-const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-manifest.version = version;
-writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-console.log(`manifest.json: ${version}`);
+for (const manifestPath of ['packages/extension/manifest.json', 'packages/extension/public/manifest.json']) {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.version = version;
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  console.log(`${manifestPath}: ${version}`);
+}
 
 // 同步 Android build.gradle versionName
 // versionCode 用版本号各段相加（如 0.3.0 → 3）保持递增
