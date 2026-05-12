@@ -25,7 +25,7 @@ export async function initSQLite() {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS entries (
       id TEXT PRIMARY KEY, type TEXT, folder TEXT, tags TEXT,
-      createdAt INTEGER, updatedAt INTEGER,
+      createdAt INTEGER, updatedAt INTEGER, lastUsedAt INTEGER,
       codename TEXT, charsetMode TEXT, passwordLength INTEGER, storedPassword TEXT,
       url TEXT, title TEXT, favicon TEXT, encrypted INTEGER,
       content TEXT, fileName TEXT, sourceUrl TEXT, description TEXT,
@@ -56,10 +56,10 @@ function rowToEntry(row: Record<string, unknown>): Entry {
 
 async function putStoredEntry(stored: Entry): Promise<void> {
   await db!.run(
-    `INSERT OR REPLACE INTO entries (id,type,folder,tags,createdAt,updatedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT OR REPLACE INTO entries (id,type,folder,tags,createdAt,updatedAt,lastUsedAt,codename,charsetMode,passwordLength,storedPassword,url,title,favicon,encrypted,content,fileName,sourceUrl,description,appPackage)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [stored.id, stored.type, stored.folder ?? '', JSON.stringify(stored.tags ?? []),
-     stored.createdAt, stored.updatedAt, stored.codename ?? null, stored.charsetMode ?? null,
+     stored.createdAt, stored.updatedAt, stored.lastUsedAt ?? null, stored.codename ?? null, stored.charsetMode ?? null,
      stored.passwordLength ?? null, stored.storedPassword ?? null, stored.url ?? null,
      stored.title ?? null, stored.favicon ?? null,
      stored.encrypted === false ? 0 : null,
