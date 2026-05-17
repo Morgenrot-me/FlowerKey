@@ -185,10 +185,14 @@ function save() {
     ...(props.type === 'password' && pwdMode.value === 'generate' && {
       codename: form.value.codename,
       charsetMode: form.value.charsetMode, passwordLength: form.value.passwordLength,
+      storedPassword: undefined,
       ...(form.value.url && { url: form.value.url }),
     }),
     ...(props.type === 'password' && pwdMode.value === 'store' && {
-      codename: form.value.codename, storedPassword: form.value.storedPassword,
+      codename: form.value.codename,
+      charsetMode: undefined,
+      passwordLength: undefined,
+      storedPassword: form.value.storedPassword,
       ...(form.value.url && { url: form.value.url }),
     }),
     ...((props.type === 'bookmark' || props.type === 'file_ref') && { title: form.value.title, url: form.value.url }),

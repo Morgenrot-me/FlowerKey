@@ -226,6 +226,28 @@ describe('FlowerKeyDB', () => {
     await expect(database.getSecretConfig('webdav')).resolves.toBeUndefined();
   });
 
+  it('clears encrypted fields when updateEntry receives undefined', async () => {
+    const created = await database.createEntry({
+      type: 'password',
+      tags: [],
+      folder: '',
+      description: '',
+      codename: 'github',
+      storedPassword: 'old-secret',
+    });
+
+    await database.updateEntry(created.id, {
+      charsetMode: 'alphanumeric',
+      passwordLength: 16,
+      storedPassword: undefined,
+    });
+
+    const updated = await database.getEntry(created.id);
+    expect(updated?.storedPassword).toBeUndefined();
+    expect(updated?.charsetMode).toBe('alphanumeric');
+    expect(updated?.passwordLength).toBe(16);
+  });
+
   it('getSecretConfig returns plain value for non-encrypted legacy config', async () => {
     await database.setConfig('legacy-key', { plain: 'value' });
     const result = await database.getSecretConfig('legacy-key');

@@ -36,6 +36,24 @@ class MemoryBackend implements StorageBackend {
   }
 }
 
+class LockStealBackend extends MemoryBackend {
+  syncLockReads = 0;
+
+  async read(name: string): Promise<ArrayBuffer | null> {
+    if (name === 'sync.lock') {
+      this.syncLockReads++;
+      if (this.syncLockReads === 3) {
+        await this.write('sync.lock', JSON.stringify({
+          deviceId: 'device-b',
+          token: 'token-b',
+          expires: Date.now() + 30_000,
+        }));
+      }
+    }
+    return super.read(name);
+  }
+}
+
 class MemoryLocal implements LocalDbAdapter {
   logs: ChangeLog[] = [];
   entries = new Map<string, Entry>();
@@ -200,6 +218,20 @@ describe('SyncEngine', () => {
     const lockRaw = await backend.read('sync.lock');
     const lock = JSON.parse(new TextDecoder().decode(lockRaw!));
     expect(lock.deviceId).toBe('device-b');
+  });
+
+  it('does not delete a lock that another device wrote during the TOCTOU recheck', async () => {
+    const backend = new LockStealBackend();
+    const local = new MemoryLocal();
+    const key = await deriveDatabaseKey('master', 'FlowerKey');
+    const engine = new SyncEngine(backend, key, 'device-a', local);
+
+    await expect(engine.sync()).rejects.toThrow('同步锁被占用');
+
+    const lockRaw = await backend.read('sync.lock');
+    expect(lockRaw).not.toBeNull();
+    const lock = JSON.parse(new TextDecoder().decode(lockRaw!));
+    expect(lock).toMatchObject({ deviceId: 'device-b', token: 'token-b' });
   });
 
   it('returns mismatchedBookmarkIds when bookmark encryption settings differ', async () => {

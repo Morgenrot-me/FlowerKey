@@ -117,8 +117,7 @@ export class SyncEngine {
     try {
       const recheckLock = JSON.parse(new TextDecoder().decode(recheck)) as Partial<SyncLock>;
       if (recheckLock.deviceId !== this.deviceId || recheckLock.token !== this.lockToken) {
-        // 锁被其他设备覆盖，释放自己的写入
-        await this.dav.remove('sync.lock').catch(() => {});
+        // 锁已被其他设备覆盖，当前设备只放弃本次获取，不能删除对方的有效锁。
         this.lockToken = '';
         return false;
       }
