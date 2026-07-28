@@ -46,7 +46,12 @@ masterKey  = PBKDF2(masterPwd, NFC(identitySecret))
 
 dbKey      = PBKDF2(masterPwd, "flowerkey_dbenc_" + identitySecret)
              用于 IndexedDB 条目敏感字段 AES-256-GCM 加密
+
+identityWrapKey = PBKDF2(masterPwd, "flowerkey_identity_wrap_" + wrapSalt)
+                  用于 AES-256-GCM 加密本地身份密语
 ```
+
+`masterPasswordData` 只保存身份包装密文、随机包装盐和版本，不得保存身份密语明文。主密码与身份密语均为不可变生成根；恢复码只能恢复原主密码，不提供普通改密或恢复后重置主密码。
 
 密码生成遵循根目录《密码生成协议.md》的冻结协议 FK-DP1：
 
