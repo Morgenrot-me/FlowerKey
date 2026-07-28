@@ -51,6 +51,21 @@ export async function initSQLite() {
   try { await db.execute('ALTER TABLE entries ADD COLUMN appPackage TEXT'); } catch {}
   // 迁移：补充 lastUsedAt 列
   try { await db.execute('ALTER TABLE entries ADD COLUMN lastUsedAt INTEGER'); } catch {}
+  await purgeLegacyBookmarks();
+}
+
+/** 发布前迁移：删除本地旧书签及其变更日志。 */
+export async function purgeLegacyBookmarks(): Promise<number> {
+  const rows = (await db!.query('SELECT id FROM entries WHERE type=?', ['bookmark'])) ?? { values: [] };
+  const ids = (rows.values ?? []).map(row => (row as { id: string }).id);
+  if (!ids.length) return 0;
+  await db!.run('BEGIN TRANSACTION');
+  try {
+    await db!.run('DELETE FROM entries WHERE type=?', ['bookmark']);
+    await db!.run('DELETE FROM changelog WHERE entryType=? AND entryId IN (' + ids.map(() => '?').join(',') + ')', ['entry', ...ids]);
+    await db!.run('COMMIT');
+    return ids.length;
+  } catch (error) { await db!.run('ROLLBACK'); throw error; }
 }
 
 // ==================== Entry CRUD ====================

@@ -62,8 +62,8 @@
       </div>
     </div>
 
-    <!-- 书签设置 -->
-    <div class="bg-white rounded-xl divide-y">
+    <!-- 书签设置已移除 -->
+    <div v-if="false" class="bg-white rounded-xl divide-y">
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium">书签设置</p>
         <p class="text-xs text-gray-500">
@@ -128,7 +128,7 @@
           </label>
         </div>
         <p v-if="importMsg" class="text-xs text-green-600 text-center">{{ importMsg }}</p>
-        <label class="w-full py-2.5 border rounded-xl text-sm text-center cursor-pointer">
+        <label v-if="false" class="w-full py-2.5 border rounded-xl text-sm text-center cursor-pointer">
           导入浏览器书签（HTML）
           <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
         </label>

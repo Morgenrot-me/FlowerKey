@@ -231,6 +231,17 @@ export class FlowerKeyDB extends Dexie {
     return isCurrentMasterPasswordData(value) ? value : undefined;
   }
 
+  /** 发布前迁移：彻底移除旧书签及其本地变更日志。 */
+  async purgeLegacyBookmarks(): Promise<number> {
+    const bookmarks = await this.entries.where('type').equals('bookmark').primaryKeys() as string[];
+    if (!bookmarks.length) return 0;
+    await this.transaction('rw', [this.entries, this.changelog], async () => {
+      await this.entries.bulkDelete(bookmarks);
+      await this.changelog.where('entryId').anyOf(bookmarks).delete();
+    });
+    return bookmarks.length;
+  }
+
   async getMasterDataStatus(): Promise<'missing' | 'current' | 'unsupported'> {
     const value = await this.getConfig<unknown>('masterPasswordData');
     if (value === undefined) return 'missing';

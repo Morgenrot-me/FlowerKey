@@ -30,7 +30,6 @@
     <!-- 内容区 -->
     <div class="flex-1 overflow-hidden">
       <PasswordTab v-if="tab === 'password'" />
-      <BookmarkTab v-else-if="tab === 'bookmark'" />
       <NoteTab v-else-if="tab === 'note'" />
       <SettingsTab v-else-if="tab === 'settings'" @lock="$emit('lock')" />
     </div>
@@ -41,7 +40,6 @@
 import { ref } from 'vue';
 import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 import PasswordTab from './PasswordTab.vue';
-import BookmarkTab from './BookmarkTab.vue';
 import NoteTab from './NoteTab.vue';
 import SettingsTab from './SettingsTab.vue';
 
@@ -49,8 +47,7 @@ defineEmits<{ lock: [] }>();
 const tab = ref('password');
 const tabs = [
   { key: 'password', icon: 'password' as const, label: '密码' },
-  { key: 'bookmark', icon: 'bookmark' as const, label: '书签' },
-  { key: 'note', icon: 'note' as const, label: '笔记' },
+  { key: 'note', icon: 'note' as const, label: '秘密' },
   { key: 'settings', icon: 'settings' as const, label: '设置' },
 ];
 </script>

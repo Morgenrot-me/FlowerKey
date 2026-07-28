@@ -42,7 +42,6 @@
 
       <div class="flex-1 overflow-hidden md:max-w-2xl md:mx-auto md:w-full">
         <PasswordTab v-if="tab === 'password'" @editing-change="isEditing = $event" />
-        <BookmarkTab v-else-if="tab === 'bookmark'" @editing-change="isEditing = $event" />
         <NoteTab v-else-if="tab === 'note'" @editing-change="isEditing = $event" />
         <SettingsTab v-else-if="tab === 'settings'" @lock="$emit('lock')" />
       </div>
@@ -71,7 +70,6 @@ import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useEntriesStore } from '../stores/entries';
 import PasswordTab from './PasswordTab.vue';
-import BookmarkTab from './BookmarkTab.vue';
 import NoteTab from './NoteTab.vue';
 import SettingsTab from './SettingsTab.vue';
 
@@ -82,8 +80,7 @@ const entries = useEntriesStore();
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const tabs = [
   { key: 'password', icon: 'password' as const, label: '密码' },
-  { key: 'bookmark', icon: 'bookmark' as const, label: '书签' },
-  { key: 'note', icon: 'note' as const, label: '笔记' },
+  { key: 'note', icon: 'note' as const, label: '秘密' },
   { key: 'settings', icon: 'settings' as const, label: '设置' },
 ];
 

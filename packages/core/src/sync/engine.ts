@@ -254,16 +254,14 @@ export class SyncEngine {
 
     const remote = op.payload as Entry;
     if (!remote) return;
-
-    // 检测书签加密状态不一致：远端明文（encrypted===false）而本地加密，或反之
     if (remote.type === 'bookmark') {
       const localEncrypt = (await this.local.getConfig<boolean>('bookmarkEncrypt')) ?? true;
       const remoteEncrypt = remote.encrypted !== false;
       if (localEncrypt !== remoteEncrypt) {
         this.encryptMismatchCount++;
         this.mismatchedBookmarkIds.push(op.entryId);
-        return;
       }
+      return;
     }
 
     const local = await this.local.getEntry(op.entryId);
@@ -303,6 +301,7 @@ export class SyncEngine {
   private async applyVaultSnapshot(snapshot: VaultSnapshot): Promise<boolean> {
     if (!snapshot.entries) return false;
     for (const entry of snapshot.entries) {
+      if (entry.type === 'bookmark') continue;
       await this.local.putEntry(entry);
     }
     const now = Date.now();

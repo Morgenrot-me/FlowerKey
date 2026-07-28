@@ -24,11 +24,12 @@ import OnboardingPage from './pages/OnboardingPage.vue';
 import SetupPage from './pages/SetupPage.vue';
 import UnlockPage from './pages/UnlockPage.vue';
 import MainLayout from './pages/MainLayout.vue';
+import { db } from '@flowerkey/core';
 
 const main = useMainStore();
 const entries = useEntriesStore();
 const showSetup = ref(false);
-onMounted(() => main.checkSetup());
+onMounted(async () => { await db.purgeLegacyBookmarks(); await main.checkSetup(); });
 
 async function onUnlocked() { await entries.load('password'); }
 </script>
