@@ -41,14 +41,20 @@ scripts/
 verifyHash = PBKDF2(masterPwd, "flowerkey_verify_" + verifySalt)
              verifySalt 随机生成，仅本地存储，防彩虹表攻击
 
-masterKey  = PBKDF2(masterPwd, userSalt)
-             userSalt 固定为 "FlowerKey"，保证跨设备密码一致性
+masterKey  = PBKDF2(masterPwd, NFC(identitySecret))
+             identitySecret 为用户首次设置并确认的身份密语
 
-dbKey      = PBKDF2(masterPwd, "flowerkey_dbenc_" + userSalt)
+dbKey      = PBKDF2(masterPwd, "flowerkey_dbenc_" + identitySecret)
              用于 IndexedDB 条目敏感字段 AES-256-GCM 加密
 ```
 
-密码生成：`HMAC-SHA256(masterKey, codename)` → 编码为指定字符集
+密码生成遵循根目录《密码生成协议.md》的冻结协议 FK-DP1：
+
+- 区分代号执行 NFC，并将 ASCII `A-Z` 统一为小写
+- 字符模式仅允许“字母+数字”与“含特殊字符”
+- 长度仅允许 8、16（默认）、32
+- 字母和数字确定性必含；特殊字符模式额外保证特殊字符必含
+- 稳定版发布后不得修改既有输入输出结果
 
 ## IndexedDB / SQLite 加密字段
 

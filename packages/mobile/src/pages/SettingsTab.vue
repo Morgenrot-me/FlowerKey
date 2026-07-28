@@ -232,7 +232,7 @@
       <div v-if="showSecurity" class="px-4 pb-4 flex flex-col gap-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
         <p class="text-gray-600 dark:text-gray-300 font-medium">与主流密码管理器的本质区别</p>
         <p>主流密码管理器的逻辑：生成随机密码 → 加密存储 → 云端备份。加密密码库始终存在于某处，一旦被盗，你的一切都暴露了。</p>
-        <p>花钥的逻辑：记忆密码 + 区分代号 → 算法推算 → 唯一强密码。<span class="text-gray-700 dark:text-gray-200">密码按需生成，用完即弃。没有密码库，就没有密码库被盗。数据全丢了，密码依然可以重新生成。</span></p>
+        <p>花钥的逻辑：记忆密码 + 身份密语 + 区分代号 → 算法推算 → 唯一强密码。<span class="text-gray-700 dark:text-gray-200">密码按需生成，用完即弃；三项输入不变即可离线重建。</span></p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">本地存储了什么</p>
         <p><span class="text-gray-400 dark:text-gray-500">区分代号/标题/描述</span>　AES-256-GCM 加密，解锁后才可读取</p>
         <p><span class="text-gray-400 dark:text-gray-500">网址/包名/标签</span>　明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</p>

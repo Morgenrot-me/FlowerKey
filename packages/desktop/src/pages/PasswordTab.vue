@@ -63,21 +63,21 @@
 
         <!-- 生成模式 -->
         <template v-if="pwdMode === 'generate'">
-          <input v-model="form.codename" placeholder="区分代号（必填，如 github）" class="input" />
+          <input v-model="form.codename" placeholder="区分代号（如 微信、支付宝、GitHub）" class="input" />
+          <p class="text-xs text-gray-400 px-1 -mt-2">区分代号中的英文字母不区分大小写。</p>
           <div v-if="formPwdPreview" @click="copyPreview" class="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-xl -mt-1 cursor-pointer hover:opacity-80">
             <code class="text-sm text-blue-700 flex-1 break-all">{{ maskPwd(formPwdPreview) }}</code>
             <span class="text-xs text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
           </div>
-          <p class="text-xs text-gray-400 px-1">密码 = 记忆密码 + 区分代号，缺一不可。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
+          <p class="text-xs text-gray-400 px-1">密码由记忆密码、身份密语和区分代号共同生成。三项输入相同，即可在任意设备重建同一密码。</p>
           <div class="flex gap-2">
             <select v-model="form.charsetMode" class="flex-1 input">
               <option value="alphanumeric">字母+数字</option>
               <option value="with_symbols">含特殊字符</option>
             </select>
             <select v-model.number="form.passwordLength" class="w-24 input">
-              <option :value="8">8位</option>
-              <option :value="16">16位</option>
-              <option :value="24">24位</option>
+              <option :value="8">8位（旧系统）</option>
+              <option :value="16">16位（默认）</option>
               <option :value="32">32位</option>
             </select>
           </div>

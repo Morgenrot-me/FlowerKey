@@ -70,7 +70,7 @@ export interface UserConfig {
 /** 用户主密码验证数据（本地存储） */
 export interface MasterPasswordData {
   verifyHash: string;
-  userSalt: string;       // 密码生成盐（固定，跨设备一致）
+  userSalt: string;       // 身份密语（兼容旧字段名，FK-DP1 生成根输入）
   verifySalt: string;     // 验证专用随机盐（防彩虹表，仅本地）
   createdAt: number;
   // 恢复码加密数据（可选，首次设置或手动生成后存在）

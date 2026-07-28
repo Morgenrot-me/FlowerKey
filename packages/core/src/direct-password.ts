@@ -5,6 +5,7 @@
  */
 
 import type { CharsetMode, Entry, MasterPasswordData } from './models.js';
+import { normalizeCodename } from './crypto.js';
 
 export type DirectComputeMode = 'formal' | 'independent';
 
@@ -21,6 +22,7 @@ export interface DirectPasswordRuntime {
 export interface DirectPasswordInput {
   computeMode: DirectComputeMode;
   masterPwd: string;
+  identitySecret?: string;
   codename: string;
   mode?: CharsetMode;
   length?: number;
@@ -29,7 +31,10 @@ export interface DirectPasswordInput {
 }
 
 export type DirectPasswordResult =
-  | { ok: false; reason: 'invalid_master_password' | 'not_initialized' }
+  | {
+    ok: false;
+    reason: 'invalid_master_password' | 'not_initialized' | 'missing_identity_secret';
+  }
   | {
     ok: true;
     password: string;
@@ -37,31 +42,40 @@ export type DirectPasswordResult =
     persisted?: 'touched';
   };
 
-const DEFAULT_USER_SALT = 'FlowerKey';
 const DEFAULT_LENGTH = 16;
 const DEFAULT_MODE: CharsetMode = 'alphanumeric';
 
-function normalizeCodename(codename: string): string {
+function normalizeCodenameInput(codename: string): string {
   return codename.trim();
 }
 
 export async function runDirectPasswordFlow(input: DirectPasswordInput): Promise<DirectPasswordResult> {
-  const codename = normalizeCodename(input.codename);
+  const codename = normalizeCodenameInput(input.codename);
   const mode = input.mode ?? DEFAULT_MODE;
   const length = input.length ?? DEFAULT_LENGTH;
   const masterData = await input.runtime.getMasterData();
-  const userSalt = masterData?.userSalt || DEFAULT_USER_SALT;
 
   if (input.computeMode === 'independent') {
+    const identitySecret = masterData?.userSalt ?? input.identitySecret;
+    if (!identitySecret) {
+      return { ok: false, reason: 'missing_identity_secret' };
+    }
     return {
       ok: true,
-      password: await input.runtime.generatePassword(input.masterPwd, userSalt, codename, mode, length),
+      password: await input.runtime.generatePassword(
+        input.masterPwd,
+        identitySecret,
+        codename,
+        mode,
+        length,
+      ),
     };
   }
 
   if (!masterData) {
     return { ok: false, reason: 'not_initialized' };
   }
+  const identitySecret = masterData.userSalt;
 
   const verified = await input.runtime.verifyMasterPassword(
     input.masterPwd,
@@ -72,10 +86,19 @@ export async function runDirectPasswordFlow(input: DirectPasswordInput): Promise
     return { ok: false, reason: 'invalid_master_password' };
   }
 
-  const password = await input.runtime.generatePassword(input.masterPwd, userSalt, codename, mode, length);
-  return input.runtime.withWritableDbKey(input.masterPwd, userSalt, async () => {
+  return input.runtime.withWritableDbKey(input.masterPwd, identitySecret, async () => {
+    const normalizedCodename = normalizeCodename(codename);
     const existing = (await input.runtime.listPasswordEntries())
-      .find((entry) => entry.codename?.trim() === codename);
+      .find((entry) => entry.codename && normalizeCodename(entry.codename) === normalizedCodename);
+    const effectiveMode = existing?.charsetMode ?? mode;
+    const effectiveLength = existing?.passwordLength ?? length;
+    const password = await input.runtime.generatePassword(
+      input.masterPwd,
+      identitySecret,
+      codename,
+      effectiveMode,
+      effectiveLength,
+    );
 
     if (existing?.id) {
       await input.runtime.touchLastUsed(existing.id);
@@ -100,13 +123,15 @@ export async function savePasswordEntry(input: {
   url?: string;
   runtime: DirectPasswordRuntime;
 }): Promise<{ entryId: string; created: boolean }> {
-  const codename = normalizeCodename(input.codename);
+  const codename = normalizeCodenameInput(input.codename);
   const masterData = await input.runtime.getMasterData();
-  const userSalt = masterData?.userSalt || DEFAULT_USER_SALT;
+  if (!masterData) throw new Error('设备尚未初始化，无法保存密码条目');
+  const identitySecret = masterData.userSalt;
 
-  return input.runtime.withWritableDbKey(input.masterPwd, userSalt, async () => {
+  return input.runtime.withWritableDbKey(input.masterPwd, identitySecret, async () => {
+    const normalizedCodename = normalizeCodename(codename);
     const existing = (await input.runtime.listPasswordEntries())
-      .find((entry) => entry.codename?.trim() === codename);
+      .find((entry) => entry.codename && normalizeCodename(entry.codename) === normalizedCodename);
 
     if (existing?.id) {
       await input.runtime.touchLastUsed(existing.id);

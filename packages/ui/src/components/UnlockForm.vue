@@ -5,13 +5,13 @@
 <template>
   <div class="space-y-3">
     <div class="space-y-1 text-center">
-      <p class="text-sm text-gray-700 dark:text-gray-300">输入记忆密码和区分代号即可计算密码</p>
+      <p class="text-sm text-gray-700 dark:text-gray-300">使用本机身份密语，输入记忆密码和区分代号即可计算</p>
       <p class="text-[10px] text-gray-400 dark:text-gray-500">正式模式会校验记忆密码；复制时自动保存</p>
     </div>
 
     <div v-if="computeMode === 'independent'" class="rounded-2xl border border-amber-200/70 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 space-y-1 leading-relaxed">
       <p class="font-medium text-amber-800 dark:text-amber-200">独立计算模式</p>
-      <p>沿用 FlowerKey 固定盐，只生成可复制结果，不会保存到数据库。</p>
+      <p>使用本机初始化时保存的身份密语，只生成可复制结果，不会保存到数据库。</p>
     </div>
 
     <input
@@ -23,18 +23,18 @@
     <input
       v-model="codename"
       type="text"
-      placeholder="区分代号，例如 github-main"
+      placeholder="区分代号，例如 微信、支付宝、GitHub"
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
     />
+    <p class="text-[10px] text-gray-400 dark:text-gray-500">区分代号中的英文字母不区分大小写。</p>
     <div class="flex gap-2">
       <select v-model="charsetMode" class="flex-1 px-3 py-2 border rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
         <option value="alphanumeric">字母+数字</option>
         <option value="with_symbols">含特殊字符</option>
       </select>
       <select v-model.number="pwdLength" class="w-24 px-3 py-2 border rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
-        <option :value="8">8位</option>
-        <option :value="16">16位</option>
-        <option :value="24">24位</option>
+        <option :value="8">8位（旧系统）</option>
+        <option :value="16">16位（默认）</option>
         <option :value="32">32位</option>
       </select>
     </div>
@@ -204,6 +204,10 @@ async function submitCompute(nextMode?: DirectComputeMode) {
       if (result.reason === 'invalid_master_password') {
         error.value = '记忆密码不正确，不能生成正式密码';
         showIndependentAction.value = targetMode === 'formal';
+        return;
+      }
+      if (result.reason === 'missing_identity_secret') {
+        error.value = '这台设备没有身份密语，无法进行无状态计算';
         return;
       }
       error.value = '请先完成首次设置';

@@ -21,12 +21,13 @@
               <button @click="pwdMode = 'store'" :class="['flex-1 py-1.5 rounded-md transition-colors', pwdMode === 'store' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm font-medium' : 'text-gray-500']">存储模式</button>
             </div>
             <template v-if="pwdMode === 'generate'">
-              <input v-model="form.codename" placeholder="区分代号（如 github、gmail）" class="input" />
+              <input v-model="form.codename" placeholder="区分代号（如 微信、支付宝、GitHub）" class="input" />
+              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-2">区分代号中的英文字母不区分大小写。</p>
               <div v-if="pwdPreview" @click="copyPreview" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg -mt-1 cursor-pointer active:opacity-70">
                 <code class="text-xs text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(pwdPreview) }}</code>
                 <span class="text-[10px] text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
               </div>
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码 = 记忆密码 + 区分代号，缺一不可。代号只是"锁的编号"，没有你的记忆密码，任何人拿到代号也无法算出密码。相同的记忆密码+代号在任何设备都生成相同密码，数据丢失也可还原。</p>
+              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码由记忆密码、身份密语和区分代号共同生成。三项输入相同，即可在任意设备重建同一密码。</p>
               <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
               <div class="flex gap-2">
                 <select v-model="form.charsetMode" class="input flex-[3]">
@@ -34,9 +35,8 @@
                   <option value="with_symbols">含特殊字符</option>
                 </select>
                 <select v-model.number="form.passwordLength" class="input flex-[2]">
-                  <option :value="8">8位</option>
-                  <option :value="16">16位</option>
-                  <option :value="24">24位</option>
+                  <option :value="8">8位（旧系统）</option>
+                  <option :value="16">16位（默认）</option>
                   <option :value="32">32位</option>
                 </select>
               </div>
@@ -157,7 +157,7 @@ function addTagValue(t: string) {
 function removeTag(t: string) { selectedTags.value = selectedTags.value.filter(x => x !== t); }
 function maskPwd(p: string) { return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5); }
 watch([() => form.value.codename, () => form.value.charsetMode, () => form.value.passwordLength], async ([codename]) => {
-  if (pwdMode.value === 'generate' && codename.trim()) {
+  if (mainStore.isUnlocked && pwdMode.value === 'generate' && codename.trim()) {
     pwdPreview.value = await mainStore.genPassword(codename, form.value.charsetMode, form.value.passwordLength);
   } else {
     pwdPreview.value = '';

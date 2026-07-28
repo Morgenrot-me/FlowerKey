@@ -8,7 +8,7 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  decryptEntry, runDirectPasswordFlow,
+  decryptEntry, prepareIdentitySecret, runDirectPasswordFlow,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
@@ -36,8 +36,9 @@ export const useMainStore = defineStore('main', () => {
     return isSetup.value;
   }
 
-  async function setup(pwd: string, salt?: string) {
-    const s = salt || 'FlowerKey';
+  async function setup(pwd: string, identitySecret: string) {
+    if (!pwd.trim()) throw new Error('记忆密码不能为空');
+    const s = prepareIdentitySecret(identitySecret);
     const verifySalt = generateSalt();
     const hash = await createVerifyHash(pwd, verifySalt);
     await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });

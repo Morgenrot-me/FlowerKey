@@ -10,6 +10,24 @@ import EntryForm from './EntryForm.vue';
 const pinia = createPinia();
 
 describe('EntryForm', () => {
+  it('shows only frozen FK-DP1 lengths and explains codename case handling', () => {
+    const wrapper = mount(EntryForm, {
+      global: { plugins: [pinia] },
+      props: {
+        type: 'password',
+        tags: [],
+        folders: [],
+      },
+    });
+
+    const lengthOptions = wrapper.findAll('option')
+      .map(option => option.text())
+      .filter(text => text.includes('位'));
+
+    expect(lengthOptions).toEqual(['8位（旧系统）', '16位（默认）', '32位']);
+    expect(wrapper.text()).toContain('区分代号中的英文字母不区分大小写');
+  });
+
   it('emits the current folder when saving an existing entry', async () => {
     const wrapper = mount(EntryForm, {
       global: { plugins: [pinia] },

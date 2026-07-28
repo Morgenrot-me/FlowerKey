@@ -18,7 +18,7 @@
 ## 核心定位
 
 - 本地优先：数据默认保存在本机，主密码和派生密钥不上传到任何服务端。
-- 确定性密码生成：主密码 + 代号可稳定生成同一密码，适合不想保存站点密码的场景。
+- 确定性密码生成：记忆密码 + 身份密语 + 区分代号可稳定生成同一密码，适合不想保存站点密码的场景。
 - 加密存储：对需要保存的固定密码、书签标题、备注、笔记正文等敏感字段使用 AES-256-GCM 加密。
 - 多端同步：通过 WebDAV 增量同步加密后的操作日志；移动端可选 iCloud 同步。
 - 自动填充：浏览器插件支持页面内填充，Android 端提供 AutofillService。
@@ -27,7 +27,7 @@
 
 ### 确定性密码生成
 
-使用 PBKDF2 派生主密钥，再以 `HMAC-SHA256(masterKey, codename)` 生成密码字节流。该模式适合不想保存网站实际密码的用户。
+使用身份密语参与 PBKDF2 派生生成根密钥，再以规范化后的区分代号执行 HMAC-SHA256。默认生成16位字母数字密码，字母和数字确定性必含；兼容配置仅保留8位、16位和32位。完整规则见 [FK-DP1 密码生成协议](密码生成协议.md)。
 
 ### 存储模式密码
 
@@ -81,7 +81,7 @@
 
 - Tampermonkey/Via 单文件脚本。
 - 提供轻量密码生成、复制和页面填充。
-- 启用“记住主密码”时会把主密码保存在用户脚本本地存储中，安全级别低于正式端。
+- 每次使用都要求输入记忆密码和身份密语，不持久化快速解锁材料。
 
 ## 安全设计
 
@@ -95,10 +95,10 @@ master password
     |-- PBKDF2(masterPwd, "flowerkey_verify_" + verifySalt)
     |   `-- verifyHash: 本地验证主密码，不能反推出主密码
     |
-    |-- PBKDF2(masterPwd, userSalt)
+    |-- PBKDF2(masterPwd, NFC(identitySecret))
     |   `-- masterKey: 确定性密码生成，不落盘
     |
-    `-- PBKDF2(masterPwd, "flowerkey_dbenc_" + userSalt)
+    `-- PBKDF2(masterPwd, "flowerkey_dbenc_" + identitySecret)
         `-- dbKey: 数据库敏感字段加解密，锁定后清除
 ```
 
@@ -107,12 +107,13 @@ master password
 ### 密码生成流程
 
 ```text
-masterKey = PBKDF2(masterPwd, userSalt)
-rawBytes  = HMAC-SHA256(masterKey, codename)
+masterKey         = PBKDF2(masterPwd, NFC(identitySecret))
+normalizedCode    = ASCII_LOWER(NFC(TRIM(codename)))
+rawBytes          = HMAC-SHA256(masterKey, normalizedCode)
 password  = encode(rawBytes, charset, length)
 ```
 
-只要主密码、代号、字符集和长度一致，任意设备生成结果一致。代号变更会生成不同密码。
+只要记忆密码、身份密语、完整区分代号、字符模式和长度一致，任意设备生成结果一致。区分代号中的 ASCII 英文字母不区分大小写；中文、内部空格、数字和符号保持原样。
 
 ### 字段加密边界
 
@@ -164,7 +165,7 @@ password  = encode(rawBytes, charset, length)
 - 设备已解锁时本机恶意软件读取内存。
 - 过弱主密码导致的低成本暴力破解。
 - 用户忘记主密码且未保存恢复码。
-- 用户脚本启用本地保存主密码后的脚本存储风险。
+- 页面或用户脚本运行环境已被恶意代码控制。
 
 请务必保存恢复码，并为 WebDAV 或 iCloud 同步配置可靠的备份策略。花钥没有中心化账号系统，无法代替用户恢复丢失的主密码或本地数据。
 
@@ -282,7 +283,7 @@ pnpm version:sync
 ## 数据与备份建议
 
 - 主密码不会上传到 WebDAV、iCloud 或任何第三方服务。
-- 生成模式密码依赖主密码和代号；忘记任一项都无法重新生成原密码。
+- 生成模式密码依赖记忆密码、身份密语和区分代号；忘记任一项都无法重新生成原密码。
 - 存储模式密码、书签、笔记等数据依赖本地数据库和同步备份。
 - 建议启用 WebDAV 或 iCloud 同步，并离线保存恢复码。
 - 修改主密码、迁移设备或清理浏览器数据前，应先完成一次同步或备份导出。

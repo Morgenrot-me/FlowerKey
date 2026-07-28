@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.crypto.Cipher;
-import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -200,33 +199,8 @@ public class FlowerKeyAutofillService extends AutofillService {
         return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
     }
 
-    private static final String CHARSET_ALPHANUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final String CHARSET_SYMBOLS  = CHARSET_ALPHANUM + "!@#$%^&*()-_=+[]{}|;:,.<>?";
-    private static final String LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String DIGITS  = "0123456789";
-    private static final String SYMBOLS = "!@#$%^&*()-_=+[]{}|;:,.<>?";
-
     private String generatePassword(byte[] masterKey, String codename, int length, String charsetMode) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
-        byte[] raw = mac.doFinal(codename.getBytes(StandardCharsets.UTF_8));
-        mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
-        byte[] mix = mac.doFinal((codename + "_mix").getBytes(StandardCharsets.UTF_8));
-        boolean withSymbols = "with_symbols".equals(charsetMode);
-        String charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
-        char[] arr = new char[length];
-        for (int i = 0; i < length; i++)
-            arr[i] = charset.charAt((raw[i % raw.length] & 0xFF) % charset.length());
-        arr[0] = LETTERS.charAt((mix[0] & 0xFF) % LETTERS.length());
-        int digitPos = 1 + ((mix[1] & 0xFF) % (length - 1));
-        arr[digitPos] = DIGITS.charAt((mix[2] & 0xFF) % DIGITS.length());
-        if (withSymbols) {
-            int symPos = length - 1;
-            if (symPos == digitPos) symPos--;
-            if (symPos == 0) symPos = (digitPos == 1) ? 2 : 1;
-            arr[symPos] = SYMBOLS.charAt((mix[3] & 0xFF) % SYMBOLS.length());
-        }
-        return new String(arr);
+        return PasswordGenerator.generate(masterKey, codename, length, charsetMode);
     }
 
     // ==================== AssistStructure 解析 ====================

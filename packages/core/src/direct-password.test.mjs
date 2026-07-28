@@ -5,7 +5,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runDirectPasswordFlow } from './direct-password.ts';
+import { runDirectPasswordFlow } from '../dist/direct-password.js';
 
 function createRuntime(overrides = {}) {
   const calls = {
@@ -23,7 +23,7 @@ function createRuntime(overrides = {}) {
       return {
         verifyHash: 'stored-hash',
         verifySalt: 'verify-salt',
-        userSalt: 'FlowerKey',
+        userSalt: '只属于我的身份句',
         createdAt: 1,
       };
     },
@@ -57,9 +57,12 @@ function createRuntime(overrides = {}) {
   return runtime;
 }
 
-test('独立计算模式沿用 FlowerKey 固定盐', async () => {
+test('未初始化设备的独立计算模式使用用户输入的身份密语', async () => {
   let usedSalt = '';
   const runtime = createRuntime({
+    async getMasterData() {
+      return undefined;
+    },
     async generatePassword(masterPwd, userSalt, codename, mode, length) {
       usedSalt = userSalt;
       return `${masterPwd}|${userSalt}|${codename}|${mode}|${length}`;
@@ -69,14 +72,15 @@ test('独立计算模式沿用 FlowerKey 固定盐', async () => {
   const result = await runDirectPasswordFlow({
     computeMode: 'independent',
     masterPwd: 'independent',
+    identitySecret: '只属于我的身份句',
     codename: 'mail',
     mode: 'with_symbols',
-    length: 24,
+    length: 32,
     runtime,
   });
 
   assert.equal(result.ok, true);
-  assert.equal(usedSalt, 'FlowerKey');
+  assert.equal(usedSalt, '只属于我的身份句');
 });
 
 test('正式模式在记忆密码错误时不给正式密码且不入库', async () => {
@@ -102,7 +106,7 @@ test('正式模式在记忆密码错误时不给正式密码且不入库', async
 });
 
 
-test('正式模式在新区分代号时创建临时标签条目并更新时间', async () => {
+test('正式模式在新区分代号时只生成结果，等待复制后再保存', async () => {
   const runtime = createRuntime();
 
   const result = await runDirectPasswordFlow({
@@ -110,17 +114,17 @@ test('正式模式在新区分代号时创建临时标签条目并更新时间',
     masterPwd: 'correct',
     codename: 'github-main',
     mode: 'with_symbols',
-    length: 24,
+    length: 32,
     runtime,
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.password, 'correct|FlowerKey|github-main|with_symbols|24');
-  assert.equal(result.persisted, 'created');
-  assert.equal(result.entryId, 'created-entry');
+  assert.equal(result.password, 'correct|只属于我的身份句|github-main|with_symbols|32');
+  assert.equal(result.persisted, undefined);
+  assert.equal(result.entryId, undefined);
   assert.equal(runtime.calls.withWritableDbKey, 1);
-  assert.equal(runtime.calls.create, 1);
-  assert.equal(runtime.calls.touch, 1);
+  assert.equal(runtime.calls.create, 0);
+  assert.equal(runtime.calls.touch, 0);
 });
 
 test('正式模式在已有区分代号时只更新最后使用时间', async () => {

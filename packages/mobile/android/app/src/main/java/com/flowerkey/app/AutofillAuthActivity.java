@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.crypto.Cipher;
-import javax.crypto.Mac;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
@@ -42,13 +41,6 @@ public class AutofillAuthActivity extends Activity {
     private static final int    ITERATIONS  = 600_000;
     private static final String SALT_VERIFY = "flowerkey_verify_";
     private static final String SALT_DBENC  = "flowerkey_dbenc_";
-
-    // 密码生成字符集（与 core/crypto.ts 保持一致）
-    private static final String CHARSET_ALPHANUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final String CHARSET_SYMBOLS  = CHARSET_ALPHANUM + "!@#$%^&*()-_=+[]{}|;:,.<>?";
-    private static final String LETTERS  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String DIGITS   = "0123456789";
-    private static final String SYMBOLS  = "!@#$%^&*()-_=+[]{}|;:,.<>?";
 
     // 配色（运行时根据系统深浅色初始化）
     private int COLOR_BG;
@@ -162,7 +154,7 @@ public class AutofillAuthActivity extends Activity {
 
             dbKey = pbkdf2(pwd, SALT_DBENC + userSalt);
             // 存入 App 内存，后续生成密码用
-            byte[] masterKey = pbkdf2(pwd, userSalt);
+            byte[] masterKey = pbkdf2(pwd, PasswordGenerator.normalizeIdentitySecret(userSalt));
             FlowerKeyApp app2 = FlowerKeyApp.get();
             if (app2 != null) app2.setUnlocked(dbKey, masterKey, userSalt);
 
@@ -214,7 +206,10 @@ public class AutofillAuthActivity extends Activity {
                 String code = s.toString().trim();
                 if (code.isEmpty()) { tvPreview.setVisibility(android.view.View.GONE); return; }
                 try {
-                    String pwd = generatePassword(code, 16, "alphanumeric");
+                    EntryItem found = lookupEntryByCodename(code);
+                    int len = (found != null) ? found.passwordLength : 16;
+                    String mode = (found != null) ? found.charsetMode : "alphanumeric";
+                    String pwd = generatePassword(code, len, mode);
                     String masked = pwd.length() <= 10 ? pwd : pwd.substring(0, 5) + "•••••" + pwd.substring(pwd.length() - 5);
                     tvPreview.setText("预览：" + masked);
                     tvPreview.setVisibility(android.view.View.VISIBLE);
@@ -293,7 +288,9 @@ public class AutofillAuthActivity extends Activity {
             String targetId = null;
             while (c.moveToNext()) {
                 try {
-                    if (codename.equals(aesGcmDecrypt(c.getString(1), aesKey))) {
+                    if (PasswordGenerator.normalizeCodename(codename).equals(
+                        PasswordGenerator.normalizeCodename(aesGcmDecrypt(c.getString(1), aesKey))
+                    )) {
                         targetId = c.getString(0); break;
                     }
                 } catch (Exception ignored) {}
@@ -424,7 +421,9 @@ public class AutofillAuthActivity extends Activity {
                 "SELECT codename, passwordLength, charsetMode FROM entries WHERE type='password'", null);
             while (c.moveToNext()) {
                 try {
-                    if (codename.equals(aesGcmDecrypt(c.getString(0), aesKey))) {
+                    if (PasswordGenerator.normalizeCodename(codename).equals(
+                        PasswordGenerator.normalizeCodename(aesGcmDecrypt(c.getString(0), aesKey))
+                    )) {
                         EntryItem item = new EntryItem();
                         item.codename       = codename;
                         item.passwordLength = c.isNull(1) ? 16 : c.getInt(1);
@@ -441,32 +440,10 @@ public class AutofillAuthActivity extends Activity {
         return null;
     }
 
-    /** 与 core/crypto.ts encodePassword 完全一致 */
+    /** 调用 FK-DP1 原生共享实现，固定向量与 core/crypto.ts 一致。 */
     private String generatePassword(String codename, int length, String charsetMode) throws Exception {
         byte[] masterKey = FlowerKeyApp.get().getMasterKey();
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
-        byte[] raw = mac.doFinal(codename.getBytes(StandardCharsets.UTF_8));
-        mac.init(new SecretKeySpec(masterKey, "HmacSHA256"));
-        byte[] mix = mac.doFinal((codename + "_mix").getBytes(StandardCharsets.UTF_8));
-
-        boolean withSymbols = "with_symbols".equals(charsetMode);
-        String charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
-
-        char[] arr = new char[length];
-        for (int i = 0; i < length; i++)
-            arr[i] = charset.charAt((raw[i % raw.length] & 0xFF) % charset.length());
-        arr[0] = LETTERS.charAt((mix[0] & 0xFF) % LETTERS.length());
-        int digitPos = 1 + ((mix[1] & 0xFF) % (length - 1));
-        arr[digitPos] = DIGITS.charAt((mix[2] & 0xFF) % DIGITS.length());
-
-        if (withSymbols) {
-            int symPos = length - 1;
-            if (symPos == digitPos) symPos--;
-            if (symPos == 0) symPos = (digitPos == 1) ? 2 : 1;
-            arr[symPos] = SYMBOLS.charAt((mix[3] & 0xFF) % SYMBOLS.length());
-        }
-        return new String(arr);
+        return PasswordGenerator.generate(masterKey, codename, length, charsetMode);
     }
 
     // ==================== 加密工具 ====================

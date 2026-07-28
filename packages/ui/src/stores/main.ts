@@ -9,7 +9,7 @@ import {
   db, generateSalt, generateDeviceId,
   createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  decryptEntry, runDirectPasswordFlow, savePasswordEntry,
+  decryptEntry, prepareIdentitySecret, runDirectPasswordFlow, savePasswordEntry,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
@@ -37,10 +37,10 @@ export const useMainStore = defineStore('main', () => {
     return isSetup.value;
   }
 
-  /** 首次设置主密码和盐 */
-  async function setup(pwd: string, salt?: string) {
-    // userSalt 固定为有意设计：保证同一记忆密码在不同设备生成相同密码（跨设备一致性）
-    const s = salt || 'FlowerKey';
+  /** 首次设置记忆密码和身份密语 */
+  async function setup(pwd: string, identitySecret: string) {
+    if (!pwd.trim()) throw new Error('记忆密码不能为空');
+    const s = prepareIdentitySecret(identitySecret);
     // verifySalt 随机生成：防止 verifyHash 被彩虹表攻击，仅用于本地验证
     const verifySalt = generateSalt();
     const hash = await createVerifyHash(pwd, verifySalt);

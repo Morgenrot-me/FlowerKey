@@ -5,8 +5,7 @@
 // @description  密码生成工具 - 悬浮球快速生成并填充密码
 // @author       FlowerKey
 // @match        *://*/*
-// @grant        GM_setValue
-// @grant        GM_getValue
+// @grant        none
 // @run-at       document-end
 // ==/UserScript==
 
@@ -24,15 +23,27 @@
 
   function encode(str) { return enc.encode(str).buffer; }
 
-  async function generatePassword(masterPwd, codename, mode = 'alphanumeric', length = 16) {
+  async function generatePassword(masterPwd, identitySecret, codename, mode = 'alphanumeric', length = 16) {
+    if (mode !== 'alphanumeric' && mode !== 'with_symbols') {
+      throw new Error('FK-DP1不支持该密码类型');
+    }
+    if (![8, 16, 32].includes(length)) {
+      throw new Error('FK-DP1仅支持8、16或32位密码');
+    }
+    if (!masterPwd.trim()) throw new Error('记忆密码不能为空');
+    if (!identitySecret.trim()) throw new Error('身份密语不能为空');
+    const normalizedIdentity = identitySecret.normalize('NFC');
+    const normalizedCodename = codename.trim().normalize('NFC')
+      .replace(/[A-Z]/g, char => char.toLowerCase());
+    if (!normalizedCodename) throw new Error('区分代号不能为空');
     const baseKey = await crypto.subtle.importKey('raw', encode(masterPwd), 'PBKDF2', false, ['deriveBits']);
     const masterKeyBits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt: encode('FlowerKey'), iterations: ITERATIONS, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt: encode(normalizedIdentity), iterations: ITERATIONS, hash: 'SHA-256' },
       baseKey, KEY_LENGTH
     );
     const hmacKey = await crypto.subtle.importKey('raw', masterKeyBits, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const rawBytes = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, encode(codename)));
-    const mixBytes = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, encode(codename + '_mix')));
+    const rawBytes = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, encode(normalizedCodename)));
+    const mixBytes = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, encode(normalizedCodename + '_mix')));
     const withSymbols = mode === 'with_symbols';
     const charset = withSymbols ? CHARSET_SYMBOLS : CHARSET_ALPHANUM;
     const arr = Array.from({ length }, (_, i) => charset[rawBytes[i % rawBytes.length] % charset.length]);
@@ -156,14 +167,6 @@
       cursor: pointer;
       white-space: nowrap;
     }
-    .save-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: #6b7280;
-    }
-    .save-row input[type=checkbox] { width: auto; }
     .err { color: #ef4444; font-size: 12px; text-align: center; }
   `;
   shadow.appendChild(style);
@@ -183,23 +186,20 @@
       <button class="close-btn">✕</button>
     </div>
     <input id="fk-master" type="password" placeholder="主密码" autocomplete="current-password" />
-    <input id="fk-codename" type="text" placeholder="区分代号（如 github）" />
+    <input id="fk-identity" type="password" placeholder="身份密语" autocomplete="off" />
+    <input id="fk-codename" type="text" placeholder="区分代号（如 微信、支付宝、GitHub）" />
+    <div style="font-size:11px;color:#6b7280">区分代号中的英文字母不区分大小写。</div>
     <div class="row">
       <select id="fk-mode">
         <option value="alphanumeric">字母+数字</option>
         <option value="with_symbols">含特殊字符</option>
       </select>
       <select id="fk-len">
-        <option value="8">8位</option>
-        <option value="16" selected>16位</option>
-        <option value="24">24位</option>
+        <option value="8">8位（旧系统）</option>
+        <option value="16" selected>16位（默认）</option>
         <option value="32">32位</option>
       </select>
     </div>
-    <label class="save-row">
-      <input type="checkbox" id="fk-save" />
-      记住主密码（存于本地）
-    </label>
     <button class="btn" id="fk-gen">生成密码</button>
     <div class="result" id="fk-result" style="display:none">
       <code id="fk-pwd"></code>
@@ -215,13 +215,6 @@
   // ==================== 逻辑 ====================
   let generatedPwd = '';
 
-  // 恢复保存的主密码
-  const savedPwd = GM_getValue('masterPwd', '');
-  if (savedPwd) {
-    panel.querySelector('#fk-master').value = savedPwd;
-    panel.querySelector('#fk-save').checked = true;
-  }
-
   ball.addEventListener('click', () => {
     panel.classList.toggle('open');
     if (panel.classList.contains('open')) {
@@ -234,8 +227,9 @@
   });
 
   panel.querySelector('#fk-gen').addEventListener('click', async () => {
-    const master = panel.querySelector('#fk-master').value.trim();
-    const codename = panel.querySelector('#fk-codename').value.trim();
+    const master = panel.querySelector('#fk-master').value;
+    const identity = panel.querySelector('#fk-identity').value;
+    const codename = panel.querySelector('#fk-codename').value;
     const mode = panel.querySelector('#fk-mode').value;
     const length = parseInt(panel.querySelector('#fk-len').value);
     const errEl = panel.querySelector('#fk-err');
@@ -243,22 +237,18 @@
 
     errEl.textContent = '';
     if (!master) { errEl.textContent = '请输入主密码'; return; }
-    if (!codename) { errEl.textContent = '请输入区分代号'; return; }
+    if (!identity) { errEl.textContent = '请输入身份密语'; return; }
+    if (!codename.trim()) { errEl.textContent = '请输入区分代号'; return; }
 
     const btn = panel.querySelector('#fk-gen');
     btn.disabled = true;
     btn.textContent = '生成中...';
     try {
-      generatedPwd = await generatePassword(master, codename, mode, length);
+      generatedPwd = await generatePassword(master, identity, codename, mode, length);
       const masked = generatedPwd.length <= 10 ? generatedPwd : generatedPwd.slice(0, 5) + '•••••' + generatedPwd.slice(-5);
       panel.querySelector('#fk-pwd').textContent = masked;
       resultEl.style.display = 'flex';
 
-      if (panel.querySelector('#fk-save').checked) {
-        GM_setValue('masterPwd', master);
-      } else {
-        GM_setValue('masterPwd', '');
-      }
     } catch (e) {
       errEl.textContent = '生成失败：' + e.message;
     } finally {

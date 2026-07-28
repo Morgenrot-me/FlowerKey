@@ -67,19 +67,19 @@
         <div v-else class="space-y-3">
           <div v-if="!codename && !generatedPwd" class="rounded-2xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 space-y-1.5 leading-relaxed">
             <p class="font-medium text-blue-800 dark:text-blue-200">快速生成</p>
-            <p>输入一个区分代号，例如 github-main。</p>
+            <p>输入一个区分代号，例如 微信、支付宝或 GitHub。</p>
             <p>点击复制按钮自动保存，直接回到网站粘贴即可。</p>
           </div>
           <input v-model="codename" placeholder="输入区分代号" class="input" @keyup.enter="generate" />
+          <p class="text-[10px] text-gray-400 dark:text-gray-500">区分代号中的英文字母不区分大小写。</p>
           <div class="flex gap-2">
             <select v-model="charsetMode" class="flex-1 px-2 py-2 border rounded text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
               <option value="alphanumeric">字母+数字</option>
               <option value="with_symbols">含特殊字符</option>
             </select>
             <select v-model.number="pwdLength" class="w-20 px-2 py-2 border rounded text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
-              <option :value="8">8位</option>
-              <option :value="16">16位</option>
-              <option :value="24">24位</option>
+              <option :value="8">8位（旧系统）</option>
+              <option :value="16">16位（默认）</option>
               <option :value="32">32位</option>
             </select>
           </div>
@@ -103,7 +103,7 @@ import { useMainStore } from '@ui/stores/main';
 import { useEntriesStore } from '@ui/stores/entries';
 import { useSyncStore } from '@ui/stores/sync';
 import { useToast } from '@ui/composables/useToast';
-import { db, type CharsetMode } from '@flowerkey/core';
+import { db, normalizeCodename, type CharsetMode } from '@flowerkey/core';
 import OnboardingForm from '@ui/components/OnboardingForm.vue';
 import SetupForm from '@ui/components/SetupForm.vue';
 import UnlockForm from '@ui/components/UnlockForm.vue';
@@ -135,10 +135,15 @@ const charsetMode = ref<CharsetMode>('alphanumeric');
 const pwdLength = ref(16);
 const generatedPwd = ref('');
 const copied = ref(false);
+let generationRequestId = 0;
 
 watch([codename, charsetMode, pwdLength], async ([c]) => {
+  const requestId = ++generationRequestId;
   if (mainStore.isUnlocked && (c as string).trim()) {
     const res = await chrome.runtime.sendMessage({ type: 'generatePassword', codename: c, mode: charsetMode.value, length: pwdLength.value });
+    if (requestId !== generationRequestId) return;
+    if (res?.mode) charsetMode.value = res.mode;
+    if (res?.length) pwdLength.value = res.length;
     generatedPwd.value = res?.password || '';
   } else {
     generatedPwd.value = '';
@@ -224,7 +229,21 @@ async function saveBookmark() {
 
 async function generate() {
   if (!codename.value.trim()) return;
-  generatedPwd.value = await mainStore.genPassword(codename.value, charsetMode.value, pwdLength.value);
+  const requestId = ++generationRequestId;
+  const res = await chrome.runtime.sendMessage({
+    type: 'generatePassword',
+    codename: codename.value,
+    mode: charsetMode.value,
+    length: pwdLength.value,
+  });
+  if (requestId !== generationRequestId) return;
+  if (!res?.password) {
+    toast.show(res?.error || '密码生成失败', 'error');
+    return;
+  }
+  if (res.mode) charsetMode.value = res.mode;
+  if (res.length) pwdLength.value = res.length;
+  generatedPwd.value = res.password;
   await copyPwd();
 }
 
@@ -232,7 +251,10 @@ async function copyPwd() {
   if (!generatedPwd.value) return;
   await navigator.clipboard.writeText(generatedPwd.value);
   const all = await db.getEntriesByType('password');
-  const matched = all.find(e => e.codename === codename.value.trim());
+  const normalizedCodename = normalizeCodename(codename.value);
+  const matched = all.find(
+    e => e.codename && normalizeCodename(e.codename) === normalizedCodename,
+  );
   if (matched?.id) {
     await db.touchLastUsed(matched.id);
   } else {

@@ -2,10 +2,18 @@
  * 花钥 Background Service Worker
  * 处理右键菜单、消息通信
  * 维护解锁状态：masterPwd 仅存内存变量，不写入 storage
- * chrome.storage.session 只存 isUnlocked + userSalt（非敏感），Service Worker 重启时强制清空
+ * chrome.storage.session 只在当前浏览器会话保存解锁态与身份密语，Service Worker 重启时强制清空
  */
 
-import { generatePassword, verifyMasterPassword, db, deriveDatabaseKey, runDirectPasswordFlow, savePasswordEntry } from '@flowerkey/core';
+import {
+  db,
+  deriveDatabaseKey,
+  generatePassword,
+  normalizeCodename,
+  runDirectPasswordFlow,
+  savePasswordEntry,
+  verifyMasterPassword,
+} from '@flowerkey/core';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
@@ -138,10 +146,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!_isUnlocked) { sendResponse({ error: '请先解锁' }); return; }
     (async () => {
       try {
-        const password = await generatePassword(_masterPwd, _userSalt, msg.codename, msg.mode, msg.length);
         const all = await db.getEntriesByType('password');
-        const entryId = all.find(e => e.codename === msg.codename)?.id;
-        sendResponse({ password, entryId });
+        const normalizedCodename = normalizeCodename(msg.codename);
+        const existing = all.find(
+          e => e.codename && normalizeCodename(e.codename) === normalizedCodename,
+        );
+        const mode = existing?.charsetMode ?? msg.mode;
+        const length = existing?.passwordLength ?? msg.length;
+        const password = await generatePassword(_masterPwd, _userSalt, msg.codename, mode, length);
+        sendResponse({ password, entryId: existing?.id, mode, length });
       } catch (e) { sendResponse({ error: (e as Error).message }); }
     })();
     return true;
@@ -153,6 +166,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const result = await runDirectPasswordFlow({
           computeMode: msg.computeMode ?? 'formal',
           masterPwd: msg.masterPwd,
+          identitySecret: msg.identitySecret,
           codename: msg.codename,
           mode: msg.mode,
           length: msg.length,

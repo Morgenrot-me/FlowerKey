@@ -18,7 +18,7 @@ FlowerKey is a backend-free, local-first, end-to-end encrypted multi-platform to
 ## Product Focus
 
 - Local-first: data is stored locally by default; master passwords and derived keys are never uploaded to a server.
-- Deterministic password generation: the same master password and codename produce the same password across devices.
+- Deterministic password generation: the same master password, identity secret, codename, mode, and length produce the same password across devices.
 - Encrypted storage: fixed passwords, bookmark metadata, notes, and other sensitive fields are encrypted with AES-256-GCM.
 - Multi-device sync: encrypted operation logs are synchronized through WebDAV; mobile also supports iCloud sync.
 - Autofill: the browser extension provides in-page password filling, and Android integrates with AutofillService.
@@ -99,10 +99,10 @@ master password
     |-- PBKDF2(masterPwd, "flowerkey_verify_" + verifySalt)
     |   `-- verifyHash: local master-password verification, not reversible
     |
-    |-- PBKDF2(masterPwd, userSalt)
+    |-- PBKDF2(masterPwd, NFC(identitySecret))
     |   `-- masterKey: deterministic password generation, never persisted
     |
-    `-- PBKDF2(masterPwd, "flowerkey_dbenc_" + userSalt)
+    `-- PBKDF2(masterPwd, "flowerkey_dbenc_" + identitySecret)
         `-- dbKey: sensitive field encryption, cleared on lock
 ```
 
@@ -111,12 +111,13 @@ Parameters: PBKDF2, SHA-256, 600,000 iterations, 256-bit key length.
 ### Password Generation
 
 ```text
-masterKey = PBKDF2(masterPwd, userSalt)
-rawBytes  = HMAC-SHA256(masterKey, codename)
+masterKey      = PBKDF2(masterPwd, NFC(identitySecret))
+normalizedCode = ASCII_LOWER(NFC(TRIM(codename)))
+rawBytes       = HMAC-SHA256(masterKey, normalizedCode)
 password  = encode(rawBytes, charset, length)
 ```
 
-If the master password, codename, charset, and length are unchanged, every device generates the same password. Changing the codename changes the generated password.
+If the master password, identity secret, codename, charset, and length are unchanged, every device generates the same password. ASCII letters in codenames are case-insensitive.
 
 ### Field Encryption Boundary
 
@@ -286,7 +287,7 @@ The script syncs package versions for core, ui, extension, mobile, and desktop. 
 ## Data and Backup Guidance
 
 - The master password is not uploaded to WebDAV, iCloud, or any third-party service.
-- Generated-mode passwords depend on the master password and codename; losing either means the original password cannot be regenerated.
+- Generated-mode passwords depend on the master password, identity secret, and codename; losing any of them means the original password cannot be regenerated.
 - Stored-mode passwords, bookmarks, and notes depend on local database state and synchronized backups.
 - Enable WebDAV or iCloud sync, and keep the recovery code offline.
 - Before rotating the master password, migrating devices, or clearing browser data, run a sync or export a backup.

@@ -233,16 +233,16 @@ panel.innerHTML = `
   </div>
   <div class="hint" id="fk-hint">正式模式会校验记忆密码；成功后自动保存到数据库并标记临时条目。</div>
   <input id="fk-master" type="password" placeholder="记忆密码" />
-  <input id="fk-codename" placeholder="区分代号" />
+  <input id="fk-codename" placeholder="区分代号，如 微信、支付宝、GitHub" />
+  <div class="hint">区分代号中的英文字母不区分大小写。</div>
   <div class="cfg-row" id="fk-cfg-row">
     <select id="fk-mode">
       <option value="alphanumeric">字母+数字</option>
       <option value="with_symbols">含特殊字符</option>
     </select>
     <select id="fk-length">
-      <option value="8">8位</option>
-      <option value="16" selected>16位</option>
-      <option value="24">24位</option>
+      <option value="8">8位（旧系统）</option>
+      <option value="16" selected>16位（默认）</option>
       <option value="32">32位</option>
     </select>
   </div>
@@ -400,7 +400,7 @@ function setDirectMode(mode: 'formal' | 'independent') {
     independentBtn.style.display = 'none';
     return;
   }
-  hint.textContent = '独立计算模式沿用 FlowerKey 固定盐，仅生成可复制结果，不保存、不自动填充。';
+  hint.textContent = '独立计算使用本机已保存的身份密语，仅生成可复制结果，不保存、不自动填充。';
   btn.textContent = '计算独立密码';
   independentBtn.textContent = '返回正式模式';
   independentBtn.dataset.variant = 'formal';
@@ -469,6 +469,11 @@ async function tryGenerate(modeOverride?: 'formal' | 'independent', persistUrl?:
     setDirectMode('formal');
     showDirectMessage('记忆密码不正确，不能生成正式密码。');
     if (computeMode === 'formal') independentBtn.style.display = 'block';
+    return;
+  }
+  if (res?.reason === 'missing_identity_secret') {
+    setDirectMode('independent');
+    showDirectMessage('这台设备没有身份密语，暂时不能进行无状态计算。');
     return;
   }
   setDirectMode('formal');

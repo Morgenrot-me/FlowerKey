@@ -16,7 +16,7 @@
           <AppIcon name="brain" :size="24" class="shrink-0 mt-0.5 text-blue-500" />
           <div>
             <p class="text-sm font-medium">一个密码，管理所有账号</p>
-            <p class="text-xs text-gray-500 mt-1 leading-relaxed">记忆密码 + 区分代号，通过算法推算出每个账号的唯一强密码。相同的输入在任何设备都得到相同结果——数据全丢了，密码依然可以重新生成。</p>
+            <p class="text-xs text-gray-500 mt-1 leading-relaxed">记忆密码 + 身份密语 + 区分代号，通过算法推算出每个账号的唯一强密码。相同输入在任何设备都得到相同结果。</p>
           </div>
         </div>
         <div class="flex gap-3 items-start">

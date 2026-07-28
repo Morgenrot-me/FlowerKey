@@ -29,6 +29,17 @@ describe('UnlockForm', () => {
     });
   });
 
+  it('offers only the frozen FK-DP1 password lengths', async () => {
+    const UnlockForm = (await import('./UnlockForm.vue')).default;
+    const wrapper = mount(UnlockForm);
+    const lengthOptions = wrapper.findAll('option')
+      .map(option => option.text())
+      .filter(text => text.includes('位'));
+
+    expect(lengthOptions).toEqual(['8位（旧系统）', '16位（默认）', '32位']);
+    expect(wrapper.text()).toContain('区分代号中的英文字母不区分大小写');
+  });
+
   it('still copies the generated password when saving the temporary entry fails', async () => {
     const UnlockForm = (await import('./UnlockForm.vue')).default;
     const wrapper = mount(UnlockForm);
