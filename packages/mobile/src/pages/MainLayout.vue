@@ -48,7 +48,7 @@
       </div>
 
       <!-- 手机底部 Tab（md 以上隐藏） -->
-      <nav class="md:hidden flex border-t bg-white dark:bg-gray-900 dark:border-gray-700 pb-safe">
+      <nav class="md:hidden flex min-h-[56px] border-t bg-white dark:bg-gray-900 dark:border-gray-700" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
         <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
           :class="['flex-1 py-3 flex flex-col items-center gap-0.5 text-xs transition-colors',
             tab === t.key ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500']">

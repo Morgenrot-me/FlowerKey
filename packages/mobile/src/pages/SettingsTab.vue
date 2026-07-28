@@ -401,27 +401,33 @@ function handleExport() {
 async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
-  const text = await file.text();
-  const total = getImportEntryCount(text);
-  const count = await mainStore.importData(text);
-  importMsg.value = buildImportSummary(count, total, '条备份条目');
-  toast.show(importMsg.value, 'success');
+  try {
+    const text = await file.text();
+    const total = getImportEntryCount(text);
+    const count = await mainStore.importData(text);
+    importMsg.value = buildImportSummary(count, total, '条备份条目');
+    toast.show(importMsg.value, 'success');
+  } catch { toast.show('导入失败，请检查备份文件格式', 'error'); }
+  (e.target as HTMLInputElement).value = '';
 }
 
 async function handleImportBookmarks(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
-  const html = await file.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const links = Array.from(doc.querySelectorAll('a[href]'));
-  const items = links.map(a => ({
-    title: a.textContent?.trim() || a.getAttribute('href') || '',
-    url: a.getAttribute('href') || '',
-    favicon: a.getAttribute('icon') || undefined,
-  })).filter(i => i.url.startsWith('http'));
-  const encrypt = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const count = await sqliteDb.importBookmarks(items, encrypt);
-  importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
-  toast.show(importBookmarkMsg.value, 'success');
+  try {
+    const html = await file.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const links = Array.from(doc.querySelectorAll('a[href]'));
+    const items = links.map(a => ({
+      title: a.textContent?.trim() || a.getAttribute('href') || '',
+      url: a.getAttribute('href') || '',
+      favicon: a.getAttribute('icon') || undefined,
+    })).filter(i => i.url.startsWith('http'));
+    const encrypt = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+    const count = await sqliteDb.importBookmarks(items, encrypt);
+    importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
+    toast.show(importBookmarkMsg.value, 'success');
+  } catch { toast.show('书签导入失败，请检查 HTML 文件', 'error'); }
+  (e.target as HTMLInputElement).value = '';
 }
 </script>

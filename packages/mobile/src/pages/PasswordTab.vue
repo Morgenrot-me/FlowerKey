@@ -24,6 +24,8 @@
     </div>
 
     <div class="flex-1 overflow-y-auto divide-y dark:divide-gray-700">
+      <div v-if="store.loading" class="p-8 text-center text-sm text-gray-400 dark:text-gray-500">正在读取...</div>
+      <div v-else-if="store.error" class="p-8 text-center text-sm text-red-500">{{ store.error }}<button @click="store.load('password')" class="block mx-auto mt-2 text-blue-500">重试</button></div>
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
           <div class="font-medium truncate dark:text-gray-100">{{ e.codename }}</div>
@@ -48,7 +50,7 @@
 
     <!-- 新建/编辑表单 -->
     <Transition name="slide-up">
-      <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
+      <div v-if="showForm" class="fixed inset-0 bg-white dark:bg-gray-900 flex flex-col z-50" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
       <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
         <button @click="closeForm" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑密码条目' : '新建密码条目' }}</span>
@@ -148,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useMainStore } from '../stores/main';
 import { Clipboard } from '@capacitor/clipboard';
@@ -187,13 +189,20 @@ const form = ref({
 });
 const formPwdPreview = ref('');
 const previewCopied = ref(false);
+let clipboardClearTimer: ReturnType<typeof setTimeout> | undefined;
+let copiedResetTimer: ReturnType<typeof setTimeout> | undefined;
+onUnmounted(() => {
+  clearTimeout(clipboardClearTimer);
+  clearTimeout(copiedResetTimer);
+});
 
 async function copyPreview() {
   if (!formPwdPreview.value) return;
   await Clipboard.write({ string: formPwdPreview.value });
   if (editingId.value) await store.touchLastUsed(editingId.value);
   previewCopied.value = true;
-  setTimeout(async () => {
+  clearTimeout(clipboardClearTimer);
+  clipboardClearTimer = setTimeout(async () => {
     await Clipboard.write({ string: '' });
     previewCopied.value = false;
   }, 60000);
@@ -318,9 +327,11 @@ async function generate(e: Entry) {
   await store.touchLastUsed(e.id);
   copiedId.value = e.id;
   toast.show('密码已复制到剪贴板', 'success');
-  setTimeout(() => { copiedId.value = ''; }, 1500);
+  clearTimeout(copiedResetTimer);
+  copiedResetTimer = setTimeout(() => { copiedId.value = ''; }, 1500);
   // 60秒后清空剪贴板
-  setTimeout(async () => { await Clipboard.write({ string: '' }); }, 60000);
+  clearTimeout(clipboardClearTimer);
+  clipboardClearTimer = setTimeout(async () => { await Clipboard.write({ string: '' }); }, 60000);
 }
 
 async function save() {

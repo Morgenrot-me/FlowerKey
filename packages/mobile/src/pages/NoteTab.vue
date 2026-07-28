@@ -22,7 +22,7 @@
 
     <!-- 新建/编辑表单 -->
     <Transition name="slide-up">
-      <div v-if="showForm" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col z-10" style="padding-top: env(safe-area-inset-top)">
+      <div v-if="showForm" class="fixed inset-0 bg-white dark:bg-gray-900 flex flex-col z-50" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
       <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
         <button @click="showForm = false" class="text-blue-500">取消</button>
         <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑笔记' : '新建笔记' }}</span>

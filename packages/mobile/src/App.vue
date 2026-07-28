@@ -4,7 +4,13 @@
 -->
 <template>
   <div class="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 select-none" style="padding-top: env(safe-area-inset-top)">
-    <template v-if="ready">
+    <div v-if="bootError" class="m-auto mx-5 w-full max-w-sm rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 space-y-3">
+      <p class="font-medium">花钥启动失败</p>
+      <p>{{ bootError }}</p>
+      <button @click="retryBoot" class="w-full rounded-xl bg-blue-500 py-2.5 text-white">重新加载</button>
+    </div>
+    <p v-else-if="!ready" class="m-auto text-sm text-gray-400 dark:text-gray-500">正在打开花钥...</p>
+    <template v-else>
       <Transition name="fade" mode="out-in">
         <div v-if="main.hasUnsupportedMasterData" key="unsupported" class="m-auto mx-5 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 space-y-2">
           <p class="font-medium">检测到发布前或损坏的花钥数据</p>
@@ -38,10 +44,17 @@ const AutofillState = registerPlugin<{
 const main = useMainStore();
 const entries = useEntriesStore();
 const ready = ref(false);
+const bootError = ref('');
 const showSetup = ref(false);
 const showAutofillPrompt = ref(false);
 
-onMounted(async () => { await main.checkSetup(); ready.value = true; });
+onMounted(retryBoot);
+async function retryBoot() {
+  ready.value = false;
+  bootError.value = '';
+  try { await main.checkSetup(); ready.value = true; }
+  catch { bootError.value = '无法读取本地数据库，请检查应用权限后重试。'; }
+}
 async function onUnlocked() { await entries.load('password'); }
 
 async function handleSetupDone() {
