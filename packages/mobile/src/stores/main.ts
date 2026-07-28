@@ -4,9 +4,9 @@
  */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { generateSalt, generateDeviceId, createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+import { generateDeviceId, createMasterPasswordData, openMasterPasswordData, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  prepareIdentitySecret, runDirectPasswordFlow,
+  runDirectPasswordFlow,
   type Entry, type CharsetMode, type DirectComputeMode } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -41,24 +41,25 @@ async function ensureDeviceId() {
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
   const isSetup = ref(false);
+  const hasUnsupportedMasterData = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
-  // 通过恢复码解锁后，强制要求用户设置新主密码
-  const needsPasswordReset = ref(false);
 
   async function checkSetup() {
-    const data = await sqliteDb.getMasterData();
-    isSetup.value = !!data;
+    const status = await sqliteDb.getMasterDataStatus();
+    isSetup.value = status === 'current';
+    hasUnsupportedMasterData.value = status === 'unsupported';
     if (isSetup.value) await ensureDeviceId();
     return isSetup.value;
   }
 
   async function setup(pwd: string, identitySecret: string) {
-    if (!pwd.trim()) throw new Error('记忆密码不能为空');
-    const s = prepareIdentitySecret(identitySecret);
-    const verifySalt = generateSalt();
-    const hash = await createVerifyHash(pwd, verifySalt);
-    await sqliteDb.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
+    if (hasUnsupportedMasterData.value) {
+      throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+    }
+    const data = await createMasterPasswordData(pwd, identitySecret);
+    await sqliteDb.createMasterData(data);
+    const s = identitySecret.normalize('NFC');
     await ensureDeviceId();
     masterPwd.value = pwd;
     userSalt.value = s;
@@ -71,20 +72,20 @@ export const useMainStore = defineStore('main', () => {
   async function unlock(pwd: string): Promise<boolean> {
     const data = await sqliteDb.getMasterData();
     if (!data) return false;
-    const ok = await verifyMasterPassword(pwd, data.verifySalt!, data.verifyHash);
-    if (ok) {
+    const identitySecret = await openMasterPasswordData(pwd, data);
+    if (identitySecret) {
       masterPwd.value = pwd;
-      userSalt.value = data.userSalt;
+      userSalt.value = identitySecret;
       isUnlocked.value = true;
-      sqliteDb.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      sqliteDb.setDbKey(await deriveDatabaseKey(pwd, identitySecret));
       await ensureDeviceId();
-      syncAutofillState(pwd, data.userSalt);
+      syncAutofillState(pwd, identitySecret);
     }
-    return ok;
+    return !!identitySecret;
   }
 
   function lock() {
-    masterPwd.value = ''; isUnlocked.value = false; needsPasswordReset.value = false;
+    masterPwd.value = ''; userSalt.value = ''; isUnlocked.value = false;
     sqliteDb.clearDbKey();
     clearAutofillState();
   }
@@ -112,7 +113,7 @@ export const useMainStore = defineStore('main', () => {
       url,
       runtime: {
         getMasterData: () => sqliteDb.getMasterData(),
-        verifyMasterPassword,
+        openMasterPasswordData,
         generatePassword,
         listPasswordEntries: () => sqliteDb.getEntriesByType('password'),
         createPasswordEntry: (data) => sqliteDb.createEntry(data),
@@ -143,34 +144,8 @@ export const useMainStore = defineStore('main', () => {
     if (!data?.encryptedMasterPwd || !data.recoverySalt) return false;
     try {
       const pwd = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, code);
-      const ok = await unlock(pwd);
-      if (ok) needsPasswordReset.value = true;
-      return ok;
+      return unlock(pwd);
     } catch { return false; }
-  }
-
-  async function changeMasterPwd(currentPwd: string, newPwd: string): Promise<void> {
-    const data = await sqliteDb.getMasterData();
-    if (!data) throw new Error('未初始化');
-    // 恢复码解锁后的强制重置允许清空旧恢复码；普通改密则必须先让用户重新记录并稍后再生成
-    if (!needsPasswordReset.value && (data.encryptedMasterPwd || data.recoverySalt)) {
-      throw new Error('存在恢复码，请先记录并在改密后重新生成');
-    }
-    // 恢复码场景下已解锁，跳过旧密码验证；正常场景需验证
-    if (!needsPasswordReset.value) {
-      const ok = await verifyMasterPassword(currentPwd, data.verifySalt!, data.verifyHash);
-      if (!ok) throw new Error('当前主密码错误');
-    }
-    const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
-    const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
-    await sqliteDb.reEncryptAllEntries(oldKey, newKey);
-    sqliteDb.setDbKey(newKey);
-    const verifySalt = generateSalt();
-    const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    await sqliteDb.setMasterData({ ...data!, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
-    masterPwd.value = newPwd;
-    needsPasswordReset.value = false;
-    syncAutofillState(newPwd, userSalt.value);
   }
 
   async function exportData(): Promise<string> {
@@ -201,6 +176,6 @@ export const useMainStore = defineStore('main', () => {
 
   function getDbKey() { return sqliteDb.getDbKey(); }
 
-  return { isUnlocked, isSetup, userSalt, masterPwd, needsPasswordReset, checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey };
+  return { isUnlocked, isSetup, hasUnsupportedMasterData, userSalt, masterPwd, checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
+    generateRecovery, recoverWithCode, exportData, importData, getDbKey };
 });

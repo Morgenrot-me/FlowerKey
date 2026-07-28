@@ -1,6 +1,6 @@
 <!--
   花钥桌面端 - 设置 Tab
-  同步配置（WebDAV）+ 账户安全（恢复码/改密/导出导入）
+  同步配置（WebDAV）+ 账户安全（恢复原主密码/导出导入）
 -->
 <template>
   <div class="h-full overflow-y-auto px-4 py-4 flex flex-col gap-4">
@@ -101,7 +101,7 @@
       <!-- 恢复码 -->
       <div class="px-4 py-3 flex flex-col gap-2">
         <p class="text-sm font-medium">恢复码</p>
-        <p class="text-xs text-gray-500">忘记主密码时可用恢复码解锁，请妥善保管。</p>
+        <p class="text-xs text-gray-500">恢复码会还原原主密码并直接解锁，不会改变历史生成密码。请妥善保管。</p>
         <div v-if="!hasRecovery" class="rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-xs text-blue-700 flex flex-col gap-1.5">
           <p class="font-medium">建议现在就生成恢复码</p>
           <p class="leading-relaxed">这是忘记主密码后唯一可用的自救方式，生成后请离线抄写保存。</p>
@@ -114,26 +114,6 @@
           {{ recoveryCode }}
           <p class="text-yellow-600 mt-1 font-sans">请抄写保存，关闭后不再显示。</p>
           <p class="text-red-600 mt-1 font-sans font-medium flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>恢复码不存储在本地。一旦丢失且忘记主密码，所有加密数据将永久无法恢复。</span></p>
-        </div>
-      </div>
-
-      <!-- 修改主密码 -->
-      <div class="px-4 py-3 flex flex-col gap-2">
-        <button @click="showChangePwd = !showChangePwd" class="w-full py-2.5 border rounded-xl text-sm text-left">修改主密码</button>
-        <div v-if="showChangePwd" class="flex flex-col gap-2">
-          <div class="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-2 text-xs text-orange-700 flex flex-col gap-1">
-            <p class="font-medium">修改前请确认</p>
-            <p class="leading-relaxed">修改后，当前设备会立即用新主密码重加密本地数据；旧主密码将不能再解锁这份数据。</p>
-            <p class="leading-relaxed">如果你还在其他设备使用花钥，请尽快同步并在其他设备上完成相同修改，避免后续混淆。</p>
-          </div>
-          <p class="text-xs text-gray-400">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
-          <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
-          <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
-          <button @click="handleChangePwd" :disabled="changingPwd"
-            class="w-full py-2.5 bg-orange-500 text-white rounded-xl text-sm disabled:opacity-50">
-            {{ changingPwd ? '处理中...' : '确认修改' }}
-          </button>
-          <p v-if="changePwdMsg" :class="changePwdError ? 'text-red-500' : 'text-green-600'" class="text-xs text-center">{{ changePwdMsg }}</p>
         </div>
       </div>
 
@@ -169,7 +149,8 @@
         <table class="w-full border-collapse">
           <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
           <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
-          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>明文哈希，仅用于验证主密码，无法反推主密码本身</td></tr>
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">身份密语</td><td>AES-256-GCM 包装后存储，主密码解锁后才进入内存</td></tr>
+          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>带随机盐的验证值，仅用于校验主密码</td></tr>
         </table>
         <p class="font-medium text-gray-700 pt-1">从未存储</p>
         <ul class="list-disc list-inside space-y-0.5">
@@ -177,6 +158,8 @@
           <li>网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存</li>
           <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
+        <p class="font-medium text-gray-700 pt-1">不可变生成根</p>
+        <p>主密码和身份密语共同决定全部历史生成密码，设置后不提供普通修改入口。恢复码只恢复原主密码。</p>
         <p class="font-medium text-gray-700 pt-1">加密算法</p>
         <p>AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-700">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
         <p>密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
@@ -296,29 +279,12 @@ async function handleGenerateRecovery() {
   hasRecovery.value = true;
 }
 
-const showChangePwd = ref(false);
-const newPwd = ref(''), newPwdConfirm = ref('');
-const changingPwd = ref(false), changePwdMsg = ref(''), changePwdError = ref(false);
 const importMsg = ref('');
 const importBookmarkMsg = ref('');
 
 function buildImportSummary(imported: number, total: number, label: string) {
   const skipped = Math.max(total - imported, 0);
   return `本次共读取 ${total} 条${label}，新增 ${imported} 条，跳过 ${skipped} 条已存在内容。`;
-}
-
-async function handleChangePwd() {
-  if (!newPwd.value || newPwd.value !== newPwdConfirm.value) {
-    changePwdMsg.value = '两次输入不一致'; changePwdError.value = true; return;
-  }
-  changingPwd.value = true; changePwdMsg.value = '';
-  try {
-    await mainStore.changeMasterPwd(newPwd.value);
-    changePwdMsg.value = '修改成功'; changePwdError.value = false;
-    newPwd.value = ''; newPwdConfirm.value = ''; showChangePwd.value = false;
-  } catch (e) {
-    changePwdMsg.value = (e as Error).message; changePwdError.value = true;
-  } finally { changingPwd.value = false; }
 }
 
 function handleExport() {

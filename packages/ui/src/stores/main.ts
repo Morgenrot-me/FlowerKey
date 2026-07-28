@@ -6,10 +6,10 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import {
-  db, generateSalt, generateDeviceId,
-  createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+  db, generateDeviceId,
+  createMasterPasswordData, openMasterPasswordData, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  decryptEntry, prepareIdentitySecret, runDirectPasswordFlow, savePasswordEntry,
+  decryptEntry, runDirectPasswordFlow, savePasswordEntry,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
@@ -26,25 +26,27 @@ async function ensureDeviceId() {
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
   const isSetup = ref(false);
+  const hasUnsupportedMasterData = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
 
   /** 检查是否已初始化（有主密码数据） */
   async function checkSetup() {
-    const data = await db.getMasterData();
-    isSetup.value = !!data;
+    const status = await db.getMasterDataStatus();
+    isSetup.value = status === 'current';
+    hasUnsupportedMasterData.value = status === 'unsupported';
     if (isSetup.value) await ensureDeviceId();
     return isSetup.value;
   }
 
   /** 首次设置记忆密码和身份密语 */
   async function setup(pwd: string, identitySecret: string) {
-    if (!pwd.trim()) throw new Error('记忆密码不能为空');
-    const s = prepareIdentitySecret(identitySecret);
-    // verifySalt 随机生成：防止 verifyHash 被彩虹表攻击，仅用于本地验证
-    const verifySalt = generateSalt();
-    const hash = await createVerifyHash(pwd, verifySalt);
-    await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
+    if (hasUnsupportedMasterData.value) {
+      throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+    }
+    const data = await createMasterPasswordData(pwd, identitySecret);
+    await db.createMasterData(data);
+    const s = identitySecret.normalize('NFC');
 
     await ensureDeviceId();
 
@@ -59,20 +61,21 @@ export const useMainStore = defineStore('main', () => {
   async function unlock(pwd: string): Promise<boolean> {
     const data = await db.getMasterData();
     if (!data) return false;
-    const ok = await verifyMasterPassword(pwd, data.verifySalt!, data.verifyHash);
-    if (ok) {
+    const identitySecret = await openMasterPasswordData(pwd, data);
+    if (identitySecret) {
       masterPwd.value = pwd;
-      userSalt.value = data.userSalt;
+      userSalt.value = identitySecret;
       isUnlocked.value = true;
-      db.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      db.setDbKey(await deriveDatabaseKey(pwd, identitySecret));
       await ensureDeviceId();
     }
-    return ok;
+    return !!identitySecret;
   }
 
   /** 锁定 */
   function lock() {
     masterPwd.value = '';
+    userSalt.value = '';
     isUnlocked.value = false;
     db.clearDbKey();
   }
@@ -103,7 +106,7 @@ export const useMainStore = defineStore('main', () => {
       url,
       runtime: {
         getMasterData: () => db.getMasterData(),
-        verifyMasterPassword,
+        openMasterPasswordData,
         generatePassword,
         listPasswordEntries: () => db.getEntriesByType('password'),
         createPasswordEntry: (data) => db.createEntry(data),
@@ -137,7 +140,7 @@ export const useMainStore = defineStore('main', () => {
       url,
       runtime: {
         getMasterData: () => db.getMasterData(),
-        verifyMasterPassword,
+        openMasterPasswordData,
         generatePassword,
         listPasswordEntries: () => db.getEntriesByType('password'),
         createPasswordEntry: (data) => db.createEntry(data),
@@ -176,26 +179,6 @@ export const useMainStore = defineStore('main', () => {
     } catch { return false; }
   }
 
-  /** 方案二：修改主密码（需已解锁，重新加密所有条目） */
-  async function changeMasterPwd(currentPwd: string, newPwd: string): Promise<void> {
-    const masterData = await db.getMasterData();
-    if (!masterData) throw new Error('未初始化');
-    if (masterData.encryptedMasterPwd || masterData.recoverySalt) {
-      throw new Error('存在恢复码，请先记录并在改密后重新生成');
-    }
-    const ok = await verifyMasterPassword(currentPwd, masterData.verifySalt!, masterData.verifyHash);
-    if (!ok) throw new Error('当前主密码错误');
-    const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
-    const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
-    await db.reEncryptAllEntries(oldKey, newKey);
-    db.setDbKey(newKey);
-
-    const verifySalt = generateSalt();
-    const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    await db.setMasterData({ ...masterData, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
-    masterPwd.value = newPwd;
-  }
-
   /** 方案三：导出所有条目为明文 JSON */
   async function exportData(): Promise<string> {
     const entries = await db.entries.toArray();
@@ -231,8 +214,8 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt, masterPwd,
+    isUnlocked, isSetup, hasUnsupportedMasterData, userSalt, masterPwd,
     checkSetup, setup, unlock, lock, genPassword, runDirectPassword, savePassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
+    generateRecovery, recoverWithCode, exportData, importData, getDbKey,
   };
 });

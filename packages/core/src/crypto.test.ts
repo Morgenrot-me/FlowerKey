@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createVerifyHash,
+  createMasterPasswordData,
   decrypt,
   decryptMasterPwdWithRecovery,
   deriveDatabaseKey,
@@ -15,6 +16,8 @@ import {
   generateRecoveryCode,
   generateSalt,
   normalizeCodename,
+  isCurrentMasterPasswordData,
+  openMasterPasswordData,
   prepareIdentitySecret,
   verifyMasterPassword,
   bytesToBase64,
@@ -33,6 +36,84 @@ describe('身份密语首次设置校验', () => {
   it('拒绝首尾空白而不是静默裁剪', () => {
     expect(() => prepareIdentitySecret(' 身份密语')).toThrow('首尾不能包含空白');
     expect(() => prepareIdentitySecret('身份密语\u3000')).toThrow('首尾不能包含空白');
+  });
+});
+
+describe('身份密语本地包装', () => {
+  it('creates a versioned master data object without plaintext identity fields', async () => {
+    const data = await createMasterPasswordData(
+      'master-password',
+      '只属于我的身份密语',
+      123,
+    );
+    const serialized = JSON.stringify(data);
+
+    expect(data).toMatchObject({
+      formatVersion: 1,
+      identityEnvelope: {
+        version: 1,
+        kdfSalt: expect.stringMatching(/^[0-9a-f]{32}$/),
+        ciphertext: expect.any(String),
+      },
+      createdAt: 123,
+    });
+    expect(serialized).not.toContain('只属于我的身份密语');
+    expect(serialized).not.toContain('userSalt');
+    expect(serialized).not.toContain('identitySecret');
+  });
+
+  it('opens the exact normalized identity only with the original master password', async () => {
+    const data = await createMasterPasswordData(
+      'master-password',
+      '我的 GitHub e\u0301 身份',
+    );
+
+    await expect(openMasterPasswordData('master-password', data))
+      .resolves.toBe('我的 GitHub é 身份');
+    await expect(openMasterPasswordData('wrong-password', data))
+      .resolves.toBeNull();
+  });
+
+  it('rejects corrupted envelopes after the master password was verified', async () => {
+    const data = await createMasterPasswordData('master-password', '身份密语');
+    const corrupted = {
+      ...data,
+      identityEnvelope: {
+        ...data.identityEnvelope,
+        ciphertext: data.identityEnvelope.ciphertext.slice(0, -2) + 'AA',
+      },
+    };
+
+    await expect(openMasterPasswordData('master-password', corrupted))
+      .rejects.toThrow('身份密语包装数据损坏');
+  });
+
+  it('rejects the unpublished plaintext legacy format', () => {
+    expect(isCurrentMasterPasswordData({
+      verifyHash: 'hash',
+      verifySalt: 'salt',
+      userSalt: 'FlowerKey',
+      createdAt: 1,
+    })).toBe(false);
+  });
+
+  it('rejects hybrid objects that retain plaintext identity fields', async () => {
+    const data = await createMasterPasswordData('master-password', '身份密语');
+
+    expect(isCurrentMasterPasswordData({ ...data, userSalt: '身份密语' })).toBe(false);
+    expect(isCurrentMasterPasswordData({ ...data, identitySecret: '身份密语' })).toBe(false);
+  });
+
+  it('rejects malformed hashes, salts, timestamps and envelopes before unlock', async () => {
+    const data = await createMasterPasswordData('master-password', '身份密语');
+
+    expect(isCurrentMasterPasswordData({ ...data, verifyHash: 'not-hex' })).toBe(false);
+    expect(isCurrentMasterPasswordData({ ...data, verifySalt: 'short' })).toBe(false);
+    expect(isCurrentMasterPasswordData({ ...data, createdAt: Number.NaN })).toBe(false);
+    expect(isCurrentMasterPasswordData({
+      ...data,
+      identityEnvelope: { ...data.identityEnvelope, ciphertext: 'not base64' },
+    })).toBe(false);
   });
 });
 

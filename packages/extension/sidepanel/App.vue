@@ -4,7 +4,11 @@
 -->
 <template>
   <div class="h-screen flex bg-white dark:bg-gray-900 dark:text-gray-100">
-    <OnboardingForm v-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" class="p-4 flex-1" />
+    <div v-if="mainStore.hasUnsupportedMasterData" class="m-auto max-w-sm p-5 text-sm text-red-700 dark:text-red-300 space-y-2">
+      <p class="font-medium">检测到发布前或损坏的花钥数据</p>
+      <p>为避免覆盖原配置并孤立已有加密条目，花钥已停止初始化。请先清除本地开发数据，再重新打开花钥。</p>
+    </div>
+    <OnboardingForm v-else-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" class="p-4 flex-1" />
     <SetupForm v-else-if="!mainStore.isSetup" @done="() => {}" class="p-4 flex-1" />
     <div v-else-if="!mainStore.isUnlocked && (currentTab !== 'bookmark' || bookmarkEncrypt)" class="flex-1 flex flex-col justify-center px-4 py-5 gap-4">
       <div class="space-y-1 text-center">

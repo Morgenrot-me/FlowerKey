@@ -5,10 +5,10 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import {
-  db, generateSalt, generateDeviceId,
-  createVerifyHash, verifyMasterPassword, generatePassword, deriveDatabaseKey,
+  db, generateDeviceId,
+  createMasterPasswordData, openMasterPasswordData, generatePassword, deriveDatabaseKey,
   generateRecoveryCode, encryptMasterPwdWithRecovery, decryptMasterPwdWithRecovery,
-  decryptEntry, prepareIdentitySecret, runDirectPasswordFlow,
+  decryptEntry, runDirectPasswordFlow,
   type Entry, type CharsetMode, type DirectComputeMode,
 } from '@flowerkey/core';
 
@@ -25,23 +25,25 @@ async function ensureDeviceId() {
 export const useMainStore = defineStore('main', () => {
   const isUnlocked = ref(false);
   const isSetup = ref(false);
+  const hasUnsupportedMasterData = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
-  const needsPasswordReset = ref(false);
 
   async function checkSetup() {
-    const data = await db.getMasterData();
-    isSetup.value = !!data;
+    const status = await db.getMasterDataStatus();
+    isSetup.value = status === 'current';
+    hasUnsupportedMasterData.value = status === 'unsupported';
     if (isSetup.value) await ensureDeviceId();
     return isSetup.value;
   }
 
   async function setup(pwd: string, identitySecret: string) {
-    if (!pwd.trim()) throw new Error('记忆密码不能为空');
-    const s = prepareIdentitySecret(identitySecret);
-    const verifySalt = generateSalt();
-    const hash = await createVerifyHash(pwd, verifySalt);
-    await db.setMasterData({ verifyHash: hash, userSalt: s, verifySalt, createdAt: Date.now() });
+    if (hasUnsupportedMasterData.value) {
+      throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+    }
+    const data = await createMasterPasswordData(pwd, identitySecret);
+    await db.createMasterData(data);
+    const s = identitySecret.normalize('NFC');
 
     await ensureDeviceId();
 
@@ -55,21 +57,21 @@ export const useMainStore = defineStore('main', () => {
   async function unlock(pwd: string): Promise<boolean> {
     const data = await db.getMasterData();
     if (!data) return false;
-    const ok = await verifyMasterPassword(pwd, data.verifySalt!, data.verifyHash);
-    if (ok) {
+    const identitySecret = await openMasterPasswordData(pwd, data);
+    if (identitySecret) {
       masterPwd.value = pwd;
-      userSalt.value = data.userSalt;
+      userSalt.value = identitySecret;
       isUnlocked.value = true;
-      db.setDbKey(await deriveDatabaseKey(pwd, data.userSalt));
+      db.setDbKey(await deriveDatabaseKey(pwd, identitySecret));
       await ensureDeviceId();
     }
-    return ok;
+    return !!identitySecret;
   }
 
   function lock() {
     masterPwd.value = '';
+    userSalt.value = '';
     isUnlocked.value = false;
-    needsPasswordReset.value = false;
     db.clearDbKey();
   }
 
@@ -96,7 +98,7 @@ export const useMainStore = defineStore('main', () => {
       url,
       runtime: {
         getMasterData: () => db.getMasterData(),
-        verifyMasterPassword,
+        openMasterPasswordData,
         generatePassword,
         listPasswordEntries: () => db.getEntriesByType('password'),
         createPasswordEntry: (data) => db.createEntry(data),
@@ -127,31 +129,8 @@ export const useMainStore = defineStore('main', () => {
     if (!data?.encryptedMasterPwd || !data.recoverySalt) return false;
     try {
       const pwd = await decryptMasterPwdWithRecovery(data.encryptedMasterPwd, data.recoverySalt, code);
-      const ok = await unlock(pwd);
-      if (ok) needsPasswordReset.value = true;
-      return ok;
+      return unlock(pwd);
     } catch { return false; }
-  }
-
-  async function changeMasterPwd(newPwd: string): Promise<void> {
-    const masterData = await db.getMasterData();
-    if (!masterData) throw new Error('未初始化');
-    if (!needsPasswordReset.value && (masterData.encryptedMasterPwd || masterData.recoverySalt)) {
-      throw new Error('存在恢复码，请先记录并在改密后重新生成');
-    }
-    if (!needsPasswordReset.value) {
-      const ok = await verifyMasterPassword(masterPwd.value, masterData.verifySalt!, masterData.verifyHash);
-      if (!ok) throw new Error('会话已过期，请重新解锁');
-    }
-    const oldKey = await deriveDatabaseKey(masterPwd.value, userSalt.value);
-    const newKey = await deriveDatabaseKey(newPwd, userSalt.value);
-    await db.reEncryptAllEntries(oldKey, newKey);
-    db.setDbKey(newKey);
-    const verifySalt = generateSalt();
-    const verifyHash = await createVerifyHash(newPwd, verifySalt);
-    await db.setMasterData({ ...masterData, verifyHash, verifySalt, encryptedMasterPwd: undefined, recoverySalt: undefined });
-    masterPwd.value = newPwd;
-    needsPasswordReset.value = false;
   }
 
   async function exportData(): Promise<string> {
@@ -187,8 +166,8 @@ export const useMainStore = defineStore('main', () => {
   function getDbKey() { return db.getDbKey(); }
 
   return {
-    isUnlocked, isSetup, userSalt, masterPwd, needsPasswordReset,
+    isUnlocked, isSetup, hasUnsupportedMasterData, userSalt, masterPwd,
     checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
-    generateRecovery, recoverWithCode, changeMasterPwd, exportData, importData, getDbKey,
+    generateRecovery, recoverWithCode, exportData, importData, getDbKey,
   };
 });

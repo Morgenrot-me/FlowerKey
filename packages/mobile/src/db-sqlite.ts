@@ -5,7 +5,17 @@
  */
 
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
-import { encrypt, decrypt, encryptEntry, decryptEntry, ENCRYPTED_FIELDS, bytesToBase64, base64ToBytes } from '@flowerkey/core';
+import {
+  encrypt,
+  decrypt,
+  encryptEntry,
+  decryptEntry,
+  ENCRYPTED_FIELDS,
+  bytesToBase64,
+  base64ToBytes,
+  canonicalizeMasterPasswordData,
+  isCurrentMasterPasswordData,
+} from '@flowerkey/core';
 import { v4 as uuidv4 } from 'uuid';
 import type { Entry, ChangeLog, MasterPasswordData } from '@flowerkey/core';
 
@@ -232,11 +242,52 @@ export async function getSecretConfig<T>(key: string): Promise<T | undefined> {
 }
 
 export async function getMasterData(): Promise<MasterPasswordData | undefined> {
-  return getConfig<MasterPasswordData>('masterPasswordData');
+  const value = await getConfig<unknown>('masterPasswordData');
+  return isCurrentMasterPasswordData(value) ? value : undefined;
 }
 
+export async function getMasterDataStatus(): Promise<'missing' | 'current' | 'unsupported'> {
+  const value = await getConfig<unknown>('masterPasswordData');
+  if (value === undefined) return 'missing';
+  return isCurrentMasterPasswordData(value) ? 'current' : 'unsupported';
+}
+
+/** 首次初始化：事务内仅在配置完全不存在时创建。 */
+export async function createMasterData(data: MasterPasswordData): Promise<void> {
+  const canonical = canonicalizeMasterPasswordData(data);
+  await db!.run('BEGIN IMMEDIATE TRANSACTION');
+  try {
+    const existing = await getConfig<unknown>('masterPasswordData');
+    if (existing !== undefined) {
+      if (!isCurrentMasterPasswordData(existing)) {
+        throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+      }
+      throw new Error('花钥已经完成初始化，不能覆盖主密码和身份密语');
+    }
+    await setConfig('masterPasswordData', canonical);
+    await db!.run('COMMIT');
+  } catch (error) {
+    await db!.run('ROLLBACK');
+    throw error;
+  }
+}
+
+/** 更新恢复码等附属字段：只允许更新已经存在的正式对象。 */
 export async function setMasterData(data: MasterPasswordData): Promise<void> {
-  await setConfig('masterPasswordData', data);
+  const canonical = canonicalizeMasterPasswordData(data);
+  await db!.run('BEGIN IMMEDIATE TRANSACTION');
+  try {
+    const existing = await getConfig<unknown>('masterPasswordData');
+    if (existing === undefined) throw new Error('花钥尚未初始化');
+    if (!isCurrentMasterPasswordData(existing)) {
+      throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+    }
+    await setConfig('masterPasswordData', canonical);
+    await db!.run('COMMIT');
+  } catch (error) {
+    await db!.run('ROLLBACK');
+    throw error;
+  }
 }
 
 // ==================== 变更日志 ====================

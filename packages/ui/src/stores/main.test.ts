@@ -7,6 +7,8 @@ import { createPinia, setActivePinia } from 'pinia';
 
 const dbMock = vi.hoisted(() => ({
   getMasterData: vi.fn(),
+  getMasterDataStatus: vi.fn(),
+  createMasterData: vi.fn(),
   setDbKey: vi.fn(),
   clearDbKey: vi.fn(),
   getConfig: vi.fn(),
@@ -24,10 +26,9 @@ const dbMock = vi.hoisted(() => ({
 
 const coreMock = vi.hoisted(() => ({
   db: dbMock,
-  generateSalt: vi.fn(() => 'verify-salt'),
   generateDeviceId: vi.fn(() => 'device-1'),
-  createVerifyHash: vi.fn(),
-  verifyMasterPassword: vi.fn(),
+  createMasterPasswordData: vi.fn(),
+  openMasterPasswordData: vi.fn(),
   generatePassword: vi.fn(),
   deriveDatabaseKey: vi.fn(),
   generateRecoveryCode: vi.fn(),
@@ -45,14 +46,22 @@ describe('useMainStore', () => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
     dbMock.getMasterData.mockResolvedValue({
+      formatVersion: 1,
       verifyHash: 'hash',
       verifySalt: 'salt',
-      userSalt: 'FlowerKey',
+      identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
       createdAt: 1,
     });
+    dbMock.getMasterDataStatus.mockResolvedValue('current');
     dbMock.getConfig.mockResolvedValue('device-1');
-    coreMock.verifyMasterPassword.mockResolvedValue(true);
-    coreMock.createVerifyHash.mockResolvedValue('next-verify-hash');
+    coreMock.createMasterPasswordData.mockResolvedValue({
+      formatVersion: 1,
+      verifyHash: 'hash',
+      verifySalt: 'salt',
+      identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
+      createdAt: 1,
+    });
+    coreMock.openMasterPasswordData.mockResolvedValue('身份密语');
     coreMock.deriveDatabaseKey.mockImplementation(async (pwd: string, salt: string) => `dbkey:${pwd}:${salt}`);
     coreMock.savePasswordEntry.mockImplementation(async (input: {
       masterPwd: string;
@@ -60,7 +69,7 @@ describe('useMainStore', () => {
       mode: string;
       length: number;
       runtime: { withWritableDbKey: (pwd: string, salt: string, run: () => Promise<{ ok: boolean }>) => Promise<{ ok: boolean }> };
-    }) => input.runtime.withWritableDbKey(input.masterPwd, 'FlowerKey', async () => ({ ok: true })));
+    }) => input.runtime.withWritableDbKey(input.masterPwd, '身份密语', async () => ({ ok: true })));
   });
 
   it('restores the unlocked database key after saving a temporary password with another password', async () => {
@@ -74,71 +83,74 @@ describe('useMainStore', () => {
     await store.savePassword('another-password', 'github-main');
 
     expect(coreMock.savePasswordEntry).toHaveBeenCalledOnce();
-    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(1, 'dbkey:another-password:FlowerKey');
-    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(2, 'dbkey:correct-password:FlowerKey');
+    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(1, 'dbkey:another-password:身份密语');
+    expect(dbMock.setDbKey).toHaveBeenNthCalledWith(2, 'dbkey:correct-password:身份密语');
     expect(dbMock.clearDbKey).not.toHaveBeenCalled();
   });
 
-  it('reports that the recovery code must be regenerated after changing the master password', async () => {
+  it('stores only the wrapped identity master data returned by core setup', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+
+    await store.setup('correct-password', '身份密语');
+
+    expect(coreMock.createMasterPasswordData)
+      .toHaveBeenCalledWith('correct-password', '身份密语');
+    expect(dbMock.createMasterData).toHaveBeenCalledWith(expect.objectContaining({
+      formatVersion: 1,
+      identityEnvelope: expect.objectContaining({ ciphertext: 'wrapped' }),
+    }));
+    expect(JSON.stringify(dbMock.createMasterData.mock.calls[0][0]))
+      .not.toContain('身份密语');
+  });
+
+  it('blocks setup when unsupported pre-release identity data exists', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+    dbMock.getMasterDataStatus.mockResolvedValue('unsupported');
+
+    await store.checkSetup();
+
+    expect(store.hasUnsupportedMasterData).toBe(true);
+    await expect(store.setup('new-password', '新身份密语'))
+      .rejects.toThrow('请先清除本地开发数据');
+    expect(dbMock.createMasterData).not.toHaveBeenCalled();
+  });
+
+  it('opens the wrapped identity before deriving the database key', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+
+    await store.unlock('correct-password');
+
+    expect(coreMock.openMasterPasswordData).toHaveBeenCalledWith(
+      'correct-password',
+      expect.objectContaining({ formatVersion: 1 }),
+    );
+    expect(dbMock.setDbKey).toHaveBeenCalledWith('dbkey:correct-password:身份密语');
+    expect(store.userSalt).toBe('身份密语');
+  });
+
+  it('recovers the original master password and exposes no password change action', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
     dbMock.getMasterData.mockResolvedValue({
+      formatVersion: 1,
       verifyHash: 'hash',
       verifySalt: 'salt',
-      userSalt: 'FlowerKey',
+      identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
       createdAt: 1,
-      encryptedMasterPwd: 'encrypted-old-master',
+      encryptedMasterPwd: 'encrypted-original-master',
       recoverySalt: 'recovery-salt',
     });
+    coreMock.decryptMasterPwdWithRecovery.mockResolvedValue('correct-password');
 
-    await store.unlock('correct-password');
+    await expect(store.recoverWithCode('recovery-code')).resolves.toBe(true);
 
-    await expect(store.changeMasterPwd('correct-password', 'new-password')).rejects.toThrow('存在恢复码，请先记录并在改密后重新生成');
-  });
-
-  it('changes the master password when no recovery payload exists', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    await store.unlock('correct-password');
-    dbMock.setMasterData.mockClear();
-
-    await store.changeMasterPwd('correct-password', 'new-password');
-
-    expect(dbMock.reEncryptAllEntries).toHaveBeenCalledWith(
-      'dbkey:correct-password:FlowerKey',
-      'dbkey:new-password:FlowerKey',
-    );
-    expect(dbMock.setMasterData).toHaveBeenCalledWith(expect.objectContaining({
-      verifyHash: 'next-verify-hash',
-      verifySalt: 'verify-salt',
-      encryptedMasterPwd: undefined,
-      recoverySalt: undefined,
-    }));
-  });
-
-  it('generates a new recovery code after the master password changes', async () => {
-    const { useMainStore } = await import('./main.js');
-    const store = useMainStore();
-
-    await store.unlock('correct-password');
-    dbMock.setMasterData.mockClear();
-    coreMock.generateRecoveryCode.mockReturnValue('new-recovery-code');
-    coreMock.encryptMasterPwdWithRecovery.mockResolvedValue({
-      encryptedMasterPwd: 'encrypted-new-master',
-      recoverySalt: 'recovery-salt-2',
-    });
-
-    await store.changeMasterPwd('correct-password', 'new-password');
-    const recoveryCode = await store.generateRecovery();
-
-    expect(recoveryCode).toBe('new-recovery-code');
-    expect(coreMock.encryptMasterPwdWithRecovery).toHaveBeenCalledWith('new-password', 'new-recovery-code');
-    expect(dbMock.setMasterData).toHaveBeenLastCalledWith(expect.objectContaining({
-      encryptedMasterPwd: 'encrypted-new-master',
-      recoverySalt: 'recovery-salt-2',
-    }));
+    expect(store.masterPwd).toBe('correct-password');
+    expect(store.isUnlocked).toBe(true);
+    expect('changeMasterPwd' in store).toBe(false);
   });
 
   it('reports a stable error when import JSON is invalid', async () => {

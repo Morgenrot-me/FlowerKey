@@ -1,12 +1,14 @@
 /**
  * 花钥移动端 - 主状态 Store 测试
- * 覆盖普通改密时的恢复码保护，以及恢复码重置后的合法改密路径。
+ * 覆盖身份密语包装解锁、恢复原主密码、不可变凭据 API 与锁定清理。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 const sqliteDbMock = vi.hoisted(() => ({
   getMasterData: vi.fn(),
+  getMasterDataStatus: vi.fn(),
+  createMasterData: vi.fn(),
   setDbKey: vi.fn(),
   clearDbKey: vi.fn(),
   getConfig: vi.fn(),
@@ -24,10 +26,9 @@ const sqliteDbMock = vi.hoisted(() => ({
 }));
 
 const coreMock = vi.hoisted(() => ({
-  generateSalt: vi.fn(() => 'verify-salt'),
   generateDeviceId: vi.fn(() => 'device-1'),
-  createVerifyHash: vi.fn(),
-  verifyMasterPassword: vi.fn(),
+  createMasterPasswordData: vi.fn(),
+  openMasterPasswordData: vi.fn(),
   generatePassword: vi.fn(),
   deriveDatabaseKey: vi.fn(),
   generateRecoveryCode: vi.fn(),
@@ -50,52 +51,56 @@ describe('mobile useMainStore', () => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
     sqliteDbMock.getMasterData.mockResolvedValue({
+      formatVersion: 1,
       verifyHash: 'hash',
       verifySalt: 'salt',
-      userSalt: 'FlowerKey',
+      identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
       createdAt: 1,
     });
+    sqliteDbMock.getMasterDataStatus.mockResolvedValue('current');
     sqliteDbMock.getConfig.mockResolvedValue('device-1');
-    coreMock.verifyMasterPassword.mockResolvedValue(true);
-    coreMock.createVerifyHash.mockResolvedValue('next-verify-hash');
+    coreMock.createMasterPasswordData.mockResolvedValue({
+      formatVersion: 1,
+      verifyHash: 'hash',
+      verifySalt: 'salt',
+      identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
+      createdAt: 1,
+    });
+    coreMock.openMasterPasswordData.mockResolvedValue('身份密语');
     coreMock.deriveDatabaseKey.mockImplementation(async (pwd: string, salt: string) => `dbkey:${pwd}:${salt}`);
   });
 
-  it('rejects a normal password change when a recovery payload exists', async () => {
+  it('stores wrapped identity data without plaintext fields', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
-    sqliteDbMock.getMasterData.mockResolvedValue({
-      verifyHash: 'hash',
-      verifySalt: 'salt',
-      userSalt: 'FlowerKey',
-      createdAt: 1,
-      encryptedMasterPwd: 'encrypted-old-master',
-      recoverySalt: 'recovery-salt',
-    });
+    await store.setup('correct-password', '身份密语');
 
-    await store.unlock('correct-password');
-
-    await expect(store.changeMasterPwd('correct-password', 'new-password')).rejects.toThrow('存在恢复码，请先记录并在改密后重新生成');
+    expect(coreMock.createMasterPasswordData)
+      .toHaveBeenCalledWith('correct-password', '身份密语');
+    expect(JSON.stringify(sqliteDbMock.createMasterData.mock.calls[0][0]))
+      .not.toContain('身份密语');
   });
 
-  it('allows changing the master password after recovery unlock reset flow', async () => {
+  it('recovers the original master password without exposing a reset flow', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
 
     sqliteDbMock.getMasterData
       .mockResolvedValueOnce({
+        formatVersion: 1,
         verifyHash: 'hash',
         verifySalt: 'salt',
-        userSalt: 'FlowerKey',
+        identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
         createdAt: 1,
         encryptedMasterPwd: 'encrypted-old-master',
         recoverySalt: 'recovery-salt',
       })
       .mockResolvedValueOnce({
+        formatVersion: 1,
         verifyHash: 'hash',
         verifySalt: 'salt',
-        userSalt: 'FlowerKey',
+        identityEnvelope: { version: 1, kdfSalt: 'wrap-salt', ciphertext: 'wrapped' },
         createdAt: 1,
         encryptedMasterPwd: 'encrypted-old-master',
         recoverySalt: 'recovery-salt',
@@ -105,19 +110,20 @@ describe('mobile useMainStore', () => {
     const recovered = await store.recoverWithCode('recovery-code');
     expect(recovered).toBe(true);
 
-    sqliteDbMock.setMasterData.mockClear();
-    await store.changeMasterPwd('', 'new-password');
+    expect(store.masterPwd).toBe('correct-password');
+    expect(store.userSalt).toBe('身份密语');
+    expect('needsPasswordReset' in store).toBe(false);
+    expect('changeMasterPwd' in store).toBe(false);
+  });
 
-    expect(sqliteDbMock.reEncryptAllEntries).toHaveBeenCalledWith(
-      'dbkey:correct-password:FlowerKey',
-      'dbkey:new-password:FlowerKey',
-    );
-    expect(sqliteDbMock.setMasterData).toHaveBeenCalledWith(expect.objectContaining({
-      verifyHash: 'next-verify-hash',
-      verifySalt: 'verify-salt',
-      encryptedMasterPwd: undefined,
-      recoverySalt: undefined,
-    }));
+  it('opens the wrapped identity before deriving the database key', async () => {
+    const { useMainStore } = await import('./main.js');
+    const store = useMainStore();
+
+    await store.unlock('correct-password');
+
+    expect(coreMock.openMasterPasswordData).toHaveBeenCalled();
+    expect(sqliteDbMock.setDbKey).toHaveBeenCalledWith('dbkey:correct-password:身份密语');
   });
 
   it('skips importing a bookmark when another bookmark with the same url already exists', async () => {

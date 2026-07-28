@@ -2,7 +2,7 @@
  * 花钥 Background Service Worker
  * 处理右键菜单、消息通信
  * 维护解锁状态：masterPwd 仅存内存变量，不写入 storage
- * chrome.storage.session 只在当前浏览器会话保存解锁态与身份密语，Service Worker 重启时强制清空
+ * chrome.storage.session 只保存非秘密的会话状态；主密码和身份密语只存在于当前 Service Worker 内存
  */
 
 import {
@@ -10,9 +10,9 @@ import {
   deriveDatabaseKey,
   generatePassword,
   normalizeCodename,
+  openMasterPasswordData,
   runDirectPasswordFlow,
   savePasswordEntry,
-  verifyMasterPassword,
 } from '@flowerkey/core';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
@@ -50,20 +50,22 @@ chrome.runtime.onStartup.addListener(detectTheme);
 let _masterPwd = '';
 let _userSalt = '';
 let _isUnlocked = false;
-chrome.storage.session.set({ isUnlocked: false, userSalt: '', unlockedAt: 0 });
+chrome.storage.session.remove('userSalt');
+chrome.storage.session.set({ isUnlocked: false, unlockedAt: 0 });
 
 function setUnlocked(masterPwd: string, userSalt: string) {
   _masterPwd = masterPwd;
   _userSalt = userSalt;
   _isUnlocked = true;
-  chrome.storage.session.set({ isUnlocked: true, userSalt, unlockedAt: Date.now() });
+  chrome.storage.session.set({ isUnlocked: true, unlockedAt: Date.now() });
 }
 
 function setLocked() {
   _masterPwd = '';
   _userSalt = '';
   _isUnlocked = false;
-  chrome.storage.session.set({ isUnlocked: false, userSalt: '', unlockedAt: 0 });
+  chrome.storage.session.remove('userSalt');
+  chrome.storage.session.set({ isUnlocked: false, unlockedAt: 0 });
 }
 
 // ==================== 右键菜单 ====================
@@ -173,7 +175,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           url: msg.url,
           runtime: {
             getMasterData: () => db.getMasterData(),
-            verifyMasterPassword,
+            openMasterPasswordData,
             generatePassword,
             listPasswordEntries: () => db.getEntriesByType('password'),
             createPasswordEntry: (data) => db.createEntry(data),
@@ -210,7 +212,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           url: msg.url,
           runtime: {
             getMasterData: () => db.getMasterData(),
-            verifyMasterPassword,
+            openMasterPasswordData,
             generatePassword,
             listPasswordEntries: () => db.getEntriesByType('password'),
             createPasswordEntry: (data) => db.createEntry(data),
@@ -240,10 +242,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       try {
         const mpData = await db.getMasterData();
-        const ok = mpData ? await verifyMasterPassword(msg.masterPwd, mpData.verifySalt!, mpData.verifyHash) : false;
-        if (ok) {
-          db.setDbKey(await deriveDatabaseKey(msg.masterPwd, mpData!.userSalt));
-          setUnlocked(msg.masterPwd, mpData!.userSalt);
+        const identitySecret = mpData
+          ? await openMasterPasswordData(msg.masterPwd, mpData)
+          : null;
+        if (identitySecret) {
+          db.setDbKey(await deriveDatabaseKey(msg.masterPwd, identitySecret));
+          setUnlocked(msg.masterPwd, identitySecret);
           sendResponse({ ok: true });
         } else {
           sendResponse({ ok: false, error: '密码错误' });

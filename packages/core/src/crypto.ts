@@ -4,12 +4,17 @@
  * 提供：密钥派生(PBKDF2)、密码生成(HMAC-SHA256)、数据加密(AES-256-GCM)
  */
 
-import type { CharsetMode } from './models.js';
+import type {
+  CharsetMode,
+  IdentitySecretEnvelope,
+  MasterPasswordData,
+} from './models.js';
 
 const ITERATIONS = 600_000;
 const KEY_LENGTH = 256;
 const SALT_PREFIX_VERIFY = 'flowerkey_verify_';
 const SALT_PREFIX_DBENC = 'flowerkey_dbenc_';
+const SALT_PREFIX_IDENTITY_WRAP = 'flowerkey_identity_wrap_';
 const SALT_PREFIX_RECOVERY = 'flowerkey_recovery_';
 const ENCRYPT_VERSION = 0x01;
 
@@ -178,6 +183,72 @@ export function prepareIdentitySecret(identitySecret: string): string {
   return normalizeIdentitySecret(identitySecret);
 }
 
+/** 判断本地对象是否为唯一受支持的正式主密码数据格式。 */
+export function isCurrentMasterPasswordData(value: unknown): value is MasterPasswordData {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as Partial<MasterPasswordData> & Record<string, unknown>;
+  const envelope = data.identityEnvelope as Partial<IdentitySecretEnvelope> | undefined;
+  if ('userSalt' in data || 'identitySecret' in data) return false;
+  const isHex = (candidate: unknown, length: number) =>
+    typeof candidate === 'string'
+    && candidate.length === length
+    && /^[0-9a-f]+$/.test(candidate);
+  const hasValidCiphertext = (candidate: unknown) => {
+    if (
+      typeof candidate !== 'string'
+      || candidate.length % 4 !== 0
+      || !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate)
+    ) return false;
+    try {
+      const bytes = base64ToBytes(candidate);
+      return bytes.length >= 29 && bytes[0] === ENCRYPT_VERSION;
+    } catch {
+      return false;
+    }
+  };
+  const recoveryFieldsAbsent =
+    data.encryptedMasterPwd === undefined && data.recoverySalt === undefined;
+  const recoveryFieldsValid =
+    typeof data.encryptedMasterPwd === 'string'
+    && data.encryptedMasterPwd.length > 0
+    && isHex(data.recoverySalt, 32);
+
+  return data.formatVersion === 1
+    && isHex(data.verifyHash, 64)
+    && isHex(data.verifySalt, 32)
+    && Number.isFinite(data.createdAt)
+    && envelope?.version === 1
+    && isHex(envelope.kdfSalt, 32)
+    && hasValidCiphertext(envelope.ciphertext)
+    && (recoveryFieldsAbsent || recoveryFieldsValid);
+}
+
+/**
+ * 在持久化边界重建白名单对象。
+ * 即使调用方通过类型断言附带额外字段，也不会把它们写入配置。
+ */
+export function canonicalizeMasterPasswordData(value: unknown): MasterPasswordData {
+  if (!isCurrentMasterPasswordData(value)) {
+    throw new Error('主密码数据格式错误');
+  }
+  const canonical: MasterPasswordData = {
+    formatVersion: 1,
+    verifyHash: value.verifyHash,
+    verifySalt: value.verifySalt,
+    identityEnvelope: {
+      version: 1,
+      kdfSalt: value.identityEnvelope.kdfSalt,
+      ciphertext: value.identityEnvelope.ciphertext,
+    },
+    createdAt: value.createdAt,
+  };
+  if (value.encryptedMasterPwd !== undefined && value.recoverySalt !== undefined) {
+    canonical.encryptedMasterPwd = value.encryptedMasterPwd;
+    canonical.recoverySalt = value.recoverySalt;
+  }
+  return canonical;
+}
+
 /**
  * 将原始字节编码为指定字符集的密码字符串
  * 用 mixBytes 确定性地保证：首字符为字母、至少含一个数字
@@ -288,6 +359,76 @@ export async function decrypt(data: ArrayBuffer, key: CryptoKey): Promise<string
     { name: 'AES-GCM', iv: iv as BufferSource }, key, ciphertext as BufferSource
   );
   return decoder.decode(plaintext);
+}
+
+// ==================== 身份密语本地包装 ====================
+
+/** 使用主密码派生的独立密钥包装身份密语。 */
+async function wrapIdentitySecret(
+  masterPwd: string,
+  identitySecret: string,
+): Promise<IdentitySecretEnvelope> {
+  const kdfSalt = generateSalt();
+  const key = await deriveKey(
+    masterPwd,
+    SALT_PREFIX_IDENTITY_WRAP + kdfSalt,
+    ['encrypt', 'decrypt'],
+  );
+  const encrypted = await encrypt(identitySecret, key);
+  return {
+    version: 1,
+    kdfSalt,
+    ciphertext: bytesToBase64(new Uint8Array(encrypted)),
+  };
+}
+
+/** 创建唯一正式版本的主密码验证与身份包装数据。 */
+export async function createMasterPasswordData(
+  masterPwd: string,
+  identitySecret: string,
+  createdAt = Date.now(),
+): Promise<MasterPasswordData> {
+  if (!masterPwd.trim()) throw new Error('记忆密码不能为空');
+  const normalizedIdentity = prepareIdentitySecret(identitySecret);
+  const verifySalt = generateSalt();
+  const [verifyHash, identityEnvelope] = await Promise.all([
+    createVerifyHash(masterPwd, verifySalt),
+    wrapIdentitySecret(masterPwd, normalizedIdentity),
+  ]);
+  return {
+    formatVersion: 1,
+    verifyHash,
+    verifySalt,
+    identityEnvelope,
+    createdAt,
+  };
+}
+
+/**
+ * 验证主密码并解包身份密语。
+ * 错误主密码返回 null；通过验证但信封损坏时抛出稳定错误。
+ */
+export async function openMasterPasswordData(
+  masterPwd: string,
+  data: MasterPasswordData,
+): Promise<string | null> {
+  if (!isCurrentMasterPasswordData(data)) {
+    throw new Error('不支持的主密码数据格式');
+  }
+  const verified = await verifyMasterPassword(masterPwd, data.verifySalt, data.verifyHash);
+  if (!verified) return null;
+
+  try {
+    const key = await deriveKey(
+      masterPwd,
+      SALT_PREFIX_IDENTITY_WRAP + data.identityEnvelope.kdfSalt,
+      ['encrypt', 'decrypt'],
+    );
+    const bytes = base64ToBytes(data.identityEnvelope.ciphertext);
+    return await decrypt(bytes.buffer as ArrayBuffer, key);
+  } catch {
+    throw new Error('身份密语包装数据损坏');
+  }
 }
 
 // ==================== 恢复码 ====================

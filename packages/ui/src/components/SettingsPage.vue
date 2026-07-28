@@ -1,6 +1,6 @@
 <!--
   花钥 - 设置页
-  WebDAV 配置 + 同步操作 + 账户安全（恢复码/改密/导出导入）
+  WebDAV 配置 + 同步操作 + 账户安全（恢复原主密码/导出导入）
 -->
 <template>
   <div class="p-4 space-y-4 text-xs">
@@ -129,7 +129,7 @@
 
       <!-- 方案一：恢复码 -->
       <div class="space-y-1">
-        <p class="text-gray-500 dark:text-gray-400">恢复码可在忘记主密码时恢复账户，请妥善保管。</p>
+        <p class="text-gray-500 dark:text-gray-400">恢复码会还原原主密码并直接解锁，不会改变历史生成密码。请妥善保管。</p>
         <div v-if="!hasRecovery" class="rounded border border-blue-200/70 bg-blue-50/70 px-2.5 py-2 text-[10px] text-blue-700 dark:border-blue-800/70 dark:bg-blue-900/20 dark:text-blue-200 space-y-1.5">
           <p class="font-medium">建议现在就生成恢复码</p>
           <p>这是忘记主密码后唯一可用的自救方式，生成后请离线抄写保存。</p>
@@ -147,28 +147,7 @@
         </div>
       </div>
 
-      <!-- 方案二：修改主密码 -->
-      <div class="space-y-1">
-        <button @click="showChangePwd = !showChangePwd" class="w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
-          修改主密码
-        </button>
-        <div v-if="showChangePwd" class="space-y-1">
-          <div class="rounded border border-orange-200/80 bg-orange-50/80 px-2.5 py-2 text-[10px] text-orange-700 dark:border-orange-800/70 dark:bg-orange-900/20 dark:text-orange-300 space-y-1">
-            <p class="font-medium">修改前请确认</p>
-            <p>修改后，当前设备会立即用新主密码重加密本地数据；旧主密码将不能再解锁这份数据。</p>
-            <p>如果你还在其他设备使用花钥，请尽快同步并在其他设备上完成相同修改，避免后续混淆。</p>
-          </div>
-          <p class="text-[10px] text-gray-400 dark:text-gray-500">修改主密码将重新加密所有本地数据，条目较多时可能需要数秒。</p>
-          <input v-model="newPwd" type="password" placeholder="新主密码" class="input" />
-          <input v-model="newPwdConfirm" type="password" placeholder="确认新主密码" class="input" />
-          <button @click="handleChangePwd" :disabled="changingPwd" class="w-full py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50">
-            {{ changingPwd ? '处理中...' : '确认修改' }}
-          </button>
-          <p v-if="changePwdMsg" :class="changePwdError ? 'text-red-500' : 'text-green-600'">{{ changePwdMsg }}</p>
-        </div>
-      </div>
-
-      <!-- 方案三：导出/导入 -->
+      <!-- 导出/导入 -->
       <div class="space-y-1">
         <p class="text-gray-500 dark:text-gray-400">导出明文备份，请妥善保管文件。</p>
         <div class="flex gap-2">
@@ -181,7 +160,7 @@
         <p v-if="importMsg" class="text-green-600">{{ importMsg }}</p>
       </div>
 
-      <!-- 方案四：批量导入书签 -->
+      <!-- 批量导入书签 -->
       <div class="space-y-1">
         <p class="text-gray-500 dark:text-gray-400">从浏览器导出的书签 HTML 文件批量导入（跳过已存在 URL）。</p>
         <label class="block w-full py-1.5 border rounded hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 text-center cursor-pointer">
@@ -205,7 +184,8 @@
         <table class="w-full text-[10px] border-collapse">
           <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
           <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
-          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>明文哈希，仅用于验证主密码，无法反推主密码本身</td></tr>
+          <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">身份密语</td><td>AES-256-GCM 包装后存储，主密码解锁后才进入内存</td></tr>
+          <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>带随机盐的验证值，仅用于校验主密码</td></tr>
         </table>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">从未存储</p>
         <ul class="list-disc list-inside text-[10px] space-y-0.5">
@@ -213,6 +193,8 @@
           <li>网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存</li>
           <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
+        <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">不可变生成根</p>
+        <p class="text-[10px]">主密码和身份密语共同决定全部历史生成密码，设置后不提供普通修改入口。恢复码只恢复原主密码。</p>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
         <p class="text-[10px]">AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-600 dark:text-gray-300">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
         <p class="text-[10px] pt-0.5">密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
@@ -333,29 +315,7 @@ async function handleGenerateRecovery() {
   hasRecovery.value = true;
 }
 
-// 方案二：修改主密码
-const showChangePwd = ref(false);
-const newPwd = ref('');
-const newPwdConfirm = ref('');
-const changingPwd = ref(false);
-const changePwdMsg = ref('');
-const changePwdError = ref(false);
-
-async function handleChangePwd() {
-  if (!newPwd.value || newPwd.value !== newPwdConfirm.value) {
-    changePwdMsg.value = '两次输入不一致'; changePwdError.value = true; return;
-  }
-  changingPwd.value = true; changePwdMsg.value = '';
-  try {
-    await mainStore.changeMasterPwd(mainStore.masterPwd, newPwd.value);
-    changePwdMsg.value = '修改成功'; changePwdError.value = false;
-    newPwd.value = ''; newPwdConfirm.value = ''; showChangePwd.value = false;
-  } catch (e) {
-    changePwdMsg.value = (e as Error).message; changePwdError.value = true;
-  } finally { changingPwd.value = false; }
-}
-
-// 方案三：导出/导入
+// 导出/导入
 const importMsg = ref('');
 const showSecurity = ref(false);
 const showDavGuide = ref(false);

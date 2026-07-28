@@ -9,7 +9,7 @@ import { runDirectPasswordFlow } from '../dist/direct-password.js';
 
 function createRuntime(overrides = {}) {
   const calls = {
-    verify: 0,
+    open: 0,
     generate: 0,
     list: 0,
     create: 0,
@@ -21,15 +21,20 @@ function createRuntime(overrides = {}) {
     calls,
     async getMasterData() {
       return {
+        formatVersion: 1,
         verifyHash: 'stored-hash',
         verifySalt: 'verify-salt',
-        userSalt: '只属于我的身份句',
+        identityEnvelope: {
+          version: 1,
+          kdfSalt: 'wrap-salt',
+          ciphertext: 'wrapped-identity',
+        },
         createdAt: 1,
       };
     },
-    async verifyMasterPassword(masterPwd, verifySalt, verifyHash) {
-      calls.verify++;
-      return masterPwd === 'correct' && verifySalt === 'verify-salt' && verifyHash === 'stored-hash';
+    async openMasterPasswordData(masterPwd) {
+      calls.open++;
+      return masterPwd === 'correct' ? '只属于我的身份句' : null;
     },
     async generatePassword(masterPwd, userSalt, codename, mode, length) {
       calls.generate++;
@@ -99,7 +104,7 @@ test('正式模式在记忆密码错误时不给正式密码且不入库', async
     ok: false,
     reason: 'invalid_master_password',
   });
-  assert.equal(runtime.calls.verify, 1);
+  assert.equal(runtime.calls.open, 1);
   assert.equal(runtime.calls.generate, 0);
   assert.equal(runtime.calls.create, 0);
   assert.equal(runtime.calls.touch, 0);

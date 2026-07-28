@@ -11,7 +11,7 @@ export type DirectComputeMode = 'formal' | 'independent';
 
 export interface DirectPasswordRuntime {
   getMasterData(): Promise<MasterPasswordData | undefined | null>;
-  verifyMasterPassword(masterPwd: string, verifySalt: string, storedHash: string): Promise<boolean>;
+  openMasterPasswordData(masterPwd: string, data: MasterPasswordData): Promise<string | null>;
   generatePassword(masterPwd: string, userSalt: string, codename: string, mode: CharsetMode, length: number): Promise<string>;
   listPasswordEntries(): Promise<Entry[]>;
   createPasswordEntry(data: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Entry>;
@@ -56,9 +56,14 @@ export async function runDirectPasswordFlow(input: DirectPasswordInput): Promise
   const masterData = await input.runtime.getMasterData();
 
   if (input.computeMode === 'independent') {
-    const identitySecret = masterData?.userSalt ?? input.identitySecret;
+    const identitySecret = masterData
+      ? await input.runtime.openMasterPasswordData(input.masterPwd, masterData)
+      : input.identitySecret;
     if (!identitySecret) {
-      return { ok: false, reason: 'missing_identity_secret' };
+      return {
+        ok: false,
+        reason: masterData ? 'invalid_master_password' : 'missing_identity_secret',
+      };
     }
     return {
       ok: true,
@@ -75,14 +80,8 @@ export async function runDirectPasswordFlow(input: DirectPasswordInput): Promise
   if (!masterData) {
     return { ok: false, reason: 'not_initialized' };
   }
-  const identitySecret = masterData.userSalt;
-
-  const verified = await input.runtime.verifyMasterPassword(
-    input.masterPwd,
-    masterData.verifySalt,
-    masterData.verifyHash,
-  );
-  if (!verified) {
+  const identitySecret = await input.runtime.openMasterPasswordData(input.masterPwd, masterData);
+  if (!identitySecret) {
     return { ok: false, reason: 'invalid_master_password' };
   }
 
@@ -126,7 +125,8 @@ export async function savePasswordEntry(input: {
   const codename = normalizeCodenameInput(input.codename);
   const masterData = await input.runtime.getMasterData();
   if (!masterData) throw new Error('设备尚未初始化，无法保存密码条目');
-  const identitySecret = masterData.userSalt;
+  const identitySecret = await input.runtime.openMasterPasswordData(input.masterPwd, masterData);
+  if (!identitySecret) throw new Error('记忆密码错误，无法保存密码条目');
 
   return input.runtime.withWritableDbKey(input.masterPwd, identitySecret, async () => {
     const normalizedCodename = normalizeCodename(codename);

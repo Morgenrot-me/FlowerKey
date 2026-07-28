@@ -144,14 +144,35 @@ public class AutofillAuthActivity extends Activity {
             if (!c.moveToFirst()) { toast("花钥未初始化"); return; }
             JSONObject data = new JSONObject(c.getString(0));
 
-            userSalt = data.getString("userSalt");
-            String verifySalt = data.optString("verifySalt", "");
+            if (data.optInt("formatVersion", 0) != 1) {
+                toast("检测到发布前旧数据，请清空应用数据后重新初始化");
+                return;
+            }
+            String verifySalt = data.getString("verifySalt");
             String storedHash = data.getString("verifyHash");
-            String verifyInput = verifySalt.isEmpty() ? userSalt : verifySalt;
 
-            byte[] hash = pbkdf2(pwd, SALT_VERIFY + verifyInput);
+            byte[] hash = pbkdf2(pwd, SALT_VERIFY + verifySalt);
             if (!toHex(hash).equals(storedHash)) { toast("主密码错误"); return; }
 
+            JSONObject envelope = data.getJSONObject("identityEnvelope");
+            if (envelope.getInt("version") != 1) {
+                toast("不支持的身份密语包装版本");
+                return;
+            }
+            byte[] wrappedIdentity = android.util.Base64.decode(
+                envelope.getString("ciphertext"),
+                android.util.Base64.DEFAULT
+            );
+            try {
+                userSalt = IdentityEnvelopeCrypto.decrypt(
+                    pwd,
+                    envelope.getString("kdfSalt"),
+                    wrappedIdentity
+                );
+            } catch (java.security.GeneralSecurityException e) {
+                toast("身份密语包装数据损坏");
+                return;
+            }
             dbKey = pbkdf2(pwd, SALT_DBENC + userSalt);
             // 存入 App 内存，后续生成密码用
             byte[] masterKey = pbkdf2(pwd, PasswordGenerator.normalizeIdentitySecret(userSalt));

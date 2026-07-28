@@ -9,10 +9,22 @@ import {
   type DirectPasswordRuntime,
 } from './direct-password.js';
 
+const currentMasterData = {
+  formatVersion: 1 as const,
+  verifyHash: 'hash',
+  verifySalt: 'verify-salt',
+  identityEnvelope: {
+    version: 1 as const,
+    kdfSalt: 'wrap-salt',
+    ciphertext: 'wrapped-identity',
+  },
+  createdAt: 1,
+};
+
 function createUninitializedRuntime(): DirectPasswordRuntime {
   return {
     getMasterData: vi.fn().mockResolvedValue(undefined),
-    verifyMasterPassword: vi.fn(),
+    openMasterPasswordData: vi.fn().mockResolvedValue('身份密语'),
     generatePassword: vi.fn(async (masterPwd, identitySecret, codename, mode, length) =>
       `${masterPwd}|${identitySecret}|${codename}|${mode}|${length}`),
     listPasswordEntries: vi.fn().mockResolvedValue([]),
@@ -28,12 +40,9 @@ describe('savePasswordEntry', () => {
     const createPasswordEntry = vi.fn();
     const runtime = {
       getMasterData: vi.fn().mockResolvedValue({
-        verifyHash: 'hash',
-        verifySalt: 'verify-salt',
-        userSalt: '身份密语',
-        createdAt: 1,
+        ...currentMasterData,
       }),
-      verifyMasterPassword: vi.fn(),
+      openMasterPasswordData: vi.fn().mockResolvedValue('身份密语'),
       generatePassword: vi.fn(),
       listPasswordEntries: vi.fn().mockResolvedValue([{
         id: 'existing',
@@ -103,15 +112,28 @@ describe('runDirectPasswordFlow', () => {
     );
   });
 
+  it('opens the wrapped identity on an initialized device in independent mode', async () => {
+    const runtime = createUninitializedRuntime();
+    runtime.getMasterData = vi.fn().mockResolvedValue(currentMasterData);
+
+    const result = await runDirectPasswordFlow({
+      computeMode: 'independent',
+      masterPwd: 'master',
+      codename: '微信',
+      runtime,
+    });
+
+    expect(runtime.openMasterPasswordData).toHaveBeenCalledWith('master', currentMasterData);
+    expect(result).toEqual({
+      ok: true,
+      password: 'master|身份密语|微信|alphanumeric|16',
+    });
+  });
+
   it('does not generate or persist when the master password is invalid', async () => {
     const runtime = createUninitializedRuntime();
-    runtime.getMasterData = vi.fn().mockResolvedValue({
-      verifyHash: 'hash',
-      verifySalt: 'verify-salt',
-      userSalt: '身份密语',
-      createdAt: 1,
-    });
-    runtime.verifyMasterPassword = vi.fn().mockResolvedValue(false);
+    runtime.getMasterData = vi.fn().mockResolvedValue(currentMasterData);
+    runtime.openMasterPasswordData = vi.fn().mockResolvedValue(null);
 
     const result = await runDirectPasswordFlow({
       computeMode: 'formal',
@@ -131,13 +153,7 @@ describe('runDirectPasswordFlow', () => {
 
   it('generates a new codename without saving it before the user copies', async () => {
     const runtime = createUninitializedRuntime();
-    runtime.getMasterData = vi.fn().mockResolvedValue({
-      verifyHash: 'hash',
-      verifySalt: 'verify-salt',
-      userSalt: '身份密语',
-      createdAt: 1,
-    });
-    runtime.verifyMasterPassword = vi.fn().mockResolvedValue(true);
+    runtime.getMasterData = vi.fn().mockResolvedValue(currentMasterData);
 
     const result = await runDirectPasswordFlow({
       computeMode: 'formal',
@@ -158,13 +174,7 @@ describe('runDirectPasswordFlow', () => {
 
   it('uses an existing entry profile instead of the quick form defaults', async () => {
     const runtime = createUninitializedRuntime();
-    runtime.getMasterData = vi.fn().mockResolvedValue({
-      verifyHash: 'hash',
-      verifySalt: 'verify-salt',
-      userSalt: '身份密语',
-      createdAt: 1,
-    });
-    runtime.verifyMasterPassword = vi.fn().mockResolvedValue(true);
+    runtime.getMasterData = vi.fn().mockResolvedValue(currentMasterData);
     runtime.listPasswordEntries = vi.fn().mockResolvedValue([{
       id: 'alipay',
       type: 'password',

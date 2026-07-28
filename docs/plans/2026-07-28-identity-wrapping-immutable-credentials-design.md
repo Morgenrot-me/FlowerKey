@@ -93,6 +93,9 @@ Windows Hello、Android/iOS 生物识别或设备 PIN 仅在用户主动授权�
 - 身份包装认证失败：拒绝解锁，报告本地初始化数据损坏；
 - 未知 `formatVersion` 或 envelope 版本：拒绝解锁；
 - 旧 `userSalt` 明文格式：不迁移、不读取，要求清除开发数据后重新初始化；
+- 客户端必须把旧或损坏格式标记为 `unsupported` 并阻止覆盖初始化，不能把它等同于从未初始化；
+- 持久化边界必须拒绝同时携带 `identityEnvelope` 与 `userSalt` / `identitySecret` 的混合对象，并按字段白名单重建正式对象；
+- 首次初始化必须使用原子 create-if-missing；恢复码更新使用独立更新入口，陈旧窗口不得覆盖已经建立的主密码和身份密语；
 - 锁定：清除所有内存态秘密；
 - 恢复码错误：不改变任何本地数据。
 

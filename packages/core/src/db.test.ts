@@ -111,6 +111,98 @@ describe('FlowerKeyDB', () => {
     await Dexie.delete(database.name);
   });
 
+  it('distinguishes missing, unsupported and current master data', async () => {
+    await expect(database.getMasterDataStatus()).resolves.toBe('missing');
+
+    await database.setConfig('masterPasswordData', {
+      verifyHash: 'legacy-hash',
+      verifySalt: 'legacy-salt',
+      userSalt: 'FlowerKey',
+      createdAt: 1,
+    });
+    await expect(database.getMasterData()).resolves.toBeUndefined();
+    await expect(database.getMasterDataStatus()).resolves.toBe('unsupported');
+
+    const current = {
+      formatVersion: 1 as const,
+      verifyHash: '0'.repeat(64),
+      verifySalt: '0'.repeat(32),
+      identityEnvelope: {
+        version: 1 as const,
+        kdfSalt: '1'.repeat(32),
+        ciphertext: 'AQABAgMEBQYHCAkKC6OPSRXTE1IiJvoBdENfRnepoPSerhInCLNQrqNeuM8LmhBU/1HkgEPczl0=',
+      },
+      createdAt: 2,
+    };
+
+    await expect(database.createMasterData(current))
+      .rejects.toThrow('检测到发布前或损坏的身份密语数据');
+
+    await database.setConfig('masterPasswordData', current);
+    await expect(database.getMasterData()).resolves.toEqual(current);
+    await expect(database.getMasterDataStatus()).resolves.toBe('current');
+  });
+
+  it('rejects plaintext hybrid writes and persists only canonical master fields', async () => {
+    const current = {
+      formatVersion: 1 as const,
+      verifyHash: '0'.repeat(64),
+      verifySalt: '0'.repeat(32),
+      identityEnvelope: {
+        version: 1 as const,
+        kdfSalt: '1'.repeat(32),
+        ciphertext: 'AQABAgMEBQYHCAkKC6OPSRXTE1IiJvoBdENfRnepoPSerhInCLNQrqNeuM8LmhBU/1HkgEPczl0=',
+      },
+      createdAt: 2,
+    };
+
+    await expect(database.createMasterData({
+      ...current,
+      userSalt: '身份密语',
+    } as never)).rejects.toThrow('主密码数据格式错误');
+
+    await database.createMasterData({ ...current, harmlessExtra: true } as never);
+    const stored = await database.getConfig<Record<string, unknown>>('masterPasswordData');
+    expect(stored).toEqual(current);
+  });
+
+  it('creates master data only once and requires a current object for updates', async () => {
+    const current = {
+      formatVersion: 1 as const,
+      verifyHash: '0'.repeat(64),
+      verifySalt: '0'.repeat(32),
+      identityEnvelope: {
+        version: 1 as const,
+        kdfSalt: '1'.repeat(32),
+        ciphertext: 'AQABAgMEBQYHCAkKC6OPSRXTE1IiJvoBdENfRnepoPSerhInCLNQrqNeuM8LmhBU/1HkgEPczl0=',
+      },
+      createdAt: 2,
+    };
+
+    await expect(database.setMasterData(current))
+      .rejects.toThrow('尚未初始化');
+
+    const results = await Promise.allSettled([
+      database.createMasterData(current),
+      database.createMasterData({ ...current, verifyHash: '2'.repeat(64) }),
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+
+    const firstStored = await database.getMasterData();
+    expect(firstStored?.verifyHash).toMatch(/^(0{64}|2{64})$/);
+
+    await database.setMasterData({
+      ...firstStored!,
+      encryptedMasterPwd: 'wrapped-recovery',
+      recoverySalt: '3'.repeat(32),
+    });
+    await expect(database.getMasterData()).resolves.toMatchObject({
+      encryptedMasterPwd: 'wrapped-recovery',
+      recoverySalt: '3'.repeat(32),
+    });
+  });
+
   it('creates, updates, searches, sorts and deletes entries with changelog records', async () => {
     const older = await database.createEntry({
       type: 'password',

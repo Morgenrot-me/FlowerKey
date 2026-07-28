@@ -67,11 +67,19 @@ export interface UserConfig {
   updatedAt: number;
 }
 
-/** 用户主密码验证数据（本地存储） */
+/** 身份密语本地包装信封 */
+export interface IdentitySecretEnvelope {
+  version: 1;
+  kdfSalt: string;
+  ciphertext: string;
+}
+
+/** 用户主密码验证与身份包装数据（本地存储） */
 export interface MasterPasswordData {
+  formatVersion: 1;
   verifyHash: string;
-  userSalt: string;       // 身份密语（兼容旧字段名，FK-DP1 生成根输入）
   verifySalt: string;     // 验证专用随机盐（防彩虹表，仅本地）
+  identityEnvelope: IdentitySecretEnvelope;
   createdAt: number;
   // 恢复码加密数据（可选，首次设置或手动生成后存在）
   encryptedMasterPwd?: string;

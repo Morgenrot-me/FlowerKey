@@ -140,6 +140,8 @@ async function submitUnlock() {
     const ok = await mainStore.unlock(pwd.value);
     if (ok) emit('unlocked');
     else error.value = '记忆密码错误，无法登入数据库';
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '身份密语包装数据无法读取';
   } finally {
     actionLoading.value = false;
   }
@@ -152,6 +154,8 @@ async function submitRecovery() {
     const ok = await mainStore.recoverWithCode(recoveryCode.value.trim());
     if (ok) emit('unlocked');
     else error.value = '恢复码错误或未设置恢复码';
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '身份密语包装数据无法读取';
   } finally {
     actionLoading.value = false;
   }
@@ -225,6 +229,9 @@ async function submitCompute(nextMode?: DirectComputeMode) {
       return;
     }
     notice.value = '正式密码已生成，点击复制将自动保存。';
+  } catch (e) {
+    if (seq !== computeSeq) return;
+    error.value = e instanceof Error ? e.message : '身份密语包装数据无法读取';
   } finally {
     if (seq === computeSeq) computeLoading.value = false;
   }

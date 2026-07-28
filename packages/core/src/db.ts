@@ -5,7 +5,14 @@
 
 import Dexie, { type Table } from 'dexie';
 import type { Entry, ChangeLog, UserConfig, SyncState, MasterPasswordData } from './models.js';
-import { encrypt, decrypt, bytesToBase64, base64ToBytes } from './crypto.js';
+import {
+  encrypt,
+  decrypt,
+  bytesToBase64,
+  base64ToBytes,
+  canonicalizeMasterPasswordData,
+  isCurrentMasterPasswordData,
+} from './crypto.js';
 import { v4 as uuidv4 } from 'uuid';
 
 function sortEntriesByRecent(entries: Entry[]): Entry[] {
@@ -107,7 +114,7 @@ export class FlowerKeyDB extends Dexie {
 
   // ==================== Entry CRUD ====================
 
-  /** 修改主密码时批量重加密所有条目（旧 key → 新 key） */
+  /** 内部数据迁移能力：用新数据库密钥批量重加密条目；不得暴露为普通主密码修改入口。 */
   async reEncryptAllEntries(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
     const all = await this.entries.toArray();
     const decrypted = await Promise.all(all.map(e => decryptEntry(e, oldKey)));
@@ -220,11 +227,50 @@ export class FlowerKeyDB extends Dexie {
 
   /** 获取/保存主密码验证数据 */
   async getMasterData(): Promise<MasterPasswordData | undefined> {
-    return this.getConfig<MasterPasswordData>('masterPasswordData');
+    const value = await this.getConfig<unknown>('masterPasswordData');
+    return isCurrentMasterPasswordData(value) ? value : undefined;
   }
 
+  async getMasterDataStatus(): Promise<'missing' | 'current' | 'unsupported'> {
+    const value = await this.getConfig<unknown>('masterPasswordData');
+    if (value === undefined) return 'missing';
+    return isCurrentMasterPasswordData(value) ? 'current' : 'unsupported';
+  }
+
+  /** 首次初始化：事务内仅在配置完全不存在时创建，拒绝陈旧页面覆盖。 */
+  async createMasterData(data: MasterPasswordData): Promise<void> {
+    const canonical = canonicalizeMasterPasswordData(data);
+    await this.transaction('rw', this.config, async () => {
+      const existing = await this.config.get('masterPasswordData');
+      if (existing) {
+        if (!isCurrentMasterPasswordData(existing.value)) {
+          throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+        }
+        throw new Error('花钥已经完成初始化，不能覆盖主密码和身份密语');
+      }
+      await this.config.put({
+        key: 'masterPasswordData',
+        value: canonical,
+        updatedAt: Date.now(),
+      });
+    });
+  }
+
+  /** 更新恢复码等附属字段：只允许更新已经存在的正式对象。 */
   async setMasterData(data: MasterPasswordData): Promise<void> {
-    await this.setConfig('masterPasswordData', data);
+    const canonical = canonicalizeMasterPasswordData(data);
+    await this.transaction('rw', this.config, async () => {
+      const existing = await this.config.get('masterPasswordData');
+      if (!existing) throw new Error('花钥尚未初始化');
+      if (!isCurrentMasterPasswordData(existing.value)) {
+        throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
+      }
+      await this.config.put({
+        key: 'masterPasswordData',
+        value: canonical,
+        updatedAt: Date.now(),
+      });
+    });
   }
 
   /** 加密存储敏感配置（如 WebDAV 密码），需解锁后调用 */

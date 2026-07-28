@@ -55,7 +55,7 @@ Chrome and Edge extensions provide in-page filling. Android uses the system Auto
 
 ### Recovery Code
 
-FlowerKey can generate a recovery code that encrypts the master password, reducing the risk of permanent data loss if the master password is forgotten.
+FlowerKey can generate a recovery code that encrypts the original master password. If the master password is forgotten, the recovery code restores that same password and unlocks the vault without creating a new master password or changing any historical deterministic password.
 
 ## Platform Support
 
@@ -79,7 +79,7 @@ FlowerKey can generate a recovery code that encrypts the master password, reduci
 
 - Tauri 2 application for Windows and macOS.
 - Password, bookmark, note, and settings management.
-- WebDAV sync, recovery code, master password rotation, backup import/export, and browser bookmark import.
+- WebDAV sync, original-master-password recovery, backup import/export, and browser bookmark import.
 
 ### Userscript
 
@@ -99,6 +99,9 @@ master password
     |-- PBKDF2(masterPwd, "flowerkey_verify_" + verifySalt)
     |   `-- verifyHash: local master-password verification, not reversible
     |
+    |-- PBKDF2(masterPwd, "flowerkey_identity_wrap_" + randomWrapSalt)
+    |   `-- identityWrapKey: wraps the local identity secret with AES-256-GCM and is never persisted
+    |
     |-- PBKDF2(masterPwd, NFC(identitySecret))
     |   `-- masterKey: deterministic password generation, never persisted
     |
@@ -107,6 +110,8 @@ master password
 ```
 
 Parameters: PBKDF2, SHA-256, 600,000 iterations, 256-bit key length.
+
+After initialization, local storage contains only the random wrapping salt, format version, and encrypted identity-secret envelope; it never contains the identity secret in plaintext. Strict mode creates no persistent quick-unlock device package. The master password and unwrapped identity secret exist only in the unlocked process memory and are cleared on lock. Because both inputs determine every historical generated password, official clients do not offer ordinary master-password or identity-secret changes.
 
 ### Password Generation
 
@@ -287,10 +292,11 @@ The script syncs package versions for core, ui, extension, mobile, and desktop. 
 ## Data and Backup Guidance
 
 - The master password is not uploaded to WebDAV, iCloud, or any third-party service.
+- The identity secret is encrypted locally with a separate wrapping key derived from the master password; it is not stored in plaintext configuration.
 - Generated-mode passwords depend on the master password, identity secret, and codename; losing any of them means the original password cannot be regenerated.
 - Stored-mode passwords, bookmarks, and notes depend on local database state and synchronized backups.
 - Enable WebDAV or iCloud sync, and keep the recovery code offline.
-- Before rotating the master password, migrating devices, or clearing browser data, run a sync or export a backup.
+- The master password and identity secret are immutable after setup. A recovery code restores the original master password; back up or synchronize before migrating devices or clearing local data.
 
 ## License
 

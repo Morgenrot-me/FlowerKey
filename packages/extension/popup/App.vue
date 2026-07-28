@@ -16,7 +16,11 @@
 
     <div class="p-4">
       <Transition name="fade" mode="out-in">
-        <OnboardingForm v-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" />
+        <div v-if="mainStore.hasUnsupportedMasterData" class="p-3 text-xs text-red-700 dark:text-red-300 space-y-1">
+          <p class="font-medium">检测到发布前或损坏的花钥数据</p>
+          <p>为避免覆盖原配置，请先清除本地开发数据，再重新打开花钥。</p>
+        </div>
+        <OnboardingForm v-else-if="!mainStore.isSetup && !showSetup" @done="showSetup = true" />
         <SetupForm v-else-if="!mainStore.isSetup" @done="onSetupDone" />
 
         <!-- 锁定（密码模式或加密书签模式才需要解锁） -->
