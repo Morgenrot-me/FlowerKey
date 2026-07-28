@@ -167,6 +167,7 @@ const AutofillState = registerPlugin<{
 }>('AutofillState');
 
 const store = useEntriesStore();
+const emit = defineEmits<{ 'editing-change': [value: boolean] }>();
 const main = useMainStore();
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const toast = useToast();
@@ -191,6 +192,7 @@ const formPwdPreview = ref('');
 const previewCopied = ref(false);
 let clipboardClearTimer: ReturnType<typeof setTimeout> | undefined;
 let copiedResetTimer: ReturnType<typeof setTimeout> | undefined;
+watch(showForm, value => emit('editing-change', value));
 onUnmounted(() => {
   clearTimeout(clipboardClearTimer);
   clearTimeout(copiedResetTimer);

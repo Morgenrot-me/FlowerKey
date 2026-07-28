@@ -122,6 +122,10 @@
     </div>
 
     <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">安全</p>
+    <button @click="showSafetySettings = !showSafetySettings" :aria-expanded="showSafetySettings" class="w-full px-4 py-3 flex items-center justify-between rounded-xl bg-white dark:bg-gray-800 text-sm font-medium dark:text-gray-100">
+      <span>安全与恢复</span><span class="text-gray-400">{{ showSafetySettings ? '收起' : '展开' }}</span>
+    </button>
+    <div v-if="showSafetySettings" class="flex flex-col gap-4">
 
     <div class="bg-white dark:bg-gray-800 rounded-xl px-4 py-3 flex flex-col gap-2">
       <p class="text-sm font-medium dark:text-gray-100">身份密语提示</p>
@@ -204,6 +208,7 @@
         <p v-if="importBookmarkMsg" class="text-xs text-green-600 dark:text-green-400 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
+    </div>
 
     <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">关于</p>
 
@@ -278,6 +283,7 @@ const form = ref<WebDAVConfig>({ url: '', username: '', password: '', basePath: 
 const showDavGuide = ref(false);
 const showICloudGuide = ref(false);
 const showSecurity = ref(false);
+const showSafetySettings = ref(true);
 const showSyncConfig = ref(false);
 const syncStatusText = computed(() => syncStore.hasBackend() ? (syncStore.syncMode === 'webdav' ? 'WebDAV' : 'iCloud') : '未配置');
 const isAndroid = Capacitor.getPlatform() === 'android';

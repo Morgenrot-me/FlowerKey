@@ -5,6 +5,9 @@
 * { -webkit-tap-highlight-color: transparent; }
 body { overscroll-behavior: none; }
 
+/* 触控目标遵循 Android/iOS 建议的最小 44px 尺寸。 */
+button, [role="button"] { min-width: 44px; min-height: 44px; touch-action: manipulation; }
+
 @layer components {
   /* 移动端输入框（较大触控区域） */
   .input {

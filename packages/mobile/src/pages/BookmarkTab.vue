@@ -65,18 +65,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useEntriesStore } from '../stores/entries';
 import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import type { Entry } from '@flowerkey/core';
 
 const store = useEntriesStore();
+const emit = defineEmits<{ 'editing-change': [value: boolean] }>();
 const { visible: confirmVisible, options: confirmOpts, ask, onConfirm, onCancel } = useConfirm();
 const showForm = ref(false);
 const editingId = ref('');
 const tagInput = ref('');
 const form = ref({ title: '', url: '', tags: [] as string[], description: '' });
+watch(showForm, value => emit('editing-change', value));
 
 onMounted(() => store.load('bookmark'));
 
