@@ -1,6 +1,6 @@
 {
   "name": "@flowerkey/desktop",
-  "version": "0.5.1",
+  "version": "1.0.1",
   "description": "花钥桌面端 (Windows/macOS)",
   "type": "module",
   "scripts": {

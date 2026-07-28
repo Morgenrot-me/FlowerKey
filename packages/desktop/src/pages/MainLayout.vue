@@ -4,12 +4,26 @@
 <template>
   <div class="flex-1 flex overflow-hidden">
     <!-- 左侧导航 -->
-    <nav class="w-16 flex flex-col items-center py-4 gap-2 bg-white border-r">
+    <nav class="w-16 flex flex-col items-center py-4 gap-1 bg-white border-r">
+      <!-- Logo -->
+      <div class="mb-4">
+        <img src="../assets/key.png" class="w-8 h-8 object-contain opacity-90" alt="花钥" />
+      </div>
+
       <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
         :class="['w-12 h-12 flex flex-col items-center justify-center gap-0.5 rounded-xl text-xs transition-colors',
-          tab === t.key ? 'bg-blue-50 text-blue-500' : 'text-gray-400 hover:bg-gray-50']">
+          tab === t.key ? 'bg-blue-50 text-blue-500' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-500']">
         <AppIcon :name="t.icon" :size="22" />
         <span class="text-[10px]">{{ t.label }}</span>
+      </button>
+
+      <div class="flex-1"></div>
+
+      <!-- 锁定 -->
+      <button @click="$emit('lock')"
+        class="w-12 h-12 flex flex-col items-center justify-center gap-0.5 rounded-xl text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-500 transition-colors">
+        <AppIcon name="lock" :size="20" />
+        <span class="text-[10px]">锁定</span>
       </button>
     </nav>
 

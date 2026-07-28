@@ -44,21 +44,26 @@ export const useMainStore = defineStore('main', () => {
   const hasUnsupportedMasterData = ref(false);
   const masterPwd = ref('');
   const userSalt = ref('');
+  const identityHint = ref('');
+  const masterPasswordHint = ref('');
 
   async function checkSetup() {
     const status = await sqliteDb.getMasterDataStatus();
     isSetup.value = status === 'current';
     hasUnsupportedMasterData.value = status === 'unsupported';
     if (isSetup.value) await ensureDeviceId();
+    identityHint.value = isSetup.value ? (await sqliteDb.getConfig<string>('identityHint')) ?? '' : '';
+    masterPasswordHint.value = isSetup.value ? (await sqliteDb.getConfig<string>('masterPasswordHint')) ?? '' : '';
     return isSetup.value;
   }
 
-  async function setup(pwd: string, identitySecret: string) {
+  async function setup(pwd: string, identitySecret: string, identityHint = '') {
     if (hasUnsupportedMasterData.value) {
       throw new Error('检测到发布前或损坏的身份密语数据，请先清除本地开发数据');
     }
     const data = await createMasterPasswordData(pwd, identitySecret);
     await sqliteDb.createMasterData(data);
+    if (identityHint) await sqliteDb.setConfig('identityHint', identityHint);
     const s = identitySecret.normalize('NFC');
     await ensureDeviceId();
     masterPwd.value = pwd;
@@ -148,6 +153,20 @@ export const useMainStore = defineStore('main', () => {
     } catch { return false; }
   }
 
+  async function saveMasterPasswordHint(hint: string) {
+    const value = hint.trim();
+    if (!value) throw new Error('请输入记忆密码提示');
+    await sqliteDb.setConfig('masterPasswordHint', value);
+    masterPasswordHint.value = value;
+  }
+
+  async function saveIdentityHint(hint: string) {
+    const value = hint.trim();
+    if (!value) throw new Error('请输入身份密语提示');
+    await sqliteDb.setConfig('identityHint', value);
+    identityHint.value = value;
+  }
+
   async function exportData(): Promise<string> {
     const entries = await sqliteDb.getAllEntries();
     return JSON.stringify({ version: 1, exportedAt: Date.now(), entries }, null, 2);
@@ -176,6 +195,6 @@ export const useMainStore = defineStore('main', () => {
 
   function getDbKey() { return sqliteDb.getDbKey(); }
 
-  return { isUnlocked, isSetup, hasUnsupportedMasterData, userSalt, masterPwd, checkSetup, setup, unlock, lock, genPassword, runDirectPassword,
+  return { isUnlocked, isSetup, hasUnsupportedMasterData, userSalt, masterPwd, identityHint, masterPasswordHint, checkSetup, setup, saveMasterPasswordHint, saveIdentityHint, unlock, lock, genPassword, runDirectPassword,
     generateRecovery, recoverWithCode, exportData, importData, getDbKey };
 });

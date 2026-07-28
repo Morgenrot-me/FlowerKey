@@ -123,6 +123,14 @@
 
     <p class="text-xs font-medium text-gray-400 dark:text-gray-500 px-1">安全</p>
 
+    <div class="bg-white dark:bg-gray-800 rounded-xl px-4 py-3 flex flex-col gap-2">
+      <p class="text-sm font-medium dark:text-gray-100">身份密语提示</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">仅用于你登录后区分自己使用的身份密语，不参与生成，也不能恢复密语。</p>
+      <input v-model="identityHintDraft" placeholder="填写提示，不要写出身份密语本身" maxlength="120" class="input" />
+      <button @click="saveIdentityHint" :disabled="!identityHintDraft.trim()" class="w-full py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">保存提示</button>
+      <p v-if="identityHintMessage" class="text-xs text-green-600 dark:text-green-400">{{ identityHintMessage }}</p>
+    </div>
+
     <!-- 书签设置 -->
     <div class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
       <div class="px-4 py-3 flex flex-col gap-2">
@@ -274,6 +282,8 @@ const showSyncConfig = ref(false);
 const syncStatusText = computed(() => syncStore.hasBackend() ? (syncStore.syncMode === 'webdav' ? 'WebDAV' : 'iCloud') : '未配置');
 const isAndroid = Capacitor.getPlatform() === 'android';
 const autofillEnabled = ref(false);
+const identityHintDraft = ref('');
+const identityHintMessage = ref('');
 
 function formatSyncTime(ts: number) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -305,6 +315,7 @@ onMounted(async () => {
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   showSyncConfig.value = !syncStore.hasBackend();
   bookmarkEncrypt.value = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
+  identityHintDraft.value = mainStore.identityHint;
   const data = await sqliteDb.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
   if (isAndroid) {
@@ -316,6 +327,11 @@ onMounted(async () => {
 async function handleFullSync() {
   if (!await ask('将重新上传所有本地数据到远端，确认继续？', { title: '全量同步', danger: true })) return;
   await syncStore.fullSync();
+}
+
+async function saveIdentityHint() {
+  try { await mainStore.saveIdentityHint(identityHintDraft.value); identityHintMessage.value = '已保存到本机'; }
+  catch { identityHintMessage.value = '保存失败，请重试'; }
 }
 
 async function saveConfig() {
