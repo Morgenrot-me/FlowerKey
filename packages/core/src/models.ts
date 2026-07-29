@@ -4,7 +4,7 @@
  */
 
 /** 条目类型 */
-export type EntryType = 'password' | 'bookmark' | 'file_ref' | 'note';
+export type EntryType = 'password' | 'bookmark' | 'file_ref' | 'note' | 'secret';
 
 /** 密码输出字符集模式 */
 export type CharsetMode = 'alphanumeric' | 'with_symbols';
@@ -33,8 +33,8 @@ export interface Entry {
   favicon?: string;
   encrypted?: boolean;  // false = 书签明文存储（不加密）
 
-  // 笔记字段
-  content?: string;  // 笔记正文（加密存储）
+  // 旧笔记 / 秘密字段。secret 类型的 content 是加密前的 FK-SECRET-1 JSON 载荷。
+  content?: string;
 
   // 文件引用字段
   fileName?: string;

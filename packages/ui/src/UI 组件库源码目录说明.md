@@ -13,9 +13,10 @@ Vue 3 共享 UI 组件库，供浏览器插件、桌面端、移动端复用。
 | `UnlockForm.vue` | 解锁表单：输入记忆密码解锁，验证后写入 session |
 | `SetupForm.vue` | 初始化设置：首次使用时设置记忆密码和用户盐 |
 | `OnboardingForm.vue` | 引导表单：插件端紧凑版欢迎页，介绍花钥核心理念 |
-| `EntryList.vue` | 条目列表：展示密码/书签/文件引用，支持搜索、文件夹/标签筛选 |
-| `EntryForm.vue` | 条目编辑表单：新建/编辑 Entry，支持三种类型 |
-| `SettingsPage.vue` | 设置页：WebDAV 配置、修改记忆密码、导出/导入数据 |
+| `EntryList.vue` | 密码列表：展示生成配置、最近使用时间和标签 |
+| `EntryForm.vue` | 密码编辑表单：支持确定性生成与加密存储模式 |
+| `SecretPage.vue` | 秘密库：管理 FK-SECRET-1 整体加密载荷，不显示内容摘要 |
+| `SettingsPage.vue` | 设置页：WebDAV、锁定策略、恢复原主密码和加密备份 |
 | `PasswordStrength.vue` | 密码强度指示条：实时评估密码强度（弱/一般/较强/强） |
 | `ConfirmDialog.vue` | 确认对话框：替代原生 confirm()，支持深色模式 |
 | `Toast.vue` | Toast 提示：轻量级操作反馈，自动消失 |

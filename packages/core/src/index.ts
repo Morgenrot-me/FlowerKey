@@ -6,6 +6,8 @@
 export * from './models.js';
 export * from './crypto.js';
 export * from './direct-password.js';
+export * from './secret.js';
+export * from './backup.js';
 export { FlowerKeyDB, db, encryptEntry, decryptEntry, ENCRYPTED_FIELDS } from './db.js';
 export type { EncryptedField } from './db.js';
 export { SyncEngine } from './sync/engine.js';

@@ -2,9 +2,9 @@
 
 ![花钥 Logo](透明蓝钥匙白天.png)
 
-**本地优先的密码、书签与加密笔记管理工具。**
+**本地优先的确定性密码与加密秘密库。**
 
-![version](https://img.shields.io/badge/version-0.4.2-blue?style=flat-square)
+![version](https://img.shields.io/badge/version-1.0.1-blue?style=flat-square)
 ![license](https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square)
 ![crypto](https://img.shields.io/badge/crypto-AES--256--GCM-purple?style=flat-square)
 ![PBKDF2](https://img.shields.io/badge/PBKDF2-600k%20iterations-orange?style=flat-square)
@@ -13,13 +13,13 @@
 
 ---
 
-花钥是一个无后端、本地优先、端到端加密的多端工具，用于确定性密码生成、加密密码存储、书签收藏和加密笔记管理。它把核心密码学、数据模型和同步引擎封装在共享核心库中，再分别提供浏览器插件、移动端、桌面端和轻量用户脚本入口。
+花钥是一个无后端、本地优先、端到端加密的多端工具，用于确定性密码生成、加密密码存储和秘密管理。它把核心密码学、数据模型和同步引擎封装在共享核心库中，再分别提供浏览器插件、移动端、桌面端和轻量用户脚本入口。
 
 ## 核心定位
 
 - 本地优先：数据默认保存在本机，主密码和派生密钥不上传到任何服务端。
 - 确定性密码生成：记忆密码 + 身份密语 + 区分代号可稳定生成同一密码，适合不想保存站点密码的场景。
-- 加密存储：对需要保存的固定密码、书签标题、备注、笔记正文等敏感字段使用 AES-256-GCM 加密。
+- 加密存储：对固定密码和秘密库的完整载荷使用 AES-256-GCM 加密。
 - 多端同步：通过 WebDAV 增量同步加密后的操作日志；移动端可选 iCloud 同步。
 - 自动填充：浏览器插件支持页面内填充，Android 端提供 AutofillService。
 
@@ -33,13 +33,9 @@
 
 用户可主动保存无法由代号生成的固定密码，例如银行卡 PIN 或历史账户密码。`storedPassword` 字段会在落库前加密。
 
-### 书签管理
+### 加密秘密库
 
-浏览器插件支持一键收藏当前页面。书签标题和描述是否加密，取决于用户的书签加密设置。
-
-### 加密笔记
-
-浏览器插件、移动端和桌面端都提供笔记管理。笔记正文被视为敏感字段并加密存储。
+浏览器插件、移动端和桌面端都可保存 API Key、团队账号、私钥、恢复码、历史密码和私人文字。标题、内容、账号、标签、文件夹和备注统一封装进 `FK-SECRET-1`，整体加密后才写入本地数据库和 WebDAV；列表不显示秘密内容摘要。
 
 ### 文件引用模型
 
@@ -60,7 +56,7 @@
 - Chrome/Edge Manifest V3 扩展。
 - Popup 提供快速操作。
 - Side Panel 提供完整管理界面。
-- Background Service Worker 负责解锁态、右键菜单、密码生成和填充。
+- Background Service Worker 负责解锁态、密码生成和填充。
 - Content Script 提供悬浮球、页内快速生成、密码框浮层和 Shadow DOM 隔离。
 
 ### 移动端
@@ -74,8 +70,8 @@
 ### 桌面端
 
 - Tauri 2 Windows/macOS 应用。
-- 提供密码、书签、笔记和设置管理。
-- 支持 WebDAV 同步、恢复原主密码、备份导入导出和浏览器书签导入。
+- 提供密码、秘密库和设置管理。
+- 支持 WebDAV 同步、恢复原主密码和加密备份导入导出。
 
 ### 用户脚本
 
@@ -132,7 +128,7 @@ password  = encode(rawBytes, charset, length)
 - `storedPassword`
 - `content`
 
-明文字段：
+密码条目的明文字段：
 
 - `id`
 - `type`
@@ -146,7 +142,7 @@ password  = encode(rawBytes, charset, length)
 - `updatedAt`
 - `lastUsedAt`
 
-`url` 和 `appPackage` 明文保存，是为了浏览器域名匹配和 Android AutofillService 包名匹配。书签是否加密由 `encrypted` 配置决定；如果书签选择明文模式，标题和描述会按用户配置保留为明文。
+`url` 和 `appPackage` 只用于密码自动填充匹配。秘密条目顶层仅保留 `id`、`type` 和时间字段；标题、内容、账号、标签、文件夹和备注全部位于加密的 `FK-SECRET-1` 载荷中。
 
 ### 加密格式
 
@@ -290,7 +286,7 @@ pnpm version:sync
 - 主密码不会上传到 WebDAV、iCloud 或任何第三方服务。
 - 身份密语以主密码派生的独立包装密钥加密后保存在本地；本地配置中不保存身份密语明文。
 - 生成模式密码依赖记忆密码、身份密语和区分代号；忘记任一项都无法重新生成原密码。
-- 存储模式密码、书签、笔记等数据依赖本地数据库和同步备份。
+- 存储模式密码和秘密库数据依赖本地数据库和同步备份；导出文件本身使用 `FK-BACKUP-1` 整体加密。
 - 建议启用 WebDAV 或 iCloud 同步，并离线保存恢复码。
 - 主密码和身份密语设置后不可修改；恢复码只恢复原主密码。迁移设备或清理本地数据前，应先完成一次同步或备份导出。
 

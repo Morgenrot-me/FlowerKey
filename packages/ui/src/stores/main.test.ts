@@ -21,7 +21,8 @@ const dbMock = vi.hoisted(() => ({
   reEncryptAllEntries: vi.fn(),
   getEntry: vi.fn(),
   importEntry: vi.fn(),
-  getBookmarkByUrl: vi.fn(),
+  getDbKey: vi.fn(),
+  entries: { toArray: vi.fn() },
 }));
 
 const coreMock = vi.hoisted(() => ({
@@ -35,6 +36,8 @@ const coreMock = vi.hoisted(() => ({
   encryptMasterPwdWithRecovery: vi.fn(),
   decryptMasterPwdWithRecovery: vi.fn(),
   decryptEntry: vi.fn(),
+  encryptBackup: vi.fn(),
+  openBackup: vi.fn(),
   runDirectPasswordFlow: vi.fn(),
   savePasswordEntry: vi.fn(),
 }));
@@ -167,22 +170,9 @@ describe('useMainStore', () => {
     await expect(store.importData('{"version":1}')).rejects.toThrow('导入文件缺少 entries 字段');
   });
 
-  it('skips importing a bookmark when another bookmark with the same url already exists', async () => {
+  it('skips legacy bookmarks during backup import', async () => {
     const { useMainStore } = await import('./main.js');
     const store = useMainStore();
-
-    dbMock.getEntry.mockResolvedValue(undefined);
-    dbMock.getBookmarkByUrl.mockResolvedValue({
-      id: 'existing-bookmark',
-      type: 'bookmark',
-      url: 'https://example.com',
-      title: 'Existing',
-      tags: [],
-      folder: '',
-      description: '',
-      createdAt: 1,
-      updatedAt: 1,
-    });
 
     const imported = await store.importData(JSON.stringify({
       entries: [{

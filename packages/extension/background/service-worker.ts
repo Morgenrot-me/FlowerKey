@@ -1,6 +1,6 @@
 /**
  * 花钥 Background Service Worker
- * 处理右键菜单、消息通信
+ * 处理消息通信
  * 维护解锁状态：masterPwd 仅存内存变量，不写入 storage
  * chrome.storage.session 只保存非秘密的会话状态；主密码和身份密语只存在于当前 Service Worker 内存
  */
@@ -67,26 +67,6 @@ function setLocked() {
   chrome.storage.session.remove('userSalt');
   chrome.storage.session.set({ isUnlocked: false, unlockedAt: 0 });
 }
-
-// ==================== 右键菜单 ====================
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'flowerkey-save-bookmark',
-    title: '收藏到花钥',
-    contexts: ['page', 'link'],
-  });
-});
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'flowerkey-save-bookmark' && tab?.id) {
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'saveBookmark',
-      url: info.linkUrl || info.pageUrl,
-      title: tab.title || '',
-    });
-  }
-});
 
 // ==================== 侧边栏连接（关闭时锁定） ====================
 
@@ -253,19 +233,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false, error: '密码错误' });
         }
       } catch (e) { sendResponse({ ok: false, error: (e as Error).message }); }
-    })();
-    return true;
-  }
-
-  if (msg.type === 'getPageMeta') {
-    (async () => {
-      const tabs = await chrome.tabs.query({ active: true });
-      const tab = tabs.find(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about'));
-      if (!tab?.id) { sendResponse({}); return; }
-      try {
-        const result = await chrome.tabs.sendMessage(tab.id, { type: 'getPageMeta' });
-        sendResponse(result ?? {});
-      } catch { sendResponse({ title: tab.title || '', url: tab.url || '', favicon: tab.favIconUrl || '', image: '', description: '' }); }
     })();
     return true;
   }

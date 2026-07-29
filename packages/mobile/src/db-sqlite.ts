@@ -142,50 +142,6 @@ export async function getEntriesByType(type: Entry['type']): Promise<Entry[]> {
   return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));
 }
 
-export async function getBookmarkByUrl(url: string): Promise<Entry | undefined> {
-  const res = await db!.query('SELECT * FROM entries WHERE type=? AND url=? LIMIT 1', ['bookmark', url]);
-  if (!res.values?.length) return undefined;
-  return decryptEntry(rowToEntry(res.values[0] as Record<string, unknown>), _dbKey);
-}
-
-export async function setBookmarkEncryption(encrypt: boolean): Promise<void> {
-  const res = await db!.query('SELECT * FROM entries WHERE type=?', ['bookmark']);
-  for (const row of res.values ?? []) {
-    const plain = await decryptEntry(rowToEntry(row as Record<string, unknown>), _dbKey);
-    const next = encrypt
-      ? await encryptEntry(({ ...plain, encrypted: undefined }) as Entry, _dbKey)
-      : { ...plain, encrypted: false as const };
-    await putStoredEntry(next);
-    await logChange(plain.id, 'update');
-  }
-}
-
-export async function importBookmarks(items: { title: string; url: string; favicon?: string }[], encrypt: boolean): Promise<number> {
-  let count = 0;
-  for (const item of items) {
-    const exists = await db!.query('SELECT id FROM entries WHERE type=? AND url=? LIMIT 1', ['bookmark', item.url]);
-    if (exists.values?.length) continue;
-    const now = Date.now();
-    const entry: Entry = {
-      id: uuidv4(),
-      type: 'bookmark',
-      title: item.title,
-      url: item.url,
-      favicon: item.favicon,
-      tags: [],
-      folder: '',
-      description: '',
-      createdAt: now,
-      updatedAt: now,
-      ...(encrypt ? {} : { encrypted: false }),
-    };
-    await putStoredEntry(encrypt ? await encryptEntry(entry, _dbKey) : entry);
-    await logChange(entry.id, 'create');
-    count++;
-  }
-  return count;
-}
-
 export async function getAllEntries(): Promise<Entry[]> {
   const res = await db!.query('SELECT * FROM entries ORDER BY updatedAt DESC');
   return Promise.all((res.values ?? []).map(r => decryptEntry(rowToEntry(r as Record<string, unknown>), _dbKey)));

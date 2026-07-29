@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-密码生成管理 + 书签收藏 + 文件引用管理的多端工具。
+确定性密码生成、加密密码存储与加密秘密库的多端工具。
 核心理念：无后端、本地优先、端到端加密、WebDAV 自托管同步。
 
 ## Monorepo 结构
@@ -70,6 +70,8 @@ identityWrapKey = PBKDF2(masterPwd, "flowerkey_identity_wrap_" + wrapSalt)
 `id`, `type`, `folder`, `tags`, `url`, `appPackage`, `favicon`, `createdAt`, `updatedAt`
 
 > 注意：`url` 和 `appPackage` 明文存储，供 Android AutofillService SQL 直接匹配。
+
+秘密库使用 `FK-SECRET-1`：标题、内容、账号、标签、文件夹和备注全部序列化进 `content` 后整体加密；顶层敏感字段必须为空。备份使用当前数据库密钥整体加密为 `FK-BACKUP-1`。
 
 ## Android AutofillService 三级回退
 
@@ -143,12 +145,10 @@ powershell -File scripts/collect-release.ps1
 
 ```typescript
 Entry {
-  id, type, tags, folder, description, createdAt, updatedAt  // 明文
+  id, type, createdAt, updatedAt, lastUsedAt                 // 通用元数据
   codename?, charsetMode?, passwordLength?, storedPassword?   // 密码条目（加密）
-  url?                                                        // 密码/书签条目（明文）
-  favicon?                                                    // 书签条目（明文，网站图标URL）
-  title?, description?, fileName?, sourceUrl?, content?       // 书签/文件引用（加密）
-  appPackage?                                                 // Android 包名（明文）
+  url?, appPackage?                                           // 密码自动填充匹配元数据（明文）
+  content?                                                    // secret 的 FK-SECRET-1 整体加密载荷
 }
 ```
 

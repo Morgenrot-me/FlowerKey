@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
   "name": "FlowerKey 花钥",
-  "version": "0.5.1",
-  "description": "无后端密码管理 + 加密书签收藏。主密码永不上传，端到端加密，WebDAV 自托管同步，换设备无需迁移。",
+  "version": "1.0.2",
+  "description": "离线确定性密码生成与端到端加密秘密库。主密码永不上传，支持 WebDAV 自托管同步。",
   "permissions": [
     "storage",
     "activeTab",
     "tabs",
-    "contextMenus",
     "sidePanel",
     "scripting"
   ],

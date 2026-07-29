@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deriveDatabaseKey } from './crypto.js';
 import { decryptEntry, encryptEntry, FlowerKeyDB, ENCRYPTED_FIELDS } from './db.js';
 import type { Entry } from './models.js';
+import { createSecretPayload, serializeSecretPayload } from './secret.js';
 
 const baseEntry: Entry = {
   id: 'entry-1',
@@ -44,19 +45,6 @@ describe('entry encryption helpers', () => {
     await expect(decryptEntry(encrypted, key)).resolves.toMatchObject(baseEntry);
   });
 
-  it('leaves explicitly plaintext bookmarks unencrypted', async () => {
-    const key = await deriveDatabaseKey('master', 'FlowerKey');
-    const bookmark: Entry = {
-      ...baseEntry,
-      type: 'bookmark',
-      title: 'Example',
-      encrypted: false,
-    };
-
-    await expect(encryptEntry(bookmark, key)).resolves.toEqual(bookmark);
-    await expect(decryptEntry(bookmark, key)).resolves.toEqual(bookmark);
-  });
-
   it('returns entry unchanged when key is null', async () => {
     const entry: Entry = {
       id: 'e1', type: 'password',
@@ -65,6 +53,19 @@ describe('entry encryption helpers', () => {
     };
     await expect(encryptEntry(entry, null)).resolves.toEqual(entry);
     await expect(decryptEntry(entry, null)).resolves.toEqual(entry);
+  });
+
+  it('encrypts the complete FK-SECRET-1 payload as one content field', async () => {
+    const key = await deriveDatabaseKey('master', 'identity');
+    const content = serializeSecretPayload(createSecretPayload({
+      kind: 'key', title: '生产私钥', content: 'PRIVATE KEY', tags: ['工作'], folder: '团队',
+    }));
+    const entry: Entry = { id: 'secret-1', type: 'secret', content, title: '', description: '', tags: [], folder: '', createdAt: 1, updatedAt: 1 };
+    const encrypted = await encryptEntry(entry, key);
+    expect(encrypted.content).not.toBe(content);
+    expect(encrypted.title).toBe('');
+    expect(encrypted.tags).toEqual([]);
+    await expect(decryptEntry(encrypted, key)).resolves.toMatchObject(entry);
   });
 
   it('skips empty string encrypted fields', async () => {
@@ -346,19 +347,19 @@ describe('FlowerKeyDB', () => {
     expect(result).toEqual({ plain: 'value' });
   });
 
-  it('imports bookmarks once per url and records changelog entries', async () => {
-    const imported = await database.importBookmarks([
-      { title: 'Example', url: 'https://example.com' },
-      { title: 'Example duplicate', url: 'https://example.com' },
-      { title: 'Docs', url: 'https://docs.example.com', favicon: 'icon.png' },
-    ], false);
-
-    expect(imported).toBe(2);
-    await expect(database.getBookmarkByUrl('https://example.com')).resolves.toMatchObject({
-      title: 'Example',
-      encrypted: false,
+  it('purges legacy bookmarks and their changelog records', async () => {
+    await database.entries.add({
+      id: 'legacy-bookmark', type: 'bookmark', title: '旧书签', url: 'https://example.com',
+      tags: [], folder: '', description: '', createdAt: 1, updatedAt: 1,
     });
-    await expect(database.changelog.count()).resolves.toBe(2);
+    await database.changelog.add({
+      entryId: 'legacy-bookmark', entryType: 'entry', operation: 'create',
+      timestamp: 1, synced: false, deviceId: 'device-a',
+    });
+
+    await expect(database.purgeLegacyBookmarks()).resolves.toBe(1);
+    await expect(database.entries.get('legacy-bookmark')).resolves.toBeUndefined();
+    await expect(database.changelog.where('entryId').equals('legacy-bookmark').count()).resolves.toBe(0);
   });
 
   it('reEncryptAllEntries re-encrypts with new key', async () => {
@@ -410,20 +411,4 @@ describe('FlowerKeyDB', () => {
     expect(allTags).toEqual(['github', 'personal', 'work']);
   });
 
-  it('setBookmarkEncryption toggles encryption for all bookmarks', async () => {
-    await database.importBookmarks([
-      { title: 'Plain', url: 'https://plain.example.com' },
-    ], false);
-
-    // 从明文切换到加密
-    await database.setBookmarkEncryption(true);
-    const encrypted = await database.entries.where('type').equals('bookmark').first();
-    expect(encrypted?.title).not.toBe('Plain');
-
-    // 从加密切换回明文
-    await database.setBookmarkEncryption(false);
-    const plain = await database.entries.where('type').equals('bookmark').first();
-    expect(plain?.encrypted).toBe(false);
-    expect(plain?.title).toBe('Plain');
-  });
 });

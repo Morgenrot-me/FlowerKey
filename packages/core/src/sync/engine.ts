@@ -65,9 +65,6 @@ export class SyncEngine {
   private deviceId: string;
   private local: LocalDbAdapter;
   private lockToken = '';
-  encryptMismatchCount = 0;
-  mismatchedBookmarkIds: string[] = [];
-
   constructor(backend: StorageBackend | WebDAVConfig, dbKey: CryptoKey, deviceId: string, localAdapter?: LocalDbAdapter) {
     this.dav = 'url' in backend ? new FlowerKeyWebDAV(backend) : backend;
     this.dbKey = dbKey;
@@ -151,7 +148,7 @@ export class SyncEngine {
   }
 
   /** 执行一次完整同步 */
-  async sync(): Promise<{ pushed: number; pulled: number; encryptMismatch?: number; mismatchedBookmarkIds?: string[] }> {
+  async sync(): Promise<{ pushed: number; pulled: number }> {
     await this.dav.ensureDir();
 
     if (!(await this.acquireLock())) {
@@ -159,18 +156,13 @@ export class SyncEngine {
     }
 
     try {
-      this.encryptMismatchCount = 0;
-      this.mismatchedBookmarkIds = [];
       const pushed = await this.push();
       await this.restoreFromVaultIfNeeded();
       const pulled = await this.pull();
       await this.maybeCompact();
       const state = (await this.local.getConfig<SyncCursor>('syncState')) ?? {};
       await this.local.setConfig('syncState', { ...state, lastSyncTime: Date.now() });
-      const result: { pushed: number; pulled: number; encryptMismatch?: number; mismatchedBookmarkIds?: string[] } = { pushed, pulled };
-      if (this.encryptMismatchCount > 0) result.encryptMismatch = this.encryptMismatchCount;
-      if (this.mismatchedBookmarkIds.length > 0) result.mismatchedBookmarkIds = [...this.mismatchedBookmarkIds];
-      return result;
+      return { pushed, pulled };
     } finally {
       await this.releaseLock();
     }
@@ -254,15 +246,7 @@ export class SyncEngine {
 
     const remote = op.payload as Entry;
     if (!remote) return;
-    if (remote.type === 'bookmark') {
-      const localEncrypt = (await this.local.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-      const remoteEncrypt = remote.encrypted !== false;
-      if (localEncrypt !== remoteEncrypt) {
-        this.encryptMismatchCount++;
-        this.mismatchedBookmarkIds.push(op.entryId);
-      }
-      return;
-    }
+    if (remote.type === 'bookmark') return;
 
     const local = await this.local.getEntry(op.entryId);
     if (!local || local.updatedAt < remote.updatedAt) {

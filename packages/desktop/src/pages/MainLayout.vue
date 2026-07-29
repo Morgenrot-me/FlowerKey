@@ -30,7 +30,7 @@
     <!-- 内容区 -->
     <div class="flex-1 overflow-hidden">
       <PasswordTab v-if="tab === 'password'" />
-      <NoteTab v-else-if="tab === 'note'" />
+      <SecretTab v-else-if="tab === 'secret'" />
       <SettingsTab v-else-if="tab === 'settings'" @lock="$emit('lock')" />
     </div>
   </div>
@@ -40,14 +40,14 @@
 import { ref } from 'vue';
 import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 import PasswordTab from './PasswordTab.vue';
-import NoteTab from './NoteTab.vue';
+import SecretTab from './SecretTab.vue';
 import SettingsTab from './SettingsTab.vue';
 
 defineEmits<{ lock: [] }>();
 const tab = ref('password');
 const tabs = [
   { key: 'password', icon: 'password' as const, label: '密码' },
-  { key: 'note', icon: 'note' as const, label: '秘密' },
+  { key: 'secret', icon: 'note' as const, label: '秘密' },
   { key: 'settings', icon: 'settings' as const, label: '设置' },
 ];
 </script>

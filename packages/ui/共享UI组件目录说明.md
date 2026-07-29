@@ -12,8 +12,9 @@ FlowerKey 的共享 Vue 3 UI 组件库，所有端（插件/桌面/移动）复�
 | ---- | ---- |
 | `SetupForm.vue` | 首次设置表单 - 设置记忆密码和自定义盐 |
 | `UnlockForm.vue` | 锁定态入口表单 - 支持正式密码计算、独立计算、数据库登录与恢复码解锁 |
-| `EntryList.vue` | 条目列表 - 展示密码/书签/文件引用条目 |
-| `EntryForm.vue` | 条目新建/编辑表单 - 支持三种条目类型 |
+| `EntryList.vue` | 密码条目列表 |
+| `EntryForm.vue` | 密码新建/编辑表单，支持生成与存储模式 |
+| `SecretPage.vue` | 浏览器端 FK-SECRET-1 加密秘密库 |
 | `PasswordStrength.vue` | 密码强度指示条 |
 | `PasswordStrength.test.ts` | 密码强度组件测试 |
 

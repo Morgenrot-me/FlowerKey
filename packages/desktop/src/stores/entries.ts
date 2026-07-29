@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { db, type Entry, type EntryType } from '@flowerkey/core';
+import { createSecretPayload, db, serializeSecretPayload, type Entry, type EntryType } from '@flowerkey/core';
 
 function sortEntriesByRecent(entries: Entry[]) {
   return [...entries].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
@@ -36,6 +36,16 @@ export const useEntriesStore = defineStore('entries', () => {
 
   async function load(type: EntryType = 'password') {
     currentType.value = type;
+    if (type === 'secret') {
+      const notes = await db.getEntriesByType('note');
+      for (const note of notes) {
+        await db.updateEntry(note.id, {
+          type: 'secret',
+          content: serializeSecretPayload(createSecretPayload({ title: note.title ?? '', content: note.content ?? '' })),
+          title: '', description: '', tags: [], folder: '',
+        });
+      }
+    }
     entries.value = await db.getEntriesByType(type);
     tags.value = await db.getAllTags();
   }
@@ -60,5 +70,12 @@ export const useEntriesStore = defineStore('entries', () => {
     await load(currentType.value);
   }
 
-  return { entries, filtered, tags, selectedTags, currentType, searchQuery, load, create, update, remove, touchLastUsed };
+  function clear() {
+    entries.value = [];
+    tags.value = [];
+    selectedTags.value = [];
+    searchQuery.value = '';
+  }
+
+  return { entries, filtered, tags, selectedTags, currentType, searchQuery, load, create, update, remove, touchLastUsed, clear };
 });

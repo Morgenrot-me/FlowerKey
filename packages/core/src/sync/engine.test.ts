@@ -181,9 +181,8 @@ describe('SyncEngine', () => {
     expect(local.config.get('syncState')).toMatchObject({ lastOplogTime: 3000 });
   });
 
-  it('reports bookmark encryption mismatches without applying the remote entry', async () => {
+  it('ignores legacy remote bookmarks without applying them', async () => {
     const { backend, local, key, engine } = await createEngine();
-    local.config.set('bookmarkEncrypt', true);
     const remoteBookmark: Entry = {
       id: 'bookmark-1',
       type: 'bookmark',
@@ -200,7 +199,7 @@ describe('SyncEngine', () => {
       { entryId: 'bookmark-1', entryType: 'entry', operation: 'create', timestamp: 2000, deviceId: 'device-b', payload: remoteBookmark },
     ]));
 
-    await expect(engine.sync()).resolves.toMatchObject({ pushed: 0, pulled: 1, encryptMismatch: 1 });
+    await expect(engine.sync()).resolves.toMatchObject({ pushed: 0, pulled: 1 });
 
     expect(local.entries.has('bookmark-1')).toBe(false);
   });
@@ -232,39 +231,6 @@ describe('SyncEngine', () => {
     expect(lockRaw).not.toBeNull();
     const lock = JSON.parse(new TextDecoder().decode(lockRaw!));
     expect(lock).toMatchObject({ deviceId: 'device-b', token: 'token-b' });
-  });
-
-  it('returns mismatchedBookmarkIds when bookmark encryption settings differ', async () => {
-    const { backend, local, key, engine } = await createEngine();
-    local.config.set('bookmarkEncrypt', true);
-    const remoteBookmark1: Entry = {
-      id: 'bookmark-1',
-      type: 'bookmark',
-      title: 'Plain remote 1',
-      url: 'https://example1.com',
-      encrypted: false,
-      tags: [], folder: '', description: '',
-      createdAt: 1000, updatedAt: 1000,
-    };
-    const remoteBookmark2: Entry = {
-      id: 'bookmark-2',
-      type: 'bookmark',
-      title: 'Plain remote 2',
-      url: 'https://example2.com',
-      encrypted: false,
-      tags: [], folder: '', description: '',
-      createdAt: 2000, updatedAt: 2000,
-    };
-    await backend.write('oplog/device-b_2000.enc', await encryptedOps(key, [
-      { entryId: 'bookmark-1', entryType: 'entry', operation: 'create', timestamp: 2000, deviceId: 'device-b', payload: remoteBookmark1 },
-      { entryId: 'bookmark-2', entryType: 'entry', operation: 'create', timestamp: 2100, deviceId: 'device-b', payload: remoteBookmark2 },
-    ]));
-
-    const result = await engine.sync();
-    expect(result.encryptMismatch).toBe(2);
-    expect(result.mismatchedBookmarkIds).toEqual(['bookmark-1', 'bookmark-2']);
-    expect(local.entries.has('bookmark-1')).toBe(false);
-    expect(local.entries.has('bookmark-2')).toBe(false);
   });
 
   it('refuses to sync while another device holds a live lock', async () => {

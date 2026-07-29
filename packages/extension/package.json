@@ -1,6 +1,6 @@
 {
   "name": "@flowerkey/extension",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "花钥浏览器插件 (Chrome/Edge)",
   "type": "module",
   "scripts": {

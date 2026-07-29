@@ -1,6 +1,6 @@
 <!--
   花钥 - 条目列表组件
-  展示密码/书签/文件引用条目
+  展示密码条目
 -->
 <template>
   <div class="divide-y dark:divide-gray-700">
@@ -15,9 +15,6 @@
         </div>
         <div v-if="entry.type === 'password'" class="text-gray-500 dark:text-gray-400 truncate">
           {{ buildPasswordMeta(entry) }}
-        </div>
-        <div v-else class="text-gray-400 truncate">
-          {{ entry.type === 'note' ? (entry.content?.slice(0, 60) || '') : (entry.description || entry.url || entry.sourceUrl || '') }}
         </div>
         <div v-if="entry.type === 'password' && entry.description" class="text-gray-400 truncate mt-0.5">
           {{ entry.description }}

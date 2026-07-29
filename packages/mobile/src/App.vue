@@ -20,7 +20,7 @@
         <OnboardingPage v-else-if="!main.isSetup && !showSetup" key="onboarding" @done="showSetup = true" />
         <SetupPage v-else-if="!main.isSetup" key="setup" @done="handleSetupDone" />
         <UnlockPage v-else-if="!main.isUnlocked" key="unlock" @unlocked="onUnlocked" />
-        <MainLayout v-else key="main" @lock="main.lock()" />
+        <MainLayout v-else key="main" @lock="handleLock" />
       </Transition>
     </template>
   </div>
@@ -56,6 +56,11 @@ async function retryBoot() {
   catch { bootError.value = '无法读取本地数据库，请检查应用权限后重试。'; }
 }
 async function onUnlocked() { await entries.load('password'); }
+
+function handleLock() {
+  entries.clear();
+  main.lock();
+}
 
 async function handleSetupDone() {
   await main.checkSetup();

@@ -112,10 +112,6 @@
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 dark:text-gray-400 text-center">
           本次结果：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
-        <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 dark:text-orange-400 text-center flex items-start justify-center gap-1.5">
-          <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
-          <span>{{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请统一所有设备的书签加密设置后重新同步。</span>
-        </p>
         <p v-if="syncStore.error" class="text-xs text-red-500 text-center">{{ syncStore.error }}</p>
       </div>
       </div>
@@ -133,40 +129,6 @@
       <input v-model="identityHintDraft" placeholder="填写提示，不要写出身份密语本身" maxlength="120" class="input" />
       <button @click="saveIdentityHint" :disabled="!identityHintDraft.trim()" class="w-full py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">保存提示</button>
       <p v-if="identityHintMessage" class="text-xs text-green-600 dark:text-green-400">{{ identityHintMessage }}</p>
-    </div>
-
-    <!-- 书签设置 -->
-    <div v-if="false" class="bg-white dark:bg-gray-800 rounded-xl divide-y dark:divide-gray-700">
-      <div class="px-4 py-3 flex flex-col gap-2">
-        <p class="text-sm font-medium dark:text-gray-100">书签设置</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          当前：书签{{ bookmarkEncrypt ? '已加密' : '未加密' }}。
-          {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
-        </p>
-        <p class="text-xs text-gray-400 dark:text-gray-500">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
-        <div v-if="!bookmarkEncrypt" class="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-2 text-xs text-orange-700 dark:border-orange-800/70 dark:bg-orange-900/20 dark:text-orange-300 flex flex-col gap-1.5">
-          <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签当前以明文存储于本地，任何能访问应用数据的程序均可读取。</span></p>
-          <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 rounded-xl border border-orange-300/80 bg-white/80 text-orange-700 text-sm hover:bg-white dark:border-orange-700 dark:bg-orange-950/30 dark:text-orange-200 dark:hover:bg-orange-950/50">
-            立即开启书签加密
-          </button>
-        </div>
-        <div v-if="!showBookmarkPwdInput">
-          <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 border dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm">
-            {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
-          </button>
-        </div>
-        <div v-else class="flex flex-col gap-2">
-          <p class="text-xs text-yellow-600 dark:text-yellow-400">请输入主密码以确认操作：</p>
-          <input v-model="bookmarkPwdInput" type="password" placeholder="主密码" class="input" />
-          <div class="flex gap-2">
-            <button @click="confirmBookmarkEncrypt" :disabled="bookmarkEncryptProcessing" class="flex-1 py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">
-              {{ bookmarkEncryptProcessing ? '处理中...' : '确认' }}
-            </button>
-            <button @click="cancelBookmarkEncrypt" class="flex-1 py-2.5 border dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm">取消</button>
-          </div>
-          <p v-if="bookmarkEncryptError" class="text-xs text-red-500">{{ bookmarkEncryptError }}</p>
-        </div>
-      </div>
     </div>
 
     <!-- 账户安全 -->
@@ -201,11 +163,6 @@
           </label>
         </div>
         <p v-if="importMsg" class="text-xs text-green-600 dark:text-green-400 text-center">{{ importMsg }}</p>
-        <label v-if="false" class="w-full py-2.5 border dark:border-gray-600 dark:text-gray-300 rounded-xl text-sm text-center cursor-pointer">
-          导入浏览器书签（HTML）
-          <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
-        </label>
-        <p v-if="importBookmarkMsg" class="text-xs text-green-600 dark:text-green-400 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
     </div>
@@ -223,12 +180,13 @@
         <p>主流密码管理器的逻辑：生成随机密码 → 加密存储 → 云端备份。加密密码库始终存在于某处，一旦被盗，你的一切都暴露了。</p>
         <p>花钥的逻辑：记忆密码 + 身份密语 + 区分代号 → 算法推算 → 唯一强密码。<span class="text-gray-700 dark:text-gray-200">密码按需生成，用完即弃；三项输入不变即可离线重建。</span></p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">本地存储了什么</p>
-        <p><span class="text-gray-400 dark:text-gray-500">区分代号/标题/描述</span>　AES-256-GCM 加密，解锁后才可读取</p>
-        <p><span class="text-gray-400 dark:text-gray-500">网址/包名/标签</span>　明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</p>
+        <p><span class="text-gray-400 dark:text-gray-500">密码区分代号/描述</span>　AES-256-GCM 加密，解锁后才可读取</p>
+        <p><span class="text-gray-400 dark:text-gray-500">秘密全部字段</span>　以 FK-SECRET-1 载荷整体加密，列表也只在解锁后解析</p>
+        <p><span class="text-gray-400 dark:text-gray-500">密码网址/包名</span>　为自动填充匹配保留为本地明文元数据</p>
         <p><span class="text-gray-400 dark:text-gray-500">身份密语</span>　AES-256-GCM 包装后存储，主密码解锁后才进入内存</p>
         <p><span class="text-gray-400 dark:text-gray-500">verifyHash</span>　带随机盐的验证值，仅用于校验主密码</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">从未存储</p>
-        <p>主密码本身 · 网站实际密码（按需生成，用完即弃）· 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
+        <p>主密码本身 · 确定性生成的网站密码 · 数据库加密密钥（仅存于内存，锁定后立即清除）</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">不可变生成根</p>
         <p>主密码和身份密语共同决定全部历史生成密码，设置后不提供普通修改入口。恢复码只恢复原主密码。</p>
         <p class="text-gray-600 dark:text-gray-300 font-medium pt-1">同步安全</p>
@@ -320,7 +278,6 @@ onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
   showSyncConfig.value = !syncStore.hasBackend();
-  bookmarkEncrypt.value = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   identityHintDraft.value = mainStore.identityHint;
   const data = await sqliteDb.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
@@ -346,35 +303,6 @@ async function saveConfig() {
   toast.show('配置已保存', 'success');
 }
 
-// 书签加密
-const bookmarkEncrypt = ref(true);
-const showBookmarkPwdInput = ref(false);
-const bookmarkPwdInput = ref('');
-const bookmarkEncryptProcessing = ref(false);
-const bookmarkEncryptError = ref('');
-
-function cancelBookmarkEncrypt() {
-  showBookmarkPwdInput.value = false;
-  bookmarkPwdInput.value = '';
-  bookmarkEncryptError.value = '';
-}
-
-async function confirmBookmarkEncrypt() {
-  bookmarkEncryptError.value = '';
-  bookmarkEncryptProcessing.value = true;
-  try {
-    const ok = await mainStore.unlock(bookmarkPwdInput.value);
-    if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
-    const newVal = !bookmarkEncrypt.value;
-    await sqliteDb.setBookmarkEncryption(newVal);
-    await sqliteDb.setConfig('bookmarkEncrypt', newVal);
-    bookmarkEncrypt.value = newVal;
-    cancelBookmarkEncrypt();
-  } finally {
-    bookmarkEncryptProcessing.value = false;
-  }
-}
-
 const recoveryCode = ref('');
 const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
@@ -388,7 +316,6 @@ async function handleGenerateRecovery() {
 }
 
 const importMsg = ref('');
-const importBookmarkMsg = ref('');
 
 function buildImportSummary(imported: number, total: number, label: string) {
   const skipped = Math.max(total - imported, 0);
@@ -417,23 +344,4 @@ async function handleImport(e: Event) {
   (e.target as HTMLInputElement).value = '';
 }
 
-async function handleImportBookmarks(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  try {
-    const html = await file.text();
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const links = Array.from(doc.querySelectorAll('a[href]'));
-    const items = links.map(a => ({
-      title: a.textContent?.trim() || a.getAttribute('href') || '',
-      url: a.getAttribute('href') || '',
-      favicon: a.getAttribute('icon') || undefined,
-    })).filter(i => i.url.startsWith('http'));
-    const encrypt = (await sqliteDb.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-    const count = await sqliteDb.importBookmarks(items, encrypt);
-    importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
-    toast.show(importBookmarkMsg.value, 'success');
-  } catch { toast.show('书签导入失败，请检查 HTML 文件', 'error'); }
-  (e.target as HTMLInputElement).value = '';
-}
 </script>

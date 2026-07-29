@@ -15,7 +15,6 @@
 
         <div class="space-y-3">
           <!-- 密码条目字段 -->
-          <template v-if="type === 'password'">
             <div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs">
               <button @click="pwdMode = 'generate'" :class="['flex-1 py-1.5 rounded-md transition-colors', pwdMode === 'generate' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm font-medium' : 'text-gray-500']">生成模式</button>
               <button @click="pwdMode = 'store'" :class="['flex-1 py-1.5 rounded-md transition-colors', pwdMode === 'store' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm font-medium' : 'text-gray-500']">存储模式</button>
@@ -48,20 +47,6 @@
                 <button type="button" @click="showPwd = !showPwd" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px]">{{ showPwd ? '隐藏' : '显示' }}</button>
               </div>
             </template>
-          </template>
-
-          <!-- 书签/文件引用字段 -->
-          <template v-if="type === 'bookmark' || type === 'file_ref'">
-            <input v-model="form.title" :placeholder="type === 'file_ref' ? '文件名' : '标题'" class="input" />
-            <input v-model="form.url" :placeholder="type === 'file_ref' ? '原地址 URL' : 'URL'" class="input" />
-          </template>
-
-          <!-- 笔记字段 -->
-          <template v-if="type === 'note'">
-            <input v-model="form.title" placeholder="标题（可选）" class="input" />
-            <textarea v-model="form.content" placeholder="笔记内容（端到端加密）" rows="6" class="input resize-none" />
-          </template>
-
           <!-- 标签 combobox -->
           <div class="relative">
             <input v-model="tagInput" placeholder="添加标签，回车确认" class="input"
@@ -90,7 +75,7 @@
           <textarea v-model="form.description" placeholder="备注（可选）" rows="2" class="input resize-none" />
 
           <button @click="save"
-            :disabled="(type === 'password' && !form.codename.trim()) || (type === 'note' && !form.content.trim())"
+            :disabled="!form.codename.trim()"
             class="w-full py-2.5 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 disabled:opacity-40 transition-colors">
             保存
           </button>
@@ -102,12 +87,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import type { Entry, EntryType } from '@flowerkey/core';
+import type { Entry } from '@flowerkey/core';
 import { useMainStore } from '../stores/main';
 
 const props = defineProps<{
   entry?: Entry;
-  type: EntryType;
   initialMode?: 'generate' | 'store';
   initialUrl?: string;
   folders?: string[];
@@ -115,7 +99,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ save: [Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>]; cancel: [] }>();
 
-const typeLabel = computed(() => ({ password: '密码', bookmark: '书签', file_ref: '文件引用', note: '笔记' }[props.type] ?? ''));
+const typeLabel = '密码';
 
 const mainStore = useMainStore();
 const pwdMode = ref<'generate' | 'store'>(props.initialMode || 'generate');
@@ -131,8 +115,7 @@ function copyPreview() {
 }
 const form = ref({
   codename: '', charsetMode: 'alphanumeric' as const,
-  passwordLength: 16, storedPassword: '', title: '', url: '',
-  content: '', description: '', folder: '',
+  passwordLength: 16, storedPassword: '', url: '', description: '', folder: '',
 });
 
 // 标签
@@ -178,25 +161,23 @@ onMounted(() => {
 
 function save() {
   emit('save', {
-    type: props.type,
+    type: 'password',
     tags: [...selectedTags.value],
     folder: form.value.folder,
     description: form.value.description,
-    ...(props.type === 'password' && pwdMode.value === 'generate' && {
+    ...(pwdMode.value === 'generate' && {
       codename: form.value.codename,
       charsetMode: form.value.charsetMode, passwordLength: form.value.passwordLength,
       storedPassword: undefined,
       ...(form.value.url && { url: form.value.url }),
     }),
-    ...(props.type === 'password' && pwdMode.value === 'store' && {
+    ...(pwdMode.value === 'store' && {
       codename: form.value.codename,
       charsetMode: undefined,
       passwordLength: undefined,
       storedPassword: form.value.storedPassword,
       ...(form.value.url && { url: form.value.url }),
     }),
-    ...((props.type === 'bookmark' || props.type === 'file_ref') && { title: form.value.title, url: form.value.url }),
-    ...(props.type === 'note' && { title: form.value.title, content: form.value.content }),
   });
 }
 </script>

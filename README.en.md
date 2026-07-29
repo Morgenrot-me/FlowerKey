@@ -2,9 +2,9 @@
 
 ![FlowerKey Logo](透明蓝钥匙白天.png)
 
-**A local-first password, bookmark, and encrypted notes manager.**
+**A local-first deterministic password tool and encrypted secret vault.**
 
-![version](https://img.shields.io/badge/version-0.4.2-blue?style=flat-square)
+![version](https://img.shields.io/badge/version-1.0.1-blue?style=flat-square)
 ![license](https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square)
 ![crypto](https://img.shields.io/badge/crypto-AES--256--GCM-purple?style=flat-square)
 ![PBKDF2](https://img.shields.io/badge/PBKDF2-600k%20iterations-orange?style=flat-square)
@@ -13,13 +13,13 @@
 
 ---
 
-FlowerKey is a backend-free, local-first, end-to-end encrypted multi-platform tool for deterministic password generation, encrypted password storage, bookmark collection, and encrypted note management. Its cryptography, data model, and synchronization engine live in a shared core package, with dedicated clients for browser extensions, mobile, desktop, and a lightweight userscript.
+FlowerKey is a backend-free, local-first, end-to-end encrypted multi-platform tool for deterministic password generation, encrypted password storage, and secret management. Its cryptography, data model, and synchronization engine live in a shared core package, with dedicated clients for browser extensions, mobile, desktop, and a lightweight userscript.
 
 ## Product Focus
 
 - Local-first: data is stored locally by default; master passwords and derived keys are never uploaded to a server.
 - Deterministic password generation: the same master password, identity secret, codename, mode, and length produce the same password across devices.
-- Encrypted storage: fixed passwords, bookmark metadata, notes, and other sensitive fields are encrypted with AES-256-GCM.
+- Encrypted storage: fixed passwords and complete secret-vault payloads are encrypted with AES-256-GCM.
 - Multi-device sync: encrypted operation logs are synchronized through WebDAV; mobile also supports iCloud sync.
 - Autofill: the browser extension provides in-page password filling, and Android integrates with AutofillService.
 
@@ -33,13 +33,9 @@ FlowerKey derives a master key with PBKDF2, then generates password bytes with `
 
 For passwords that cannot be regenerated from a codename, such as bank PINs or legacy account passwords, users can explicitly store a fixed password. The `storedPassword` field is encrypted before it is written to local storage.
 
-### Bookmarks
+### Encrypted Secret Vault
 
-The browser extension can save the current page with one click. Bookmark titles and descriptions can be encrypted depending on the user's bookmark encryption setting.
-
-### Encrypted Notes
-
-The extension, mobile app, and desktop app all expose note management. Note content is treated as a sensitive field and encrypted at rest.
+The extension, mobile app, and desktop app can store API keys, team credentials, private keys, recovery codes, legacy passwords, and private text. Title, content, username, tags, folder, and description are serialized into one versioned `FK-SECRET-1` payload and encrypted before local storage or WebDAV sync. Lists never show secret-content previews.
 
 ### File Reference Model
 
@@ -64,7 +60,7 @@ FlowerKey can generate a recovery code that encrypts the original master passwor
 - Chrome and Edge Manifest V3 extension.
 - Popup for quick actions.
 - Side Panel for full management.
-- Background service worker for unlock state, context menus, generation, and filling.
+- Background service worker for unlock state, generation, and filling.
 - Content Script for floating action button, inline generation, password-field overlay, and Shadow DOM isolation.
 
 ### Mobile App
@@ -78,8 +74,8 @@ FlowerKey can generate a recovery code that encrypts the original master passwor
 ### Desktop App
 
 - Tauri 2 application for Windows and macOS.
-- Password, bookmark, note, and settings management.
-- WebDAV sync, original-master-password recovery, backup import/export, and browser bookmark import.
+- Password, secret-vault, and settings management.
+- WebDAV sync, original-master-password recovery, and encrypted backup import/export.
 
 ### Userscript
 
@@ -136,7 +132,7 @@ Encrypted fields:
 - `storedPassword`
 - `content`
 
-Plaintext fields:
+Plaintext fields for password entries:
 
 - `id`
 - `type`
@@ -150,7 +146,7 @@ Plaintext fields:
 - `updatedAt`
 - `lastUsedAt`
 
-`url` and `appPackage` are intentionally stored in plaintext for browser hostname matching and Android AutofillService package-name matching. Bookmark title and description encryption depends on the user's bookmark encryption setting.
+`url` and `appPackage` are used only for password autofill matching. Secret entries retain only `id`, `type`, and timestamps as top-level metadata; all user-identifying fields stay inside the encrypted `FK-SECRET-1` payload.
 
 ### Encryption Format
 
@@ -294,7 +290,7 @@ The script syncs package versions for core, ui, extension, mobile, and desktop. 
 - The master password is not uploaded to WebDAV, iCloud, or any third-party service.
 - The identity secret is encrypted locally with a separate wrapping key derived from the master password; it is not stored in plaintext configuration.
 - Generated-mode passwords depend on the master password, identity secret, and codename; losing any of them means the original password cannot be regenerated.
-- Stored-mode passwords, bookmarks, and notes depend on local database state and synchronized backups.
+- Stored-mode passwords and secret-vault data depend on local database state and synchronized backups; exported files are themselves encrypted as `FK-BACKUP-1` envelopes.
 - Enable WebDAV or iCloud sync, and keep the recovery code offline.
 - The master password and identity secret are immutable after setup. A recovery code restores the original master password; back up or synchronize before migrating devices or clearing local data.
 

@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Entry, EntryType } from '@flowerkey/core';
+import { createSecretPayload, serializeSecretPayload, type Entry, type EntryType } from '@flowerkey/core';
 import * as sqliteDb from '../db-sqlite';
 
 function sortEntriesByRecent(entries: Entry[]) {
@@ -42,6 +42,16 @@ export const useEntriesStore = defineStore('entries', () => {
     loading.value = true;
     error.value = '';
     try {
+      if (type === 'secret') {
+        const notes = await sqliteDb.getEntriesByType('note');
+        for (const note of notes) {
+          await sqliteDb.updateEntry(note.id, {
+            type: 'secret',
+            content: serializeSecretPayload(createSecretPayload({ title: note.title ?? '', content: note.content ?? '' })),
+            title: '', description: '', tags: [], folder: '',
+          });
+        }
+      }
       entries.value = sortEntriesByRecent(await sqliteDb.getEntriesByType(type));
       tags.value = await sqliteDb.getAllTags();
     } catch { error.value = '读取条目失败，请重试'; }
@@ -71,5 +81,13 @@ export const useEntriesStore = defineStore('entries', () => {
     catch { error.value = '更新使用记录失败'; }
   }
 
-  return { entries, filtered, currentType, searchQuery, selectedTags, tags, loading, error, load, create, update, remove, touchLastUsed };
+  function clear() {
+    entries.value = [];
+    tags.value = [];
+    selectedTags.value = [];
+    searchQuery.value = '';
+    error.value = '';
+  }
+
+  return { entries, filtered, currentType, searchQuery, selectedTags, tags, loading, error, load, create, update, remove, touchLastUsed, clear };
 });

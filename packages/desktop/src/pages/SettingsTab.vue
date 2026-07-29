@@ -54,45 +54,7 @@
         <p v-if="syncStore.lastResult" class="text-xs text-gray-500 text-center">
           本次结果：推送 {{ syncStore.lastResult.pushed }} 条，拉取 {{ syncStore.lastResult.pulled }} 条
         </p>
-        <p v-if="syncStore.lastResult?.encryptMismatch" class="text-xs text-orange-600 text-center flex items-start justify-center gap-1.5">
-          <AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" />
-          <span>{{ syncStore.lastResult.encryptMismatch }} 条书签因加密设置与其他设备不一致被跳过，请统一所有设备的书签加密设置后重新同步。</span>
-        </p>
         <p v-if="syncStore.error" class="text-xs text-red-500 text-center">{{ syncStore.error }}</p>
-      </div>
-    </div>
-
-    <!-- 书签设置已移除 -->
-    <div v-if="false" class="bg-white rounded-xl divide-y">
-      <div class="px-4 py-3 flex flex-col gap-2">
-        <p class="text-sm font-medium">书签设置</p>
-        <p class="text-xs text-gray-500">
-          当前：书签{{ bookmarkEncrypt ? '已加密' : '未加密' }}。
-          {{ bookmarkEncrypt ? '关闭后将解密所有书签，无需解锁即可查看。' : '开启后将加密所有书签，查看需要解锁。' }}
-        </p>
-        <p class="text-xs text-gray-400">多设备使用时，请确保所有设备的书签加密设置一致，否则同步时不一致的书签将被跳过。</p>
-        <div v-if="!bookmarkEncrypt" class="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-2 text-xs text-orange-700 flex flex-col gap-1.5">
-          <p class="flex items-start gap-1.5"><AppIcon name="alert" :size="14" class-name="shrink-0 mt-0.5" /> <span>书签当前以明文存储于本地，任何能访问应用数据的程序均可读取。</span></p>
-          <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 rounded-xl border border-orange-300/80 bg-white/80 text-orange-700 text-sm hover:bg-white">
-            立即开启书签加密
-          </button>
-        </div>
-        <div v-if="!showBookmarkPwdInput">
-          <button @click="showBookmarkPwdInput = true" class="w-full py-2.5 border rounded-xl text-sm">
-            {{ bookmarkEncrypt ? '关闭书签加密' : '开启书签加密' }}
-          </button>
-        </div>
-        <div v-else class="flex flex-col gap-2">
-          <p class="text-xs text-yellow-600">请输入主密码以确认操作：</p>
-          <input v-model="bookmarkPwdInput" type="password" placeholder="主密码" class="input" />
-          <div class="flex gap-2">
-            <button @click="confirmBookmarkEncrypt" :disabled="bookmarkEncryptProcessing" class="flex-1 py-2.5 bg-blue-500 text-white rounded-xl text-sm disabled:opacity-50">
-              {{ bookmarkEncryptProcessing ? '处理中...' : '确认' }}
-            </button>
-            <button @click="cancelBookmarkEncrypt" class="flex-1 py-2.5 border rounded-xl text-sm">取消</button>
-          </div>
-          <p v-if="bookmarkEncryptError" class="text-xs text-red-500">{{ bookmarkEncryptError }}</p>
-        </div>
       </div>
     </div>
 
@@ -128,11 +90,6 @@
           </label>
         </div>
         <p v-if="importMsg" class="text-xs text-green-600 text-center">{{ importMsg }}</p>
-        <label v-if="false" class="w-full py-2.5 border rounded-xl text-sm text-center cursor-pointer">
-          导入浏览器书签（HTML）
-          <input type="file" accept=".html" class="hidden" @change="handleImportBookmarks" />
-        </label>
-        <p v-if="importBookmarkMsg" class="text-xs text-green-600 text-center">{{ importBookmarkMsg }}</p>
       </div>
     </div>
 
@@ -147,8 +104,9 @@
         <p>花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
         <p class="font-medium text-gray-700 pt-1">本地存储了什么</p>
         <table class="w-full border-collapse">
-          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
-          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">密码区分代号/描述</td><td>加密存储，解锁后才可读取</td></tr>
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">秘密全部字段</td><td>FK-SECRET-1 载荷整体加密，解锁后才解析</td></tr>
+          <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">密码网址/包名</td><td>为自动填充匹配保留为本地明文元数据</td></tr>
           <tr class="border-b"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">身份密语</td><td>AES-256-GCM 包装后存储，主密码解锁后才进入内存</td></tr>
           <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>带随机盐的验证值，仅用于校验主密码</td></tr>
         </table>
@@ -222,7 +180,6 @@ function formatSyncTime(ts: number) {
 onMounted(async () => {
   await syncStore.loadConfig();
   if (syncStore.config) Object.assign(form.value, syncStore.config);
-  bookmarkEncrypt.value = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
   const data = await db.getMasterData();
   hasRecovery.value = !!(data?.encryptedMasterPwd);
 });
@@ -238,35 +195,6 @@ async function saveConfig() {
   toast.show('配置已保存', 'success');
 }
 
-// 书签加密
-const bookmarkEncrypt = ref(true);
-const showBookmarkPwdInput = ref(false);
-const bookmarkPwdInput = ref('');
-const bookmarkEncryptProcessing = ref(false);
-const bookmarkEncryptError = ref('');
-
-function cancelBookmarkEncrypt() {
-  showBookmarkPwdInput.value = false;
-  bookmarkPwdInput.value = '';
-  bookmarkEncryptError.value = '';
-}
-
-async function confirmBookmarkEncrypt() {
-  bookmarkEncryptError.value = '';
-  bookmarkEncryptProcessing.value = true;
-  try {
-    const ok = await mainStore.unlock(bookmarkPwdInput.value);
-    if (!ok) { bookmarkEncryptError.value = '密码错误'; return; }
-    const newVal = !bookmarkEncrypt.value;
-    await db.setBookmarkEncryption(newVal);
-    await db.setConfig('bookmarkEncrypt', newVal);
-    bookmarkEncrypt.value = newVal;
-    cancelBookmarkEncrypt();
-  } finally {
-    bookmarkEncryptProcessing.value = false;
-  }
-}
-
 const recoveryCode = ref('');
 const hasRecovery = ref(false);
 async function handleGenerateRecovery() {
@@ -280,7 +208,6 @@ async function handleGenerateRecovery() {
 }
 
 const importMsg = ref('');
-const importBookmarkMsg = ref('');
 
 function buildImportSummary(imported: number, total: number, label: string) {
   const skipped = Math.max(total - imported, 0);
@@ -306,20 +233,4 @@ async function handleImport(e: Event) {
   toast.show(importMsg.value, 'success');
 }
 
-async function handleImportBookmarks(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  const html = await file.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const links = Array.from(doc.querySelectorAll('a[href]'));
-  const items = links.map(a => ({
-    title: a.textContent?.trim() || a.getAttribute('href') || '',
-    url: a.getAttribute('href') || '',
-    favicon: a.getAttribute('icon') || undefined,
-  })).filter(i => i.url.startsWith('http'));
-  const encrypt = (await db.getConfig<boolean>('bookmarkEncrypt')) ?? true;
-  const count = await db.importBookmarks(items, encrypt);
-  importBookmarkMsg.value = buildImportSummary(count, items.length, '条书签');
-  toast.show(importBookmarkMsg.value, 'success');
-}
 </script>

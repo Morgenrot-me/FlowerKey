@@ -712,15 +712,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
   }
-  if (msg.type === 'getPageMeta') {
-    sendResponse({
-      title: document.title,
-      url: location.href,
-      favicon: (document.querySelector('link[rel~="icon"]') as HTMLLinkElement)?.href || `${location.origin}/favicon.ico`,
-      image: (document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content || (document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement)?.content || '',
-      description: (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '',
-    });
-    return;
-  }
   sendResponse();
 });

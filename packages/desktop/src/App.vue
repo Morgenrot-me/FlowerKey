@@ -11,7 +11,7 @@
       <OnboardingPage v-else-if="!main.isSetup && !showSetup" key="onboarding" @done="showSetup = true" />
       <SetupPage v-else-if="!main.isSetup" key="setup" @done="main.checkSetup()" />
       <UnlockPage v-else-if="!main.isUnlocked" key="unlock" @unlocked="onUnlocked" />
-      <MainLayout v-else key="main" @lock="main.lock()" />
+      <MainLayout v-else key="main" @lock="handleLock" />
     </Transition>
   </div>
 </template>
@@ -32,6 +32,7 @@ const showSetup = ref(false);
 onMounted(async () => { await db.purgeLegacyBookmarks(); await main.checkSetup(); });
 
 async function onUnlocked() { await entries.load('password'); }
+function handleLock() { entries.clear(); main.lock(); }
 </script>
 
 <style>

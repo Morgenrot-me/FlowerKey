@@ -1,6 +1,6 @@
 {
   "name": "@flowerkey/ui",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "花钥共享UI组件库",
   "type": "module",
   "scripts": {
