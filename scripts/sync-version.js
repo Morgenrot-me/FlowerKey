@@ -1,5 +1,6 @@
-// 从根 package.json 读取版本号，同步到所有子包
+// 从根 package.json 读取版本号，同步到所有子包和原生构建元数据。
 import { readFileSync, writeFileSync } from 'fs';
+import { syncCargoLockPackageVersion } from './sync-version-utils.js';
 
 const root = JSON.parse(readFileSync('package.json', 'utf8'));
 const version = root.version;
@@ -19,6 +20,16 @@ let cargo = readFileSync(cargoPath, 'utf8');
 cargo = cargo.replace(/^version = "[^"]*"/m, `version = "${version}"`);
 writeFileSync(cargoPath, cargo);
 console.log(`Cargo.toml: ${version}`);
+
+// 同步 Cargo.lock 中桌面应用自身版本，避免锁文件保留旧发布号。
+const cargoLockPath = 'packages/desktop/src-tauri/Cargo.lock';
+const cargoLock = syncCargoLockPackageVersion(
+  readFileSync(cargoLockPath, 'utf8'),
+  'flowerkey-desktop',
+  version,
+);
+writeFileSync(cargoLockPath, cargoLock);
+console.log(`Cargo.lock: ${version}`);
 
 // 同步 tauri.conf.json
 const tauriConfPath = 'packages/desktop/src-tauri/tauri.conf.json';

@@ -121,7 +121,8 @@ powershell -Command "Set-Location 'packages/mobile/android'; .\gradlew.bat --no-
 Release 构建说明：
 - 启用 R8 混淆（`minifyEnabled true`）
 - ABI split：仅打包 arm64-v8a + armeabi-v7a，包体约 7MB
-- 使用 debug keystore 签名（可直接安装，自用）
+- 本地常规构建使用 debug keystore 签名，只能用于功能验证
+- GitHub Release 使用仓库 Secrets 中的固定发布密钥，通过 Gradle 命令行属性签名并核对证书指纹
 
 ## 产物收集
 
@@ -137,9 +138,15 @@ powershell -File scripts/collect-release.ps1
 
 `release/` 已加入 `.gitignore`，不纳入版本控制。
 
+## GitHub Actions 自动发布
+
+- `.github/workflows/ci.yml`：`main` 和 Pull Request 的测试、类型检查与全部 Web 构建。
+- `.github/workflows/release.yml`：`v*.*.*` 标签或手动指定已有标签时，构建浏览器扩展、Android 双 ABI APK、Windows NSIS，并上传 SHA-256 清单。
+- Android 正式发布依赖 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEY_ALIAS`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_PASSWORD` 四个仓库 Secrets；缺少任一项或证书不匹配时禁止发布。
+
 ## 版本管理
 
-统一在根 `package.json` 的 `version` 字段维护，运行 `pnpm version:sync` 同步到所有子包。
+统一在根 `package.json` 的 `version` 字段维护，运行 `pnpm version:sync` 同步到所有子包、Cargo.toml、Cargo.lock、Tauri、扩展 manifest 和 Android。
 
 ## 数据模型
 

@@ -279,7 +279,16 @@ Tauri 打包目标包括 NSIS 和 macOS app。
 pnpm version:sync
 ```
 
-脚本会同步 core、ui、extension、mobile、desktop 的 package 版本，并更新桌面端 Cargo/Tauri 配置、浏览器插件 manifest、Android versionCode/versionName。`packages/via/flowerkey.user.js` 是非 workspace 单文件脚本，版本需单独确认。
+脚本会同步 core、ui、extension、mobile、desktop 的 package 版本，并更新桌面端 `Cargo.toml`、`Cargo.lock`、Tauri 配置、浏览器插件 manifest、Android versionCode/versionName。`packages/via/flowerkey.user.js` 是非 workspace 单文件脚本，版本需单独确认。
+
+## 自动构建与发布
+
+- 推送到 `main` 或创建 Pull Request 时，GitHub Actions 自动执行测试、类型检查和全部 Web 构建。
+- 推送 `v*.*.*` 标签时，GitHub Actions 从标签源码构建浏览器扩展 ZIP、两个 Android ABI 的 Release APK 和 Windows NSIS 安装程序。
+- 所有平台构建成功后，工作流创建或更新对应 GitHub Release，并上传 SHA-256 校验清单。
+- 已存在的标签可以在 Actions 页面手动运行“发布多端安装包”补发，无需删除或重建标签。
+
+Android 公开发布使用固定签名，仓库必须配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEY_ALIAS`、`ANDROID_KEYSTORE_PASSWORD` 和 `ANDROID_KEY_PASSWORD` 四个 Actions Secrets。缺失任意一项时自动发布会失败，不会回退上传 debug 签名 APK。详细边界见 `.github/workflows/README.md`。
 
 ## 数据与备份建议
 

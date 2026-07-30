@@ -1,0 +1,51 @@
+# FlowerKey 持续集成
+# 对 main 和 Pull Request 执行测试、类型检查与全部 Web 构建。
+name: 持续集成
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: 测试、类型检查与构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.3
+          run_install: false
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 运行测试
+        run: pnpm test
+
+      - name: 运行类型检查
+        run: pnpm typecheck
+
+      - name: 构建全部 Web 包
+        run: pnpm build

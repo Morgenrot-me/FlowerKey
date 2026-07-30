@@ -19,7 +19,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['test/setup.ts'],
-    include: ['packages/**/*.{test,spec}.{ts,tsx}'],
+    include: ['packages/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts'],
     restoreMocks: true,
     coverage: {
       provider: 'v8',
