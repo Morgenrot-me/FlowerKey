@@ -4,8 +4,8 @@
 
 **A local-first deterministic password tool and encrypted secret vault.**
 
-![version](https://img.shields.io/badge/version-1.0.1-blue?style=flat-square)
-![license](https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square)
+![version](https://img.shields.io/github/v/release/Morgenrot-me/FlowerKey?style=flat-square&label=version)
+![license](https://img.shields.io/github/license/Morgenrot-me/FlowerKey?style=flat-square)
 ![crypto](https://img.shields.io/badge/crypto-AES--256--GCM-purple?style=flat-square)
 ![PBKDF2](https://img.shields.io/badge/PBKDF2-600k%20iterations-orange?style=flat-square)
 

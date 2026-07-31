@@ -4,8 +4,8 @@
 
 **本地优先的确定性密码与加密秘密库。**
 
-![version](https://img.shields.io/badge/version-1.0.1-blue?style=flat-square)
-![license](https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square)
+![version](https://img.shields.io/github/v/release/Morgenrot-me/FlowerKey?style=flat-square&label=version)
+![license](https://img.shields.io/github/license/Morgenrot-me/FlowerKey?style=flat-square)
 ![crypto](https://img.shields.io/badge/crypto-AES--256--GCM-purple?style=flat-square)
 ![PBKDF2](https://img.shields.io/badge/PBKDF2-600k%20iterations-orange?style=flat-square)
 
@@ -27,7 +27,7 @@
 
 ### 确定性密码生成
 
-使用身份密语参与 PBKDF2 派生生成根密钥，再以规范化后的区分代号执行 HMAC-SHA256。默认生成16位字母数字密码，字母和数字确定性必含；兼容配置仅保留8位、16位和32位。完整规则见 [FK-DP1 密码生成协议](密码生成协议.md)。
+使用身份密语参与 PBKDF2 派生生成根密钥，再以规范化后的区分代号执行 HMAC-SHA256。默认生成16位字母数字密码，字母和数字确定性必含；兼容配置仅保留8位、16位和32位。完整规则见 [FK-DP1 密码生成协议](docs/密码生成协议.md)。
 
 ### 存储模式密码
 

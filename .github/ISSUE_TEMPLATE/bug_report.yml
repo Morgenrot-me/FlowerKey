@@ -1,0 +1,57 @@
+name: Bug 报告
+description: 提交一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      description: 问题出现在哪个端
+      options:
+        - 浏览器插件（Chrome/Edge）
+        - Android
+        - iOS
+        - Windows 桌面端
+        - 用户脚本
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: 例如 v1.0.2
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 详细描述如何触发问题
+      placeholder: |
+        1. 打开...
+        2. 点击...
+        3. 观察到...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 如有报错信息请附上（注意不要粘贴任何真实密码、密钥或恢复码）
+    validations:
+      required: true
+  - type: checkboxes
+    id: security
+    attributes:
+      label: 安全相关？
+      description: 如果本报告涉及安全问题，请勿提交公开 Issue，改用 SECURITY.md 中的私有安全通告渠道。
+      options:
+        - label: 这不是安全问题（安全问题走私有上报渠道）
+        - label: 我确认不包含任何真实密码、密钥或恢复码
