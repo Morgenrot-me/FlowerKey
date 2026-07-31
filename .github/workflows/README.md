@@ -46,4 +46,5 @@ git push origin v1.0.3
 - 不要扩大默认 `GITHUB_TOKEN` 权限。
 - 不要用分支当前版本替代标签版本构建。
 - 不要把签名 Secrets 提升为 job 级环境变量，依赖安装和标签源码前端构建不得读取发布密钥。
+- 构建前会自动移除标签 build.gradle 中显式的 debug signingConfig，保证注入的正式发布签名生效。
 - 更新 action 主版本、runner 或工具链版本后，必须重新执行一次手动发布验证。

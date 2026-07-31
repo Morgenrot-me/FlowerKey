@@ -20,7 +20,11 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            // CI 发布由 android.injected.signing 注入正式密钥，不能设置显式签名；
+            // 本地手动构建（无注入属性）保留 debug 签名，便于自用安装。
+            if (!project.hasProperty('android.injected.signing.store.file')) {
+                signingConfig signingConfigs.debug
+            }
         }
     }
     splits {

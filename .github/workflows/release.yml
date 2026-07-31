@@ -280,7 +280,9 @@ jobs:
           FLOWERKEY_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           # Windows 检出时 gradlew 没有可执行位；runner 中只为当前构建补齐。
-          # 命令行属性覆盖旧标签中的 debug signingConfig，因此可安全补发历史标签。
+          # 历史标签的 build.gradle 可能显式声明 debug signingConfig，会压过
+          # android.injected.signing 注入，必须先移除该行；未来标签无此行时 sed 无副作用。
+          sed -i '/signingConfig[[:space:]]\+signingConfigs[.]debug/d' app/build.gradle
           chmod +x gradlew
           ./gradlew \
             "-Dorg.gradle.java.home=$JAVA_HOME" \
