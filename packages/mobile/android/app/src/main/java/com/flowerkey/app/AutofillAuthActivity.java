@@ -49,6 +49,7 @@ public class AutofillAuthActivity extends Activity {
     private int COLOR_TEXT;
     private int COLOR_HINT;
     private int COLOR_DIVIDER;
+    private int COLOR_ITEM;
 
     private void initColors() {
         boolean dark = (getResources().getConfiguration().uiMode
@@ -57,17 +58,19 @@ public class AutofillAuthActivity extends Activity {
         if (dark) {
             COLOR_BG      = 0xFF1E1E2E;
             COLOR_SURFACE = 0xFF2A2A3E;
-            COLOR_ACCENT  = 0xFF7C6AF7;
+            COLOR_ACCENT  = 0xFF60A5FA;
             COLOR_TEXT    = 0xFFE0E0F0;
             COLOR_HINT    = 0xFF888899;
             COLOR_DIVIDER = 0xFF3A3A50;
+            COLOR_ITEM    = 0xFF35354A;
         } else {
             COLOR_BG      = 0xFFF5F5F7;
             COLOR_SURFACE = 0xFFFFFFFF;
-            COLOR_ACCENT  = 0xFF3B9EFF;
+            COLOR_ACCENT  = 0xFF3B82F6;
             COLOR_TEXT    = 0xFF1A1A2E;
             COLOR_HINT    = 0xFF888899;
             COLOR_DIVIDER = 0xFFDDDDE8;
+            COLOR_ITEM    = 0xFFF2F3F7;
         }
     }
 
@@ -99,12 +102,31 @@ public class AutofillAuthActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(COLOR_BG);
+        scroll.setFillViewport(true);
+
+        LinearLayout outer = new LinearLayout(this);
+        outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setGravity(Gravity.CENTER);
+        outer.setLayoutParams(new ScrollView.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
 
         layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        int p = dp(20);
-        layout.setPadding(p, dp(16), p, dp(16));
-        scroll.addView(layout);
+        layout.setPadding(dp(20), dp(20), dp(20), dp(20));
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int cardW = Math.min(dp(420), screenW - dp(32));
+        layout.setLayoutParams(new LinearLayout.LayoutParams(cardW, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        GradientDrawable cardBg = new GradientDrawable();
+        cardBg.setColor(COLOR_SURFACE);
+        cardBg.setCornerRadius(dp(20));
+        layout.setBackground(cardBg);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            layout.setElevation(dp(6));
+        }
+
+        outer.addView(layout);
+        scroll.addView(outer);
         setContentView(scroll);
 
         FlowerKeyApp app = FlowerKeyApp.get();
@@ -121,12 +143,11 @@ public class AutofillAuthActivity extends Activity {
 
     private void showMasterPwdStep() {
         layout.removeAllViews();
-        layout.addView(makeTitle("花钥 · 自动填充"));
-        layout.addView(makeDivider());
+        addHeader("自动填充密码");
 
         etMaster = makeEditText("主密码", true);
         layout.addView(etMaster);
-        layout.addView(makeSpacing(8));
+        layout.addView(makeSpacing(10));
 
         layout.addView(makeButton("验证", COLOR_ACCENT, v -> verifyAndProceed()));
         layout.addView(makeSpacing(8));
@@ -191,8 +212,7 @@ public class AutofillAuthActivity extends Activity {
 
     private void showEntryStep(List<EntryItem> entries, boolean wasAlreadyUnlocked) {
         layout.removeAllViews();
-        layout.addView(makeTitle("花钥 · 选择条目"));
-        layout.addView(makeDivider());
+        addHeader("选择条目并填充");
 
         if (!entries.isEmpty()) {
             for (EntryItem entry : entries) {
@@ -215,8 +235,12 @@ public class AutofillAuthActivity extends Activity {
         tvPreview.setTextColor(COLOR_ACCENT);
         tvPreview.setTextSize(13);
         tvPreview.setTypeface(android.graphics.Typeface.MONOSPACE);
-        tvPreview.setPadding(dp(4), dp(4), dp(4), 0);
         tvPreview.setVisibility(android.view.View.GONE);
+        GradientDrawable prevBg = new GradientDrawable();
+        prevBg.setColor(COLOR_ITEM);
+        prevBg.setCornerRadius(dp(10));
+        tvPreview.setBackground(prevBg);
+        tvPreview.setPadding(dp(10), dp(8), dp(10), dp(8));
         layout.addView(tvPreview);
         layout.addView(makeSpacing(8));
 
@@ -256,14 +280,14 @@ public class AutofillAuthActivity extends Activity {
     private android.view.View makeEntryButton(EntryItem entry) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+        row.setPadding(dp(16), dp(14), dp(16), dp(14));
         row.setClickable(true);
         row.setFocusable(true);
+        row.setMinimumHeight(dp(56));
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(COLOR_SURFACE);
-        bg.setCornerRadius(dp(10));
-        bg.setStroke(dp(1), COLOR_DIVIDER);
+        bg.setColor(COLOR_ITEM);
+        bg.setCornerRadius(dp(14));
         row.setBackground(bg);
 
         TextView tvName = new TextView(this);
@@ -279,6 +303,8 @@ public class AutofillAuthActivity extends Activity {
             tvDesc.setTextColor(COLOR_HINT);
             tvDesc.setTextSize(12);
             tvDesc.setPadding(0, dp(2), 0, 0);
+            tvDesc.setMaxLines(1);
+            tvDesc.setEllipsize(android.text.TextUtils.TruncateAt.END);
             row.addView(tvDesc);
         }
 
@@ -513,8 +539,9 @@ public class AutofillAuthActivity extends Activity {
     }
 
     private void returnPassword(String password, String label) {
-        RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        rv.setTextViewText(android.R.id.text1, label);
+        RemoteViews rv = new RemoteViews(getPackageName(), R.layout.autofill_dataset_item);
+        rv.setTextViewText(R.id.label, label);
+        rv.setImageViewResource(R.id.icon, R.drawable.ic_key_fill);
         Dataset.Builder builder = new Dataset.Builder();
         for (AutofillId id : autofillIds) {
             builder.setValue(id, AutofillValue.forText(password), rv);
@@ -527,24 +554,32 @@ public class AutofillAuthActivity extends Activity {
 
     // ==================== UI 工具 ====================
 
-    private TextView makeTitle(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextColor(COLOR_TEXT);
-        tv.setTextSize(17);
-        tv.setTypeface(null, Typeface.BOLD);
-        tv.setPadding(0, 0, 0, dp(4));
-        return tv;
-    }
+    private void addHeader(String subtitle) {
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_key_fill);
+        icon.setColorFilter(new android.graphics.PorterDuffColorFilter(COLOR_ACCENT, android.graphics.PorterDuff.Mode.SRC_IN));
+        int s = dp(28);
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(s, s);
+        ilp.gravity = Gravity.CENTER_HORIZONTAL;
+        layout.addView(icon, ilp);
+        layout.addView(makeSpacing(10));
 
-    private android.view.View makeDivider() {
-        android.view.View v = new android.view.View(this);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
-        lp.setMargins(0, dp(8), 0, dp(8));
-        v.setLayoutParams(lp);
-        v.setBackgroundColor(COLOR_DIVIDER);
-        return v;
+        TextView title = new TextView(this);
+        title.setText("花钥");
+        title.setTextColor(COLOR_TEXT);
+        title.setTextSize(20);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        layout.addView(title);
+        layout.addView(makeSpacing(2));
+
+        TextView sub = new TextView(this);
+        sub.setText(subtitle);
+        sub.setTextColor(COLOR_HINT);
+        sub.setTextSize(13);
+        sub.setGravity(Gravity.CENTER);
+        layout.addView(sub);
+        layout.addView(makeSpacing(14));
     }
 
     private EditText makeEditText(String hint, boolean password) {
@@ -553,28 +588,39 @@ public class AutofillAuthActivity extends Activity {
         et.setHintTextColor(COLOR_HINT);
         et.setTextColor(COLOR_TEXT);
         et.setTextSize(15);
+        et.setSingleLine(true);
         if (password) et.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
             android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(COLOR_SURFACE);
-        bg.setCornerRadius(dp(8));
+        bg.setColor(COLOR_ITEM);
+        bg.setCornerRadius(dp(12));
         bg.setStroke(dp(1), COLOR_DIVIDER);
         et.setBackground(bg);
-        et.setPadding(dp(12), dp(10), dp(12), dp(10));
+        et.setPadding(dp(14), dp(12), dp(14), dp(12));
+        et.setMinHeight(dp(50));
         return et;
     }
 
     private Button makeButton(String text, int bgColor, android.view.View.OnClickListener listener) {
         Button btn = new Button(this);
         btn.setText(text);
-        btn.setTextColor(bgColor == COLOR_ACCENT ? Color.WHITE : COLOR_TEXT);
-        btn.setTextSize(14);
+        btn.setTextSize(15);
         btn.setAllCaps(false);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(bgColor);
-        bg.setCornerRadius(dp(10));
-        btn.setBackground(bg);
-        btn.setPadding(dp(12), dp(10), dp(12), dp(10));
+        btn.setMinHeight(dp(50));
+        if (bgColor == COLOR_ACCENT) {
+            btn.setTextColor(Color.WHITE);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(COLOR_ACCENT);
+            bg.setCornerRadius(dp(14));
+            btn.setBackground(bg);
+        } else {
+            btn.setTextColor(COLOR_TEXT);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(0x00000000);
+            bg.setCornerRadius(dp(14));
+            bg.setStroke(dp(1), COLOR_DIVIDER);
+            btn.setBackground(bg);
+        }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         btn.setLayoutParams(lp);
@@ -592,3 +638,4 @@ public class AutofillAuthActivity extends Activity {
     private void toast(String msg) { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show(); }
     private int dp(int dp) { return (int) (dp * getResources().getDisplayMetrics().density); }
 }
+

@@ -82,7 +82,7 @@ public class FlowerKeyAutofillService extends AutofillService {
 
         // 退回 Authentication 流程
         callback.onSuccess(new FillResponse.Builder()
-            .addDataset(buildAuthDataset(passwordFieldIds, packageName, webDomain, null, "🔑 使用花钥填充密码"))
+            .addDataset(buildAuthDataset(passwordFieldIds, packageName, webDomain, null, "使用花钥填充密码"))
             .build());
     }
 
@@ -102,8 +102,7 @@ public class FlowerKeyAutofillService extends AutofillService {
                 .setTitle(label);
             if (subtitle != null && !subtitle.isEmpty()) cb.setSubtitle(subtitle);
             android.app.slice.Slice slice = cb.build().getSlice();
-            RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-            rv.setTextViewText(android.R.id.text1, label);
+            RemoteViews rv = makeRow(label);
             Dataset.Builder builder = new Dataset.Builder();
             for (AutofillId id : fieldIds) {
                 builder.setValue(id, AutofillValue.forText(password), rv,
@@ -123,8 +122,7 @@ public class FlowerKeyAutofillService extends AutofillService {
         PendingIntent pi = PendingIntent.getActivity(this, packageName.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        RemoteViews rv = new RemoteViews(getPackageName(), android.R.layout.simple_list_item_1);
-        rv.setTextViewText(android.R.id.text1, label);
+        RemoteViews rv = makeRow(label);
 
         Dataset.Builder builder = new Dataset.Builder()
             .setAuthentication(pi.getIntentSender());
@@ -142,6 +140,13 @@ public class FlowerKeyAutofillService extends AutofillService {
             builder.setValue(fieldIds.get(0), null, rv);
         }
         return builder.build();
+    }
+
+    private RemoteViews makeRow(String label) {
+        RemoteViews rv = new RemoteViews(getPackageName(), R.layout.autofill_dataset_item);
+        rv.setTextViewText(R.id.label, label);
+        rv.setImageViewResource(R.id.icon, R.drawable.ic_key_fill);
+        return rv;
     }
 
     // ==================== 查询匹配条目 ====================

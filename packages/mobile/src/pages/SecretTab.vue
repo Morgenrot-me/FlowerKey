@@ -3,7 +3,7 @@
   <div class="h-full flex flex-col">
     <div class="px-4 py-3 border-b dark:border-gray-700 flex gap-2">
       <input v-model="searchQuery" aria-label="搜索秘密" placeholder="搜索标题、标签或文件夹" class="input flex-1 !py-2" />
-      <button @click="openNew" class="px-4 bg-blue-500 text-white rounded-lg text-sm">新建</button>
+      <button @click="openNew" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm flex items-center gap-1"><AppIcon name="plus" :size="14" /> 新建</button>
     </div>
 
     <div class="flex-1 overflow-y-auto divide-y dark:divide-gray-700">
@@ -16,7 +16,7 @@
             <p class="font-medium truncate text-sm dark:text-gray-100">{{ item.payload.title || kindLabel[item.payload.kind] }}</p>
             <p class="text-xs text-gray-400 truncate">{{ buildMeta(item.payload, item.entry.updatedAt) }}</p>
           </div>
-          <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">›</span>
+          <span class="text-gray-300 dark:text-gray-600" aria-hidden="true"><AppIcon name="chevron-right" :size="16" /></span>
         </div>
       </button>
       <div v-if="!store.loading && !filtered.length" class="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
@@ -25,10 +25,10 @@
     </div>
 
     <Transition name="slide-up">
-      <div v-if="showForm" class="fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
+      <div v-if="showForm" class="fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="secret-form-title" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
         <header class="px-4 border-b dark:border-gray-700 flex items-center gap-2 min-h-[52px]">
           <button @click="requestClose" class="text-blue-500">取消</button>
-          <h2 class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑秘密' : '新建秘密' }}</h2>
+          <h2 id="secret-form-title" class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑秘密' : '新建秘密' }}</h2>
           <button @click="save" :disabled="saving || !canSave" class="text-blue-500 font-medium disabled:opacity-40">{{ saving ? '保存中' : '保存' }}</button>
         </header>
         <main class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -62,6 +62,7 @@ import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useToast } from '../../../ui/src/composables/useToast';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import Toast from '../../../ui/src/components/Toast.vue';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 
 const emit = defineEmits<{ 'editing-change': [value: boolean] }>();
 const store = useEntriesStore();

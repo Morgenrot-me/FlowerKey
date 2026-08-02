@@ -18,7 +18,7 @@
     <!-- WebDAV 配置 -->
     <div class="space-y-2">
       <p class="font-medium text-gray-700 dark:text-gray-300">WebDAV 同步</p>
-      <p class="text-[10px] text-gray-400 dark:text-gray-500">配置后可与手机端花钥双向同步，WebDAV 是浏览器插件与移动端互通的唯一方式。</p>
+      <p class="text-[11px] text-gray-400 dark:text-gray-500">配置后可与手机端花钥双向同步，WebDAV 是浏览器插件与移动端互通的唯一方式。</p>
       <input ref="syncUrlInput" v-model="form.url" placeholder="服务器地址（如 https://dav.jianguoyun.com/dav/）" class="input" />
       <input v-model="form.username" placeholder="用户名" class="input" />
       <input v-model="form.password" type="password" placeholder="密码" class="input" />
@@ -27,20 +27,21 @@
         保存配置
       </button>
       <!-- 坚果云教程 -->
-      <button @click="showDavGuide = !showDavGuide" class="w-full text-left text-blue-500 hover:underline">
-        {{ showDavGuide ? '▲ 收起' : '▼ 如何配置坚果云？' }}
+      <button @click="showDavGuide = !showDavGuide" class="w-full flex items-center justify-between gap-1 text-left text-blue-500 hover:underline">
+        <span>{{ showDavGuide ? '收起' : '如何配置坚果云？' }}</span>
+        <AppIcon :name="showDavGuide ? 'chevron-up' : 'chevron-down'" :size="12" class-name="shrink-0" />
       </button>
       <div v-if="showDavGuide" class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded space-y-1.5 text-gray-600 dark:text-gray-300 leading-relaxed">
         <p class="font-medium">坚果云配置步骤</p>
         <p>① 登录坚果云网页版 → 右上角头像 → <b>账户信息</b> → <b>安全选项</b></p>
         <p>② 找到「第三方应用管理」→ <b>添加应用</b>，名称随意，点击<b>生成密码</b></p>
         <p>③ 回到花钥，填写：</p>
-        <table class="w-full text-[10px] mt-1">
+        <table class="w-full text-[11px] mt-1">
           <tr><td class="pr-2 text-gray-400 whitespace-nowrap">服务器地址</td><td class="font-mono">https://dav.jianguoyun.com/dav/</td></tr>
           <tr><td class="pr-2 text-gray-400">用户名</td><td>坚果云注册邮箱</td></tr>
           <tr><td class="pr-2 text-gray-400">密码</td><td>刚才生成的<b>应用密码</b>（非登录密码）</td></tr>
         </table>
-        <p class="text-[10px] text-gray-400 pt-1 flex items-start gap-1.5"><AppIcon name="lock" :size="12" class-name="shrink-0 mt-0.5" /> <span>花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</span></p>
+        <p class="text-[11px] text-gray-400 pt-1 flex items-start gap-1.5"><AppIcon name="lock" :size="12" class-name="shrink-0 mt-0.5" /> <span>花钥只上传加密密文，坚果云无法读取任何内容。你的主密码永远不会离开设备。</span></p>
       </div>
     </div>
 
@@ -94,7 +95,7 @@
       <!-- 方案一：恢复码 -->
       <div class="space-y-1">
         <p class="text-gray-500 dark:text-gray-400">恢复码会还原原主密码并直接解锁，不会改变历史生成密码。请妥善保管。</p>
-        <div v-if="!hasRecovery" class="rounded border border-blue-200/70 bg-blue-50/70 px-2.5 py-2 text-[10px] text-blue-700 dark:border-blue-800/70 dark:bg-blue-900/20 dark:text-blue-200 space-y-1.5">
+        <div v-if="!hasRecovery" class="rounded border border-blue-200/70 bg-blue-50/70 px-2.5 py-2 text-[11px] text-blue-700 dark:border-blue-800/70 dark:bg-blue-900/20 dark:text-blue-200 space-y-1.5">
           <p class="font-medium">建议现在就生成恢复码</p>
           <p>这是忘记主密码后唯一可用的自救方式，生成后请离线抄写保存。</p>
           <button @click="handleGenerateRecovery" class="w-full py-1.5 rounded border border-blue-200 bg-white/80 text-blue-700 hover:bg-white dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-950/50">
@@ -130,31 +131,31 @@
     <div class="border-t pt-3 space-y-2">
       <button @click="showSecurity = !showSecurity" class="w-full text-left font-medium text-gray-700 dark:text-gray-300 flex justify-between items-center">
         <span>安全说明</span>
-        <span class="text-gray-400">{{ showSecurity ? '▲' : '▼' }}</span>
+        <AppIcon :name="showSecurity ? 'chevron-up' : 'chevron-down'" :size="12" class-name="text-gray-400" />
       </button>
       <div v-if="showSecurity" class="space-y-2 text-gray-500 dark:text-gray-400 leading-relaxed">
         <p class="font-medium text-gray-600 dark:text-gray-300">设计理念</p>
-        <p class="text-[10px]">花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
+        <p class="text-[11px]">花钥无任何后端服务器，所有数据仅存于你的设备。同步时只上传加密密文，任何第三方均无法读取内容。</p>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">本地存储了什么</p>
-        <table class="w-full text-[10px] border-collapse">
+        <table class="w-full text-[11px] border-collapse">
           <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">区分代号/标题/描述</td><td>加密存储，解锁后才可读取</td></tr>
           <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">网址/标签/类型</td><td>明文存储——本身不敏感，且未解锁时也能识别"此网站花钥已有密码"</td></tr>
           <tr class="border-b dark:border-gray-700"><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">身份密语</td><td>AES-256-GCM 包装后存储，主密码解锁后才进入内存</td></tr>
           <tr><td class="py-1 pr-2 text-gray-400 whitespace-nowrap">verifyHash</td><td>带随机盐的验证值，仅用于校验主密码</td></tr>
         </table>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">从未存储</p>
-        <ul class="list-disc list-inside text-[10px] space-y-0.5">
+        <ul class="list-disc list-inside text-[11px] space-y-0.5">
           <li>主密码本身</li>
           <li>网站实际密码——花钥从不主动保存，按需生成、用完即弃；如需存储固定密码，需由你手动选择，同样以 AES-256-GCM 加密保存</li>
           <li>数据库加密密钥（仅存于内存，锁定后立即清除）</li>
         </ul>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">不可变生成根</p>
-        <p class="text-[10px]">主密码和身份密语共同决定全部历史生成密码，设置后不提供普通修改入口。恢复码只恢复原主密码。</p>
+        <p class="text-[11px]">主密码和身份密语共同决定全部历史生成密码，设置后不提供普通修改入口。恢复码只恢复原主密码。</p>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">加密算法</p>
-        <p class="text-[10px]">AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-600 dark:text-gray-300">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
-        <p class="text-[10px] pt-0.5">密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
+        <p class="text-[11px]">AES-256-GCM 是目前最主流的对称加密标准，1Password、Bitwarden 等主流密码管理工具均采用此算法。花钥用它加密区分代号等敏感字段——但请注意，<span class="text-gray-600 dark:text-gray-300">单独的区分代号无法算出密码</span>，最终密码由"区分代号 + 你的记忆密码"共同决定。记忆密码只存在于你的脑中，从不上传、从不存储，密码的最终所有权永远属于你。</p>
+        <p class="text-[11px] pt-0.5">密钥派生：PBKDF2（600,000 次迭代，SHA-256），基于浏览器原生 Web Crypto API，零外部依赖。</p>
         <p class="font-medium text-gray-600 dark:text-gray-300 pt-1">网络请求</p>
-        <p class="text-[10px]">本插件仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
+        <p class="text-[11px]">本插件仅向你配置的 WebDAV 地址发送请求，无任何遥测、无回调、无第三方服务。</p>
       </div>
     </div>
 

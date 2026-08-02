@@ -8,3 +8,21 @@
     @apply w-full px-3 py-3 border rounded-xl text-sm outline-none focus:border-blue-400 transition-colors;
   }
 }
+
+/* 键盘导航焦点可见 */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+/* 尊重系统"减少动态效果"设置：关闭过渡与动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

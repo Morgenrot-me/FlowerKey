@@ -1,5 +1,8 @@
 # UI 组件库源码目录说明
 
+> 更新时间：2026-08-02
+> 更新概要：视觉优化——统一密码显示掩码（UnlockForm 支持显示/隐藏）、补齐 SVG 图标接线（chevron/plus/close）、全局 focus-visible 与 reduced-motion 适配、移动端触控目标与对话框语义化、新增品牌色 token。
+
 ## 目录作用
 
 Vue 3 共享 UI 组件库，供浏览器插件、桌面端、移动端复用。

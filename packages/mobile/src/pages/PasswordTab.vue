@@ -6,7 +6,7 @@
     <div class="px-4 py-3 border-b dark:border-gray-700 flex gap-2">
       <input v-model="store.searchQuery" placeholder="搜索区分代号..."
         class="flex-1 px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500" />
-      <button @click="openNew" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">+ 新建</button>
+      <button @click="openNew" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm flex items-center gap-1"><AppIcon name="plus" :size="14" /> 新建</button>
     </div>
     <div v-if="store.tags.length" class="flex gap-1 px-4 py-2 flex-wrap border-b dark:border-gray-700">
       <button
@@ -20,14 +20,14 @@
     <div v-if="showAutofillBanner" class="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
       <p class="flex-1 text-xs text-blue-700 dark:text-blue-300">启用自动填充，在任何 App 中一键填充密码</p>
       <button @click="openAutofill" class="text-xs text-blue-500 font-medium shrink-0">去开启</button>
-      <button @click="dismissBanner" class="text-gray-400 text-xs ml-1">✕</button>
+      <button @click="dismissBanner" aria-label="关闭提示" class="text-gray-400 ml-1 p-1"><AppIcon name="close" :size="14" /></button>
     </div>
 
     <div class="flex-1 overflow-y-auto divide-y dark:divide-gray-700">
       <div v-if="store.loading" class="p-8 text-center text-sm text-gray-400 dark:text-gray-500">正在读取...</div>
       <div v-else-if="store.error" class="p-8 text-center text-sm text-red-500">{{ store.error }}<button @click="store.load('password')" class="block mx-auto mt-2 text-blue-500">重试</button></div>
       <div v-for="e in store.filtered" :key="e.id" class="px-4 py-3 flex items-center gap-3">
-        <div class="flex-1 min-w-0 cursor-pointer" @click="openEdit(e)">
+        <div class="flex-1 min-w-0 cursor-pointer" role="button" tabindex="0" :aria-label="`编辑 ${e.codename}`" @click="openEdit(e)" @keydown.enter.prevent="openEdit(e)" @keydown.space.prevent="openEdit(e)">
           <div class="font-medium truncate dark:text-gray-100">{{ e.codename }}</div>
           <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ buildMeta(e) }}</div>
           <div v-if="e.description" class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{{ e.description }}</div>
@@ -50,10 +50,10 @@
 
     <!-- 新建/编辑表单 -->
     <Transition name="slide-up">
-      <div v-if="showForm" class="fixed inset-0 bg-white dark:bg-gray-900 flex flex-col z-50" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
+      <div v-if="showForm" class="fixed inset-0 bg-white dark:bg-gray-900 flex flex-col z-50" role="dialog" aria-modal="true" aria-labelledby="pwd-form-title" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom, 0px)">
       <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
         <button @click="closeForm" class="text-blue-500">取消</button>
-        <span class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑密码条目' : '新建密码条目' }}</span>
+        <span id="pwd-form-title" class="flex-1 text-center font-medium dark:text-gray-100">{{ editingId ? '编辑密码条目' : '新建密码条目' }}</span>
         <button @click="save" class="text-blue-500 font-medium">保存</button>
       </div>
       <div class="flex-1 px-4 py-4 flex flex-col gap-3 overflow-y-auto">
@@ -103,7 +103,7 @@
           <div class="relative">
             <input v-model="tagInput" placeholder="添加标签" @keyup.enter.prevent="addTag"
               @focus="showTagDrop = true" @blur="hideTagDrop" class="input pr-12" />
-            <button @mousedown.prevent="addTag" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-500 text-white rounded-full text-lg leading-none flex items-center justify-center">+</button>
+            <button @mousedown.prevent="addTag" aria-label="添加标签" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center"><AppIcon name="plus" :size="16" /></button>
           </div>
           <div class="relative">
             <ul v-if="showTagDrop && tagOptions.length"
@@ -116,7 +116,7 @@
           <div v-if="form.tags.length" class="flex flex-wrap gap-1 mt-2">
             <span v-for="t in form.tags" :key="t"
               class="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs">
-              {{ t }}<button @click="removeTag(t)" class="leading-none">&times;</button>
+              {{ t }}<button @click="removeTag(t)" :aria-label="`移除标签 ${t}`" class="leading-none p-1"><AppIcon name="close" :size="12" /></button>
             </span>
           </div>
         </div>
@@ -159,6 +159,7 @@ import { useConfirm } from '../../../ui/src/composables/useConfirm';
 import { useToast } from '../../../ui/src/composables/useToast';
 import ConfirmDialog from '../../../ui/src/components/ConfirmDialog.vue';
 import Toast from '../../../ui/src/components/Toast.vue';
+import AppIcon from '../../../ui/src/icons/AppIcon.vue';
 import type { Entry } from '@flowerkey/core';
 
 const AutofillState = registerPlugin<{

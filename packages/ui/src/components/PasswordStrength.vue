@@ -11,7 +11,7 @@
           i <= level ? levelColor : 'bg-gray-200 dark:bg-gray-700']"
       />
     </div>
-    <p :class="['text-[10px] transition-colors', levelTextColor]">{{ levelText }}</p>
+    <p :class="['text-[11px] transition-colors', levelTextColor]">{{ levelText }}</p>
   </div>
 </template>
 

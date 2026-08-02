@@ -77,6 +77,18 @@
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
     </template>
+    <!-- 右箭头 -->
+    <template v-else-if="name === 'chevron-right'">
+      <polyline points="9 18 15 12 9 6" />
+    </template>
+    <!-- 下箭头 -->
+    <template v-else-if="name === 'chevron-down'">
+      <polyline points="6 9 12 15 18 9" />
+    </template>
+    <!-- 上箭头 -->
+    <template v-else-if="name === 'chevron-up'">
+      <polyline points="18 15 12 9 6 15" />
+    </template>
     <!-- 锁定（解锁按钮） -->
     <template v-else-if="name === 'lock-open'">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -87,7 +99,7 @@
 
 <script setup lang="ts">
 defineProps<{
-  name: 'password' | 'bookmark' | 'note' | 'settings' | 'brain' | 'shield' | 'lock' | 'copy' | 'check' | 'close' | 'trash' | 'plus' | 'alert' | 'lock-open';
+  name: 'password' | 'bookmark' | 'note' | 'settings' | 'brain' | 'shield' | 'lock' | 'copy' | 'check' | 'close' | 'trash' | 'plus' | 'alert' | 'lock-open' | 'chevron-right' | 'chevron-down' | 'chevron-up';
   size?: number;
   className?: string;
 }>();

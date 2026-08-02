@@ -102,8 +102,8 @@
 
             <footer class="border-t px-3 py-2 dark:border-gray-700 shrink-0">
               <div class="flex gap-2">
-                <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">+ 生成密码</button>
-                <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20">+ 存储密码</button>
+                <button @click="openAdd('generate')" class="flex-1 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 flex items-center justify-center gap-1"><AppIcon name="plus" :size="12" /> 生成密码</button>
+                <button @click="openAdd('store')" class="flex-1 py-1.5 border border-blue-500 text-blue-500 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center justify-center gap-1"><AppIcon name="plus" :size="12" /> 存储密码</button>
               </div>
             </footer>
 

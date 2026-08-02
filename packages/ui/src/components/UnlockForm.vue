@@ -6,7 +6,7 @@
   <div class="space-y-3">
     <div class="space-y-1 text-center">
       <p class="text-sm text-gray-700 dark:text-gray-300">使用本机身份密语，输入记忆密码和区分代号即可计算</p>
-      <p class="text-[10px] text-gray-400 dark:text-gray-500">正式模式会校验记忆密码；复制时自动保存</p>
+      <p class="text-[11px] text-gray-400 dark:text-gray-500">正式模式会校验记忆密码；复制时自动保存</p>
     </div>
 
     <div v-if="computeMode === 'independent'" class="rounded-2xl border border-amber-200/70 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 space-y-1 leading-relaxed">
@@ -26,7 +26,7 @@
       placeholder="区分代号，例如 微信、支付宝、GitHub"
       class="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
     />
-    <p class="text-[10px] text-gray-400 dark:text-gray-500">区分代号中的英文字母不区分大小写。</p>
+    <p class="text-[11px] text-gray-400 dark:text-gray-500">区分代号中的英文字母不区分大小写。</p>
     <div class="flex gap-2">
       <select v-model="charsetMode" class="flex-1 px-3 py-2 border rounded text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100">
         <option value="alphanumeric">字母+数字</option>
@@ -44,10 +44,11 @@
     <p v-else-if="computeLoading" class="text-xs text-gray-400 dark:text-gray-500">计算中...</p>
 
     <div v-if="generatedPwd" class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-between gap-2">
-      <code class="text-sm break-all text-gray-700 dark:text-gray-200">{{ generatedPwd }}</code>
-      <button @click="copyPwd" class="shrink-0 text-xs text-blue-500 hover:underline">
-        {{ copied ? '已复制' : '复制' }}
-      </button>
+      <code class="text-sm break-all font-mono text-gray-700 dark:text-gray-200">{{ maskedPwd }}</code>
+      <div class="flex gap-2 shrink-0">
+        <button @click="showPassword = !showPassword" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">{{ showPassword ? '隐藏' : '显示' }}</button>
+        <button @click="copyPwd" class="text-xs text-blue-500 hover:underline">{{ copied ? '已复制' : '复制' }}</button>
+      </div>
     </div>
 
     <button
@@ -98,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { CharsetMode, DirectComputeMode } from '@flowerkey/core';
 import { useMainStore } from '../stores/main';
 
@@ -115,6 +116,7 @@ const notice = ref('');
 const error = ref('');
 const actionLoading = ref(false);
 const computeLoading = ref(false);
+const showPassword = ref(false);
 const copied = ref(false);
 const showRecovery = ref(false);
 const recoveryCode = ref('');
@@ -122,6 +124,13 @@ const showIndependentAction = ref(false);
 let computeTimer: ReturnType<typeof setTimeout> | undefined;
 let computeSeq = 0;
 let lastComputedKey = '';
+
+const maskedPwd = computed(() => {
+  if (!generatedPwd.value) return '';
+  if (showPassword.value) return generatedPwd.value;
+  const p = generatedPwd.value;
+  return p.length <= 10 ? p : p.slice(0, 5) + '•••••' + p.slice(-5);
+});
 
 function resetFeedback() {
   error.value = '';

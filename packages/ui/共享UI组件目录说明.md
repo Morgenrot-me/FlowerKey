@@ -1,5 +1,8 @@
 # 共享UI组件目录说明
 
+> 更新时间：2026-08-02
+> 更新概要：视觉优化——统一密码显示掩码（UnlockForm 支持显示/隐藏）、补齐 SVG 图标接线（chevron/plus/close）、全局 focus-visible 与 reduced-motion 适配、移动端触控目标与对话框语义化、新增品牌色 token。
+
 ## 目录作用
 
 FlowerKey 的共享 Vue 3 UI 组件库，所有端（插件/桌面/移动）复用此组件。

@@ -15,9 +15,9 @@
           <div class="w-9 h-9 shrink-0 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs text-gray-500">{{ kindMark[item.payload.kind] }}</div>
           <div class="min-w-0 flex-1">
             <p class="font-medium truncate text-xs">{{ item.payload.title || kindLabel[item.payload.kind] }}</p>
-            <p class="text-[10px] text-gray-400 truncate">{{ buildMeta(item.payload, item.entry.updatedAt) }}</p>
+            <p class="text-[11px] text-gray-400 truncate">{{ buildMeta(item.payload, item.entry.updatedAt) }}</p>
           </div>
-          <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">›</span>
+          <span class="text-gray-300 dark:text-gray-600" aria-hidden="true"><AppIcon name="chevron-right" :size="16" /></span>
         </div>
       </button>
       <div v-if="!filtered.length" class="p-6 text-center text-xs text-gray-400">
@@ -43,7 +43,7 @@
         <label class="field-group"><span>文件夹</span><input v-model="form.folder" maxlength="80" placeholder="可选，例如：工作 / 个人" class="input" /></label>
         <label class="field-group"><span>标签</span><input v-model="tagText" placeholder="多个标签用逗号分隔" class="input" /></label>
         <label class="field-group"><span>备注</span><textarea v-model="form.description" rows="3" placeholder="可选，不会显示在列表中" class="input resize-y" /></label>
-        <p class="text-[10px] text-gray-400 leading-relaxed">以上字段会作为一个整体加密后保存与同步。</p>
+        <p class="text-[11px] text-gray-400 leading-relaxed">以上字段会作为一个整体加密后保存与同步。</p>
         <button v-if="editingId" @click="remove" class="w-full min-h-11 border border-red-300 dark:border-red-700 text-red-500 rounded text-xs">删除秘密</button>
       </main>
     </div>
@@ -61,6 +61,7 @@ import { useConfirm } from '../composables/useConfirm';
 import { useToast } from '../composables/useToast';
 import ConfirmDialog from './ConfirmDialog.vue';
 import Toast from './Toast.vue';
+import AppIcon from '../icons/AppIcon.vue';
 
 const emit = defineEmits<{ 'editing-change': [value: boolean] }>();
 const store = useEntriesStore();

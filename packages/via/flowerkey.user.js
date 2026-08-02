@@ -168,6 +168,10 @@
       white-space: nowrap;
     }
     .err { color: #ef4444; font-size: 12px; text-align: center; }
+    *:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
   `;
   shadow.appendChild(style);
 

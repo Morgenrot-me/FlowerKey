@@ -208,6 +208,11 @@ style.textContent = `
     .footer-link { color: #6b7280; }
     .footer-link:hover { color: #60a5fa; }
   }
+
+  *:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
 `;
 shadow.appendChild(style);
 

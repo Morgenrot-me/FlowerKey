@@ -36,7 +36,7 @@
         <span>同步配置</span>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400 dark:text-gray-500">{{ syncStatusText }}</span>
-          <span class="text-gray-400 dark:text-gray-500">{{ showSyncConfig ? '▲' : '▼' }}</span>
+          <AppIcon :name="showSyncConfig ? 'chevron-up' : 'chevron-down'" :size="14" class-name="text-gray-400 dark:text-gray-500" />
         </div>
       </button>
       <div v-if="showSyncConfig" class="border-t dark:border-gray-700 divide-y dark:divide-gray-700">
@@ -64,8 +64,9 @@
         <input v-model="form.basePath" placeholder="同步目录（默认 /FlowerKey）" class="input" />
         <button @click="saveConfig" class="w-full py-2.5 bg-gray-800 dark:bg-gray-100 dark:text-gray-900 text-white rounded-xl text-sm">保存配置</button>
         <!-- 坚果云教程 -->
-        <button @click="showDavGuide = !showDavGuide" class="text-left text-xs text-blue-500">
-          {{ showDavGuide ? '▲ 收起' : '▼ 如何配置坚果云？' }}
+        <button @click="showDavGuide = !showDavGuide" class="text-left text-xs text-blue-500 flex items-center justify-between gap-1">
+          <span>{{ showDavGuide ? '收起' : '如何配置坚果云？' }}</span>
+          <AppIcon :name="showDavGuide ? 'chevron-up' : 'chevron-down'" :size="12" class-name="shrink-0" />
         </button>
         <div v-if="showDavGuide" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
           <p class="font-medium">坚果云配置步骤</p>
@@ -80,8 +81,9 @@
       <!-- iCloud 说明 -->
       <div v-else class="px-4 py-3 flex flex-col gap-2">
         <p class="text-xs text-gray-500 dark:text-gray-400">数据将同步至 iCloud Drive / FlowerKey 目录，无需账号密码，开箱即用。</p>
-        <button @click="showICloudGuide = !showICloudGuide" class="text-left text-xs text-blue-500">
-          {{ showICloudGuide ? '▲ 收起' : '▼ 使用前请确认' }}
+        <button @click="showICloudGuide = !showICloudGuide" class="text-left text-xs text-blue-500 flex items-center justify-between gap-1">
+          <span>{{ showICloudGuide ? '收起' : '使用前请确认' }}</span>
+          <AppIcon :name="showICloudGuide ? 'chevron-up' : 'chevron-down'" :size="12" class-name="shrink-0" />
         </button>
         <div v-if="showICloudGuide" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
           <p class="font-medium">iCloud 同步前提</p>
@@ -173,7 +175,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl">
       <button @click="showSecurity = !showSecurity" class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium dark:text-gray-100">
         <span>安全说明</span>
-        <span class="text-gray-400 dark:text-gray-500">{{ showSecurity ? '▲' : '▼' }}</span>
+        <AppIcon :name="showSecurity ? 'chevron-up' : 'chevron-down'" :size="14" class-name="text-gray-400 dark:text-gray-500" />
       </button>
       <div v-if="showSecurity" class="px-4 pb-4 flex flex-col gap-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
         <p class="text-gray-600 dark:text-gray-300 font-medium">与主流密码管理器的本质区别</p>

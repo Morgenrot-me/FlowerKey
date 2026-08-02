@@ -2,15 +2,15 @@
   花钥 - 条目新建/编辑表单
 -->
 <template>
-  <div class="fixed inset-0 bg-black/30 flex items-end justify-center z-50" @click.self="$emit('cancel')">
+  <div class="fixed inset-0 bg-black/30 flex items-end justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="entry-form-title" @click.self="$emit('cancel')">
     <div class="bg-white dark:bg-gray-900 w-full max-h-[85vh] rounded-t-2xl overflow-y-auto">
       <!-- 拖拽指示条 -->
       <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div></div>
 
       <div class="px-4 pb-4">
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-sm font-semibold dark:text-gray-100">{{ entry ? '编辑' : '新建' }}{{ typeLabel }}</h3>
-          <button @click="$emit('cancel')" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">&times;</button>
+          <h3 id="entry-form-title" class="text-sm font-semibold dark:text-gray-100">{{ entry ? '编辑' : '新建' }}{{ typeLabel }}</h3>
+          <button @click="$emit('cancel')" aria-label="关闭" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"><AppIcon name="close" :size="16" /></button>
         </div>
 
         <div class="space-y-3">
@@ -21,12 +21,12 @@
             </div>
             <template v-if="pwdMode === 'generate'">
               <input v-model="form.codename" placeholder="区分代号（如 微信、支付宝、GitHub）" class="input" />
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-2">区分代号中的英文字母不区分大小写。</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500 -mt-2">区分代号中的英文字母不区分大小写。</p>
               <div v-if="pwdPreview" @click="copyPreview" class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg -mt-1 cursor-pointer active:opacity-70">
                 <code class="text-xs text-blue-700 dark:text-blue-300 flex-1 break-all">{{ maskPwd(pwdPreview) }}</code>
-                <span class="text-[10px] text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
+                <span class="text-[11px] text-blue-400 shrink-0">{{ previewCopied ? '已复制' : '点击复制' }}</span>
               </div>
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">密码由记忆密码、身份密语和区分代号共同生成。三项输入相同，即可在任意设备重建同一密码。</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500 -mt-1">密码由记忆密码、身份密语和区分代号共同生成。三项输入相同，即可在任意设备重建同一密码。</p>
               <input v-model="form.url" placeholder="网站地址（可选，如 github.com）" class="input" />
               <div class="flex gap-2">
                 <select v-model="form.charsetMode" class="input flex-[3]">
@@ -44,7 +44,7 @@
               <input v-model="form.codename" placeholder="名称（如 github）" class="input" />
               <div class="relative">
                 <input v-model="form.storedPassword" :type="showPwd ? 'text' : 'password'" placeholder="密码（加密存储）" class="input pr-10" autocomplete="new-password" />
-                <button type="button" @click="showPwd = !showPwd" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px]">{{ showPwd ? '隐藏' : '显示' }}</button>
+                <button type="button" @click="showPwd = !showPwd" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[11px]">{{ showPwd ? '隐藏' : '显示' }}</button>
               </div>
             </template>
           <!-- 标签 combobox -->
@@ -62,7 +62,7 @@
               <span v-for="t in selectedTags" :key="t"
                 class="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-[11px]">
                 {{ t }}
-                <button @click="removeTag(t)" class="leading-none hover:text-red-500">&times;</button>
+                <button @click="removeTag(t)" :aria-label="`移除标签 ${t}`" class="leading-none hover:text-red-500 p-1"><AppIcon name="close" :size="12" /></button>
               </span>
             </div>
           </div>
@@ -89,6 +89,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import type { Entry } from '@flowerkey/core';
 import { useMainStore } from '../stores/main';
+import AppIcon from '../icons/AppIcon.vue';
 
 const props = defineProps<{
   entry?: Entry;
