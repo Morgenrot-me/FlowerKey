@@ -1,7 +1,7 @@
 {
   "name": "flowerkey",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "packageManager": "pnpm@11.1.3",
   "type": "module",
   "description": "花钥 - 离线确定性密码生成与端到端加密秘密库",
@@ -30,3 +30,4 @@
     "vue-tsc": "^2.2.12"
   }
 }
+
